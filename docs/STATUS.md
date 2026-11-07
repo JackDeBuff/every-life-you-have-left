@@ -23,6 +23,18 @@ Live: https://every-life-you-have-left.supawich.workers.dev
 | UX fixes (look art, gender, LinkedIn help, currency, known plans) | 1eb9e6c |
 | D-089 / D-090 recorded | — |
 
+## Update ~6am
+| Item | Commit / version |
+|---|---|
+| Merged: layout | b51b5bb |
+| Merged: quality | 3a1deda |
+| Deployed main | 58ab0d8d |
+
+- Only the lead deploys from now on.
+- Quality cut 1× small decisions to 45, but the owner wanted ~200 (deep mode). **Raise 1× back** (e.g. ~120–150) in the D-089 wave.
+- D-090 warm-up agent launched.
+- Waiting: the engine-content agent, then the D-089 batching agent (it owns decisions.ts after content merges), then the delighters, then the final QA pass.
+
 ## Running when the owner went to sleep (merge their branches when they report)
 | Agent | Scope |
 |---|---|
