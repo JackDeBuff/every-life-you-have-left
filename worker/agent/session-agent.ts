@@ -181,12 +181,12 @@ const FLUSH_MS = 50; // patch coalescing
 const HEDGE_MS = 6500; // no year streamed after this long → the fast writer races the stretch
 // From a fork's answer to its "meanwhile" cuts. The fork is normally prepared while its card is
 // open (prepareFork), so the cuts are ready at the answer. Past this, the lives that are ready play
-// instead (runInterlude) and the new branches land in the background. 1x/2x/4x: the fork moment
-// (2.4 s) plus a second, so fork -> resume stays <= 10 s (QA: up to 22.5 s with 13 s); Auto keeps
-// 8 s for its first fork, which can wait on the profile.
+// instead (runInterlude) and the new branches land in the background. Every speed: the fork moment
+// (2.4 s) plus a second, so fork -> resume stays <= 10 s (QA: up to 22.5 s with 13 s; an Auto run
+// lost 8.1 s and 6.5 s waiting on two late preparations).
 // With no lives split yet (the first fork) there is nothing ready to fall back to, so that one
-// waits a little longer (a fast answer can beat its preparation) rather than show no interlude.
-const forkDeadlineMs = (speed: AgentState["speed"], fallback: boolean) => (speed === "auto" ? 8000 : fallback ? 3500 : 6000);
+// waits longer rather than show no interlude: 6 s, Auto 8 s (its first fork can wait on the profile).
+const forkDeadlineMs = (speed: AgentState["speed"], fallback: boolean) => (fallback ? 3500 : speed === "auto" ? 8000 : 6000);
 
 /** The promise's value if it settles before `deadline` (epoch ms), else null. Rejections propagate. */
 function before<T>(p: Promise<T>, deadline: number): Promise<T | null> {
