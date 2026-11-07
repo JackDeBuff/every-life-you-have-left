@@ -236,9 +236,12 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
 - Shared materials per palette slot; geometry shared across clones; instanced clouds, bulbs,
   confetti and particles (one draw each). A typical city year is ~540 draw calls (shadow + AO +
   post included) and ~170k triangles.
-- Measured: **2.2 ms per frame** (useFrame work + full post chain, GPU-synchronised) at 800×450,
-  DPR 1.5 on the dev Mac. A MacBook Air GPU is roughly 3–4× slower, which still leaves the frame
-  well inside 16.7 ms.
+- Measured (useFrame work + full post chain, GPU-synchronised, on the dev Mac): **2.2 ms per
+  frame** at 800×450 (DPR 1.5, the expo pane size) and **5–6 ms** full-screen at 1440×810. The lab's
+  rAF counter read ~105 fps. A MacBook Air GPU is roughly 3–4× slower, which keeps the pane well
+  inside 16.7 ms.
+- Pixel budget: DPR = clamp(sqrt(1.6 MP / canvas area), 1, 1.5), so a full-screen world does not
+  render 3 MP. drei's `PerformanceMonitor` drops to DPR 1, no MSAA and cheaper AO if fps declines.
 - `frameloop="demand"` when the world is hidden, off-screen or in reduced motion; `always` while it
   is visible and animating.
 - Kits are lazy-loaded per setting (`manifest.json` lists URLs and sizes): the current spec's kits

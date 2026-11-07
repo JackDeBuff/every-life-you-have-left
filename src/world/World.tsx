@@ -6,6 +6,7 @@
  * Handles: WebGL failure -> static poster; prefers-reduced-motion -> fixed camera + crossfades;
  * frameloop "demand" when hidden / off-screen / paused; capped DPR.
  */
+import { PerformanceMonitor } from "@react-three/drei";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PCFShadowMap } from "three";
@@ -79,6 +80,20 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
   const [visible, setVisible] = useState(true);
   const [pageVisible, setPageVisible] = useState(() => typeof document === "undefined" || !document.hidden);
   const [fadeOn, setFadeOn] = useState(false);
+  // Pixel budget: keep the drawing buffer near 1.6 MP (crisp in the expo pane, sane full-screen),
+  // and step down further if the frame rate declines (drei PerformanceMonitor).
+  const [area, setArea] = useState(800 * 450);
+  const [degraded, setDegraded] = useState(false);
+  useEffect(() => {
+    const el = host.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((e) => {
+      const r = e[0]?.contentRect;
+      if (r) setArea(Math.max(1, r.width * r.height));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [snap, setSnap] = useState<{ url: string; id: number } | null>(null);
 
   useEffect(() => {
@@ -131,6 +146,9 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
     return cores >= 8 && window.devicePixelRatio <= 2 ? "high" : "low";
   }, []);
 
+  const maxDpr = quality === "high" ? 1.5 : 1.25;
+  const dpr = degraded ? 1 : Math.max(1, Math.min(maxDpr, Math.sqrt(1.6e6 / area)));
+
   if (!gl) {
     return (
       <div className={`world ${className ?? ""}`}>
@@ -146,7 +164,7 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
           className="world-canvas"
           flat
           shadows={{ type: PCFShadowMap, enabled: true }}
-          dpr={[1, quality === "high" ? 1.5 : 1.25]}
+          dpr={dpr}
           frameloop={active ? "always" : "demand"}
           gl={{ antialias: false, powerPreference: "high-performance", stencil: false, preserveDrawingBuffer: false }}
           camera={{ fov: 22, near: 1, far: 260, position: [25, 20, 25] }}
@@ -156,6 +174,7 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
           }}
         >
           <MotionCtx.Provider value={motion}>
+            <PerformanceMonitor onDecline={() => setDegraded(true)} flipflops={2} onFallback={() => setDegraded(true)} />
             <DemandTicker on={!active && visible && pageVisible} />
             <WorldScene
               spec={spec}
@@ -167,7 +186,7 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
               onInterludeDone={onInterludeDone}
               fade={fade}
               snapshot={snapshot}
-              quality={quality}
+              quality={degraded ? "low" : quality}
             />
           </MotionCtx.Provider>
         </Canvas>
