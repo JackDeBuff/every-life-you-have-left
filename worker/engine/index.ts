@@ -200,6 +200,10 @@ export function createEngine(deps: EngineDeps): Engine {
         coarse: false,
         tier: "heavy" as const,
         model: models.yearsBySpeed[state.speed],
+        // hybrid: right after a fork the heavy model writes the consequence years, the speed model the rest
+        lead: models.yearsBySpeed[state.speed] && state.decisions.some((d) => d.kind === "big" && d.status === "answered" && d.year === years[0])
+          ? { count: models.forkLeadYears, model: models.heavy }
+          : undefined,
         decisionIdsFor: decisionIdsIn(state.decisions),
       };
       return writeYears(writerEnv(state), spec, years, onYear);

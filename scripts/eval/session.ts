@@ -107,7 +107,14 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
     ledger.add(u);
   };
   // fallback off: each arm is judged on its own reliability (production keeps gemini-3.6-flash)
-  const engine = createEngine({ llm, models: { heavy, fallback: "" }, onUsage, onMetric: (m) => metrics.push(m) });
+  // "<heavy>+auto:<model>" = hybrid arm: Auto-mode years by <model>, fork years + everything else by <heavy>
+  const [heavyModel, autoYears] = heavy.split("+auto:") as [string, string | undefined];
+  const engine = createEngine({
+    llm,
+    models: { heavy: heavyModel, fallback: "", ...(autoYears ? { yearsBySpeed: { auto: autoYears } } : {}) },
+    onUsage,
+    onMetric: (m) => metrics.push(m),
+  });
   const state = initialState(persona);
   const result: SessionResult = {
     persona: persona.key, heavy, ok: false, error: null,

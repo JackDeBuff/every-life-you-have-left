@@ -60,6 +60,8 @@ export interface LifeSpec {
   tier: Tier;
   /** Overrides the tier model (per-speed years model). */
   model?: string;
+  /** Hybrid: the first `count` years are written by `model` (the heavy model), the rest by `model` above. */
+  lead?: { count: number; model: string };
   /** decisionIds per year (engine-owned). */
   decisionIdsFor: (year: number) => string[];
 }
@@ -148,24 +150,32 @@ export async function writeYears(env: WriterEnv, spec: LifeSpec, targetYears: nu
   const t0 = Date.now();
   const { profile } = env;
   const written: SimYear[] = [];
-  const chunks: number[][] = [];
-  if (spec.coarse) chunks.push(targetYears);
+  const chunks: { years: number[]; spec: LifeSpec }[] = [];
+  if (spec.coarse) chunks.push({ years: targetYears, spec });
   else {
     let i = 0;
+    // Hybrid: the first years after a fork (the consequence of their answer) by the lead model.
+    const lead = spec.lead && spec.lead.model !== spec.model ? spec.lead : null;
+    if (lead && targetYears.length > lead.count) {
+      chunks.push({ years: targetYears.slice(0, lead.count), spec: { ...spec, model: lead.model } });
+      i = lead.count;
+    }
     // One call per stretch (<= 10 years): streaming makes the first year arrive as fast as in a
     // small call, and every extra call boundary cost 5-9 s of prompt + first-token time.
-    let size = 10;
     while (i < targetYears.length) {
-      chunks.push(targetYears.slice(i, i + size));
-      i += size;
-      size = 10;
+      const later = chunks.length > 0;
+      chunks.push({
+        years: targetYears.slice(i, i + 10),
+        spec: later && spec.mustShow ? { ...spec, mustShow: `ALREADY WRITTEN in the years above (continue from them; don't repeat these beats):\n${spec.mustShow}` } : spec,
+      });
+      i += 10;
     }
   }
 
-  for (const chunk of chunks) {
+  for (const { years: chunk, spec: chunkSpec } of chunks) {
     let todo = chunk.slice();
     for (let attempt = 0; attempt < 2 && todo.length; attempt++) {
-      const got = await writeChunk(env, spec, [...spec.past, ...written], todo, (y) => {
+      const got = await writeChunk(env, chunkSpec, [...spec.past, ...written], todo, (y) => {
         written.push(y);
         onYear?.(y);
       }, t0);

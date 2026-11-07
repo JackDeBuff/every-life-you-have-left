@@ -15,6 +15,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import type { UsageEvent } from "../../worker/engine";
 import { nodeLlm } from "./env";
 import { judgeSession, type Verdict } from "./judge";
+import { summarize, table } from "./summarize";
 import { PERSONAS } from "./personas";
 import { Ledger } from "./pricing";
 import { runSession, type SessionResult } from "./session";
@@ -92,62 +93,11 @@ async function worker(id: number) {
 await Promise.all(Array.from({ length: Math.max(1, concurrency) }, (_, i) => worker(i)));
 
 // ---- summary table
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
-const median = (xs: number[]) => {
-  if (!xs.length) return NaN;
-  const s = xs.slice().sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)]!;
-};
-const f1 = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : "-");
-const summary = MODELS.map((m) => {
-  const rs = rows.filter((r) => r.result.heavy === m);
-  const v = rs.map((r) => r.verdict).filter((x): x is Verdict => Boolean(x));
-  const years = rs.reduce((s, r) => s + r.result.validity.years, 0);
-  const crit = (k: keyof Verdict) => mean(v.map((x) => x[k] as number));
-  return {
-    model: m,
-    sessions: rs.length,
-    ok: rs.filter((r) => r.result.ok).length,
-    judged: v.length,
-    overall: crit("overall"),
-    personal: crit("personal"),
-    believable: crit("believable"),
-    no_melodrama: crit("no_melodrama"),
-    forks: crit("forks"),
-    specificity: crit("specificity"),
-    ending: crit("ending"),
-    safety: crit("safety"),
-    schemaValidPct: years ? (100 * rs.reduce((s, r) => s + r.result.validity.schemaOk, 0)) / years : NaN,
-    ruleValidPct: years ? (100 * (years - rs.reduce((s, r) => s + r.result.validity.hardErrorYears, 0))) / years : NaN,
-    repaired: rs.reduce((s, r) => s + r.result.validity.repaired, 0),
-    fallback: rs.reduce((s, r) => s + r.result.validity.fallback, 0),
-    filler: rs.reduce((s, r) => s + r.result.validity.filler, 0),
-    contractErrors: rs.reduce((s, r) => s + r.result.validity.contractErrors.length, 0),
-    tpPerLife: mean(rs.map((r) => r.result.validity.turningPoints)),
-    tpCitedPct: 100 * (rs.reduce((s, r) => s + r.result.validity.tpWithQuote, 0) / Math.max(1, rs.reduce((s, r) => s + r.result.validity.turningPoints, 0))),
-    quietPct: years ? (100 * rs.reduce((s, r) => s + r.result.validity.quietYears, 0)) / Math.max(1, rs.reduce((s, r) => s + r.result.transcript.years.length, 0)) : NaN,
-    firstYearMsMean: mean(rs.map((r) => r.result.timings.firstYearMs[0] ?? NaN).filter(Number.isFinite)),
-    firstYearMsMedian: median(rs.map((r) => r.result.timings.firstYearMs[0] ?? NaN).filter(Number.isFinite)),
-    anyChunkFirstYearMsMean: mean(rs.flatMap((r) => r.result.timings.firstYearMs).filter((x) => x > 0)),
-    perYearMs: mean(rs.map((r) => r.result.timings.perYearMs)),
-    decisionMs: mean(rs.flatMap((r) => r.result.timings.decisionMs)),
-    profileMs: mean(rs.map((r) => r.result.timings.profileMs)),
-    firstCardMs: mean(rs.map((r) => r.result.timings.firstCardMs ?? 0).filter((x) => x > 0)),
-    sessionMin: mean(rs.map((r) => r.result.timings.sessionMs)) / 60000,
-    costPerSession: mean(rs.map((r) => r.result.cost.session)),
-    heavyCostPerSession: mean(rs.map((r) => r.result.cost.byModel[m] ?? 0)),
-    tokensPerSession: mean(rs.map((r) => r.result.tokens.input + r.result.tokens.output + r.result.tokens.thought)),
-    hedges: rs.reduce((s, r) => s + r.result.hedges, 0),
-    cliches: rs.reduce((s, r) => s + r.result.validity.cliches, 0),
-  };
-});
-writeFileSync(new URL(`summary-${stamp}.json`, outDir), JSON.stringify({ stamp, budget, spent: ledger.spent, summary, notes: rows.map((r) => ({ persona: r.result.persona, model: r.result.heavy, verdict: r.verdict, error: r.result.error })) }, null, 1));
-
-console.log(`\n| Model | Sessions | Overall | Personal | Believable | No melodrama | Forks | Specific | Ending | Safety | Schema-valid | Rule-valid | First year (median) | Per year | $/session |`);
-console.log(`|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|`);
-for (const s of summary)
-  console.log(
-    `| ${s.model} | ${s.ok}/${s.sessions} | ${f1(s.overall)} | ${f1(s.personal)} | ${f1(s.believable)} | ${f1(s.no_melodrama)} | ${f1(s.forks)} | ${f1(s.specificity)} | ${f1(s.ending)} | ${f1(s.safety)} | ${f1(s.schemaValidPct)}% | ${f1(s.ruleValidPct)}% | ${(s.firstYearMsMedian / 1000).toFixed(1)}s | ${(s.perYearMs / 1000).toFixed(2)}s | $${s.costPerSession.toFixed(3)} |`,
-  );
+const summary = summarize(rows);
+writeFileSync(
+  new URL(`summary-${stamp}.json`, outDir),
+  JSON.stringify({ stamp, budget, spent: ledger.spent, summary, notes: rows.map((r) => ({ persona: r.result.persona, model: r.result.heavy, verdict: r.verdict, error: r.result.error })) }, null, 1),
+);
+console.log(`\n${table(summary)}`);
 console.log(`\nspent $${ledger.spent.toFixed(2)} of $${budget} (${ledger.calls} calls). Results: scripts/eval/results/run-${stamp}.json`);
 void running;

@@ -26,6 +26,8 @@ export interface EngineModels {
    * 1.5 s, so its writer must produce a year in < 1.5 s; 1x plays one every 6 s.
    */
   yearsBySpeed: Partial<Record<"1x" | "2x" | "4x" | "auto", string>>;
+  /** With a per-speed years model: how many years right after a fork the heavy model still writes. */
+  forkLeadYears: number;
   /** Fallback model raced in when a request and its hedge both stall ("" = none). Default gemini-3.6-flash. */
   fallback: string;
   /** Thinking level for Gemini 3.x heavy calls ("low" per D-062). */
@@ -39,6 +41,7 @@ export const DEFAULT_MODELS: EngineModels = {
   repair: "gemini-3.8-flash",
   fallback: "gemini-3.6-flash",
   yearsBySpeed: {},
+  forkLeadYears: 2,
   heavyThinking: "low",
 };
 
