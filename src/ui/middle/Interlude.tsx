@@ -143,8 +143,8 @@ function TimedInterlude({ cuts }: { cuts: InterludeCut[] }) {
     if (!el) return;
     const reduce = reducedMotion();
     const q = gsap.utils.selector(el);
-    // Auto keeps the whole run under three minutes: ~8 s here, ~10 s at 1×/2×.
-    const cutDur = speed === "auto" ? 1.25 : 2.2;
+    // Auto keeps the whole run short: ~7 s here, ~8 s at 1×/2× (with the title and blinks).
+    const cutDur = speed === "auto" ? 1.1 : 1.8;
     const tl = gsap.timeline({ onComplete: end });
     const blink = (to: number) => {
       if (reduce) {
