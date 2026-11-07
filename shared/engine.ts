@@ -30,6 +30,10 @@ export interface Ending {
   branchVerdicts: Record<string, string>;
   /** "Where do you see yourself in five years?" — key "chosen" or a branchId. */
   fiveYear: Record<string, string>;
+  /** One life-specific line for the postcard (engine-written). */
+  postcard?: string;
+  /** Code-computed people summary per life ("chosen" or branchId), from the ledger. */
+  people?: Record<string, string>;
 }
 
 export interface SafetyResult { flagged: boolean; kind: "self_harm" | "abuse" | "other" | null }

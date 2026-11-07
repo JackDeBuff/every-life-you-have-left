@@ -75,9 +75,11 @@ export default function Ending() {
     [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
   const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
-  // The letter is this life's own verdict (no stock advice line: it read the same on every card);
-  // the picture's caption is the path you took, so the two don't repeat each other.
-  const message = useMemo(() => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict}`.trim(), [chosenLast, lives, p.city]);
+  // The letter is this life's own verdict plus the engine's postcard line for THIS life
+  // (ending.postcard; no stock advice line: it read the same on every card); the picture's caption
+  // is the path you took, so the two don't repeat each other.
+  const postcard = (s.ending as { postcard?: string } | null)?.postcard ?? "";
+  const message = useMemo(() => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} ${postcard}`.trim(), [chosenLast, lives, p.city, postcard]);
   const caption = lives[0]!.path || `${p.firstName ? `${p.firstName}'s` : "Your"} life, ${p.age} to ${s.endAge}`;
 
   return (

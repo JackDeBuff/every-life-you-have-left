@@ -14,6 +14,7 @@ import { costOf, type Ledger } from "./pricing";
 
 export interface SessionResult {
   persona: string;
+  startedAt: string;
   heavy: string;
   ok: boolean;
   error: string | null;
@@ -98,7 +99,7 @@ function initialState(persona: Persona): SessionState {
   };
 }
 
-export async function runSession(llm: LlmPort, persona: Persona, heavy: string, ledger: Ledger, log: (s: string) => void): Promise<SessionResult> {
+export async function runSession(llm: LlmPort, persona: Persona, heavy: string, ledger: Ledger, log: (s: string) => void, opts: { smalls?: number } = {}): Promise<SessionResult> {
   const t0 = Date.now();
   const usages: UsageEvent[] = [];
   const metrics: YearMetric[] = [];
@@ -117,7 +118,7 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
   });
   const state = initialState(persona);
   const result: SessionResult = {
-    persona: persona.key, heavy, ok: false, error: null,
+    persona: persona.key, startedAt: new Date().toISOString(), heavy, ok: false, error: null,
     timings: { profileMs: 0, firstCardMs: 0, decisionMs: [], firstYearMs: [], perYearMs: 0, totalGenMs: 0, sessionMs: 0 },
     validity: { years: 0, schemaOk: 0, hardErrorYears: 0, repaired: 0, fallback: 0, filler: 0, turningPoints: 0, tpWithQuote: 0, quietYears: 0, worldEvents: 0, cliches: 0, contractErrors: [] },
     cost: { session: 0, byPurpose: {}, byModel: {}, simulator: 0 },
@@ -159,6 +160,20 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
 
     const settingsP = engine.settingsFor(state).then((s) => (state.settings = s));
     const slots = engine.planSlots(state).filter((s) => s.kind === "big");
+    // --smalls N: also write the first N small cards (as at 2x) and let them slide, to check
+    // framing variety and that small cards respect the life as it stands.
+    let smallsLeft = opts.smalls ?? 0;
+    const smallSlots = smallsLeft ? engine.planSlots({ ...state, speed: "2x" }).filter((s) => s.kind === "small") : [];
+    const writeSmalls = async (from: number, to: number) => {
+      for (const sl of smallSlots.filter((s) => s.year >= from && s.year <= to)) {
+        if (smallsLeft <= 0) return;
+        smallsLeft--;
+        const sd = await engine.makeDecision(state, sl);
+        sd.status = "slid";
+        state.decisions.push(sd);
+        log(`     small ${sd.year} (${sd.age}): ${sd.prompt}`);
+      }
+    };
     log(`  slots: ${slots.map((s) => `${s.age}(${s.reason.split(":").slice(1, 3).join(":")})`).join(" ")}`);
     const endYear = state.profile.birthYear + state.endAge;
 
@@ -195,6 +210,7 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
         gen(slot.year, until - slot.year + 1),
         settingsP,
       ]);
+      await writeSmalls(slot.year + 1, until);
       const keep = new Set(branches.map((b) => b.id));
       state.branches = [...state.branches.filter((b) => !keep.has(b.id)).map((b) => ({ ...b, status: "retired" as const })), ...branches];
       state.settings = await engine.settingsFor(state);

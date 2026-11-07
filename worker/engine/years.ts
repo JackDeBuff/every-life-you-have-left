@@ -8,10 +8,21 @@
 import { DOMAINS, DOMAIN_KEYS } from "../../shared/domains";
 import type { Profile, WorldEvent } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
-import { baseRatesBlock, lifeSoFarBlock, personBlock, quotesBlock, topWorries, worldBlock } from "./context";
+import { baseRatesBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, topWorries, worldBlock } from "./context";
+import { pastTimeIssues } from "./calendar";
+import { fixPeopleNumbers, peopleIssues, similarity } from "./consistency";
+import { advance, ageMentions, inferChanges, lifeAt, normChange, nowBlock, scenePeopleFrom, yearLife, type LifeNow, type SimYearL } from "./ledger";
+
+/** The model's work line and people-change tags for one year (compact keys w, ch). */
+function lifeDraftOf(raw: unknown, year: number): { w: string; ch: string[] } {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const w = typeof o.w === "string" ? o.w.trim().slice(0, 80) : "";
+  const ch = Array.isArray(o.ch) ? o.ch.filter((c): c is string => typeof c === "string").map((c) => normChange(c, year)).filter((c): c is string => Boolean(c)) : [];
+  return { w, ch: [...new Set(ch)].slice(0, 4) };
+}
 import type { Caller, Tier } from "./models";
 import { COARSE_ADDENDUM, REPAIR_SYSTEM, repairPrompt, YEARS_SYSTEM, yearsPrompt } from "./prompts/years";
-import { OneYearLLM, YearsLLM } from "./schemas";
+import { OneYearLLM, YearsLLM, type YearDraft } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
 import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
@@ -45,6 +56,8 @@ export interface WriterEnv {
   span: number;
   seed: string;
   onMetric?: (m: YearMetric) => void;
+  /** Today's date (the first simulated year is only what's left of it). */
+  today?: Date;
 }
 
 export interface LifeSpec {
@@ -67,6 +80,8 @@ export interface LifeSpec {
   decisionIdsFor: (year: number) => string[];
   /** This life's money lane (worker/engine/money.ts): code moves its anchors off the typical path. */
   money?: MoneyPath;
+  /** Forks taken in this life (for the NOW block). */
+  path?: LifeNow["path"];
 }
 
 const BASE_RATES_TEXT = baseRatesBlock();
@@ -132,7 +147,14 @@ function fillerYear(prev: SimYear | null, year: number, profile: Profile, decisi
     year,
     age,
     place: base?.place ?? [profile.city, profile.region ?? profile.country].filter(Boolean).join(", "),
-    summary: "A quieter year: work, people, the usual weeks.",
+    // code filler (the model came up short): vary the line so two filler years never read the same
+    summary: [
+      "A quieter year: work, people, the usual weeks.",
+      `The same streets in ${(base?.place ?? profile.city ?? "town").split(",")[0]}, a little older, mostly ordinary weeks.`,
+      "Nothing big this year. Small routines, a few good evenings.",
+      "A steady year. The calendar fills with ordinary things.",
+      "Not much changes this year, and that's fine for now.",
+    ][year % 5]!,
     states,
     money: {
       income: base ? Math.round(base.money.income * 1.02) : anchor.income,
@@ -185,7 +207,10 @@ export async function writeYears(env: WriterEnv, spec: LifeSpec, targetYears: nu
       todo = todo.slice(got);
     }
     for (const year of todo) {
-      const y = fillerYear(written[written.length - 1] ?? spec.past[spec.past.length - 1] ?? null, year, profile, spec.decisionIdsFor(year));
+      const y: SimYearL = fillerYear(written[written.length - 1] ?? spec.past[spec.past.length - 1] ?? null, year, profile, spec.decisionIdsFor(year));
+      const now = lifeAt(profile, [...spec.past, ...written], year, spec.path);
+      y.scene = { ...y.scene, people: scenePeopleFrom(now, y.scene.people) };
+      y.life = yearLife(now, now.work, []);
       written.push(y);
       onYear?.(y);
       env.onMetric?.({
@@ -244,6 +269,13 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     .map(([d, w]) => `${DOMAINS[d].label} x${(1 + 1.5 * w).toFixed(1)}`)
     .join(", ");
   const yearsList = years.map((y) => `${y} (age ${y - profile.birthYear})`).join(", ");
+  const today = env.today ?? new Date();
+  const nowCtx = nowContext({ profile, years: past, atYear: first, path: spec.path, today, to: last, title: "NOW (the life as it stands going into this stretch)" });
+  const avoid = past
+    .slice(-4)
+    .flatMap((y) => [y.summary, ...y.events.map((e) => e.title)])
+    .map((s) => `- ${s}`)
+    .join("\n");
   const task = spec.coarse
     ? `Write ${years.length} snapshots for these years, in order: ${yearsList}. Each covers the five years up to it.`
     : `Write exactly ${years.length} years, in order: ${yearsList}. Continue from the life so far.`;
@@ -254,6 +286,8 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     quotes: quotesBlock(profile),
     focusQuotes: focus,
     lifeSoFar: lifeSoFarBlock(past, spec.coarse ? 16 : 40),
+    now: nowCtx.text,
+    avoid,
     decisions: spec.decisions,
     mustShow: spec.mustShow,
     settings: spec.settings,
@@ -273,6 +307,82 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const quotesText = quotesBlock(profile);
   const lastEmitted: SimYear[] = [];
 
+  // ---- the life ledger for this chunk: replayed from the past, advanced year by year
+  let curLife: LifeNow = lifeAt(profile, past, first - 1, spec.path);
+  const recent = () => [...past, ...lastEmitted].slice(-3);
+
+  /** People, ages, duplicate lines and the date, checked against the ledger. */
+  const lifeCheck = (y: SimYear, raw: { w: string; ch: string[] }) => {
+    let ch = raw.ch;
+    // the model forgot to tag a birth / a new partner it wrote as a turning point: tag it here
+    if (!ch.length) ch = inferChanges(y, curLife.people).map((c) => normChange(c, y.year)).filter((c): c is string => Boolean(c));
+    const probe: SimYearL = { ...y, life: { work: raw.w, ch, people: [] } };
+    const { now, changes } = advance(curLife, probe);
+    const hard: string[] = [];
+    const bad = new Set<number>();
+    let summaryBad = false;
+    const allow = { changes };
+    y.events.forEach((e, i) => {
+      const iss = peopleIssues(`${e.title}. ${e.narrative}`, now, allow).filter((x) => x.kind !== "age");
+      if (iss.length) {
+        hard.push(...iss.map((x) => `event ${i + 1} "${e.title}": ${x.msg}`));
+        bad.add(i);
+      }
+      const dup = recent().find((p) => p.events.some((pe) => similarity(pe.title, e.title) >= 0.8));
+      if (dup && e.isTurningPoint && e.title.length > 12) {
+        hard.push(`event ${i + 1} "${e.title}" repeats an event of ${dup.year}; write what is new in ${y.year}`);
+        bad.add(i);
+      }
+    });
+    const sIss = peopleIssues(`${y.summary} ${y.scene.caption}`, now, allow).filter((x) => x.kind !== "age");
+    if (sIss.length) {
+      hard.push(...sIss.map((x) => `summary/caption: ${x.msg}`));
+      summaryBad = true;
+    }
+    const dupS = recent().find((p) => similarity(p.summary, y.summary) >= 0.7);
+    if (dupS) {
+      hard.push(`summary repeats ${dupS.year}'s line ("${dupS.summary}"); write what is different about ${y.year}`);
+      summaryBad = true;
+    }
+    if (y.year === profile.startYear) {
+      const t = pastTimeIssues(y.summary, today, profile.country, y.year);
+      if (t.length) (summaryBad = true), hard.push(...t.map((m) => `summary: ${m}`));
+      y.events.forEach((e, i) => {
+        const te = pastTimeIssues(`${e.title}. ${e.narrative}`, today, profile.country, y.year);
+        if (te.length) bad.add(i), hard.push(...te.map((m) => `event ${i + 1}: ${m}`));
+      });
+    }
+    // first stated age of someone whose age we didn't know becomes their birth year (code-owned after)
+    const unknown = curLife.people.filter((p) => !p.ageKnown && !p.generic && p.role !== "pet");
+    const text = [y.summary, ...y.events.map((e) => `${e.title}. ${e.narrative}`)].join(" ");
+    for (const m of ageMentions(text, unknown.map((p) => p.name.split(/\s+/)[0]!))) {
+      const tag = `=born:${m.who}:${y.year - m.age}`;
+      if (!m.byRelation && !ch.some((c) => c.startsWith(`=born:${m.who}:`))) ch = [...ch, tag];
+    }
+    return { hard, bad, summaryBad, ch, work: raw.w };
+  };
+
+  /** Ages/counts fixed in place, scene people from the ledger, `life` attached; advances the ledger. */
+  const finishYear = (y0: SimYear, life: { ch: string[]; work: string }): SimYear => {
+    const probe: SimYearL = { ...y0, life: { work: life.work, ch: life.ch, people: [] } };
+    const { now, changes } = advance(curLife, probe);
+    const fix = (s: string) => fixPeopleNumbers(s, now).text;
+    const recentTitles = recent().flatMap((p) => p.events.map((e) => e.title));
+    const events = y0.events
+      // a texture line that repeats one from the last 3 years is dropped (the log would show it twice)
+      .filter((e) => e.isTurningPoint || !recentTitles.some((t) => similarity(t, e.title) >= 0.8))
+      .map((e, i) => ({ ...e, id: e.id.replace(/-\d+$/, `-${i + 1}`), title: fix(e.title), narrative: fix(e.narrative) }));
+    const y: SimYearL = {
+      ...y0,
+      summary: fix(y0.summary),
+      events,
+      scene: { ...y0.scene, caption: fix(y0.scene.caption), people: scenePeopleFrom(now, y0.scene.people) },
+    };
+    y.life = yearLife(now, life.work || now.work, changes);
+    curLife = now;
+    return y;
+  };
+
   const handle = async (rawText: string) => {
     if (emitted >= years.length) return;
     const year = years[emitted]!;
@@ -289,7 +399,13 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
       profile, expectedYear: year, prev, ledger, world: env.world, span: env.span, idPrefix: spec.idPrefix,
       coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year), netWorth3YearsAgo: back3?.money.netWorth ?? null,
     };
-    let check = checkYear(draft, ctx);
+    // rule checks (validate.ts) + life checks against the ledger (people, ages, duplicates, date)
+    const both = (d: YearDraft, r: unknown) => {
+      const c = checkYear(d, ctx);
+      const l = lifeCheck(c.year, lifeDraftOf(r, year));
+      return { c: { ...c, hard: [...c.hard, ...l.hard], badEvents: new Set([...c.badEvents, ...l.bad]), summaryBanned: c.summaryBanned || l.summaryBad }, l };
+    };
+    let { c: check, l: life } = both(draft, raw);
     const hardErrors = check.hard.length;
     const errors = check.hard.slice(0, 5);
     let repaired = false;
@@ -301,10 +417,10 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
           purpose: "years.repair",
           system: REPAIR_SYSTEM,
           prompt: repairPrompt({
-            yearJson: JSON.stringify(compactOf(draft)),
+            yearJson: JSON.stringify(compactOf(draft, { w: life.work, ch: life.ch })),
             errors: check.hard,
             quotes: quotesText,
-            context: `${spec.lifeLabel}\nPrevious year: ${prev ? `${prev.year} ${prev.summary}` : "(none)"}`,
+            context: `${spec.lifeLabel}\nPrevious year: ${prev ? `${prev.year} ${prev.summary}` : "(none)"}\n${nowBlock(curLife, { from: year, title: `PEOPLE AND STATE going into ${year}` })}`,
           }),
           schema: OneYearLLM,
           maxOutputTokens: 2500,
@@ -312,11 +428,10 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
         });
         const fixedRaw = r.data?.year ?? (r.raw as { year?: unknown } | null)?.year;
         if (fixedRaw) {
-          const again = checkYear(coerceYear(fixedRaw, prev).draft, ctx);
-          if (!again.hard.length) {
-            check = again;
-            repaired = true;
-          } else check = again;
+          const again = both(coerceYear(fixedRaw, prev).draft, fixedRaw);
+          check = again.c;
+          life = again.l;
+          if (!check.hard.length) repaired = true;
         }
       } catch {
         /* repair failed; fall back below */
@@ -326,7 +441,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
         check = { ...check, year: fallbackYear(check) };
       }
     }
-    const y = check.year;
+    const y = finishYear(check.year, life);
     for (const e of y.events) recordEvent(ledger, y.year, e, worldIdFor(env.world, y.year));
     lastEmitted.push(y);
     emitted++;

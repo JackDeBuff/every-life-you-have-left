@@ -13,6 +13,8 @@ import { InterludeLLM } from "./schemas";
 import { branchPath } from "./money";
 import { clamp, norm, truncateWords } from "./util";
 import { writeYears, type WriterEnv } from "./years";
+import { fixPeopleNumbers } from "./consistency";
+import { branchForks, lifeAt, peopleNowLine, profileAsOf, type LifeNow } from "./ledger";
 
 // ---------------------------------------------------------------------------------------------
 // Divergence: state distance + path difference (research/03 §3.1 "divergence guarantee")
@@ -109,9 +111,9 @@ export async function stepBranchTo(env: BranchEnv, state: SessionState, branch: 
   // The branch knows the person as they were at the fork: answers to the chosen life's later
   // decisions describe events this life never had, so they are left out (they leaked chosen-life
   // plot into branches and cut divergence in the first eval run).
-  const laterDecisionIds = new Set(state.decisions.filter((d) => d.year > branch.forkYear).map((d) => d.id));
   const profile = env.writer.profile;
-  const branchProfile = { ...profile, quotes: profile.quotes.filter((q) => !q.questionId || !laterDecisionIds.has(q.questionId)) };
+  // (people and facts only those later answers named are left out too: ledger.ts profileAsOf)
+  const branchProfile = profileAsOf(profile, state.decisions, branch.forkYear);
   const known = new Set(branchProfile.quotes.map((q) => q.id));
   const focus = [decision?.whyQuoteId, ...profile.seeds.leap.quoteIds, ...profile.seeds.unjudged.quoteIds].filter(
     (x): x is string => Boolean(x) && known.has(x!),
@@ -130,6 +132,7 @@ export async function stepBranchTo(env: BranchEnv, state: SessionState, branch: 
       tier: fine ? "heavy" : "branch",
       decisionIdsFor: (y) => (y === branch.forkYear ? [branch.forkDecisionId] : []),
       money: branchPath(state.decisions, state.answers, env.writer.seed, branch.forkDecisionId, branch.optionId),
+      path: branchForks(state, branch),
     },
     years,
   );
@@ -165,11 +168,16 @@ function snapshotsAt(branches: Branch[], year: number): { b: Branch; snap: SimYe
     .filter((x): x is { b: Branch; snap: SimYear } => Boolean(x));
 }
 
+/** A branch's life ledger at `year` (shared past + its own years): who is in it, ages computed. */
+function branchNow(state: SessionState, b: Branch, year: number): LifeNow {
+  return lifeAt(profileAsOf(state.profile!, state.decisions, b.forkYear), [...state.years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= year)], year);
+}
+
 /** One fast call: a caption per branch at `year` ("Meanwhile, in your other lives..."). */
 export async function captionsFor(env: BranchEnv, state: SessionState, branches: Branch[], year: number): Promise<Map<string, string>> {
   const profile = state.profile!;
   const age = year - profile.birthYear;
-  const items = snapshotsAt(branches, year);
+  const items = snapshotsAt(branches, year).map((x) => ({ ...x, now: branchNow(state, x.b, year) }));
   if (!items.length) return new Map();
   try {
     const r = await env.call.json({
@@ -177,11 +185,12 @@ export async function captionsFor(env: BranchEnv, state: SessionState, branches:
       purpose: "interlude",
       system: INTERLUDE_SYSTEM,
       prompt: interludePrompt(
-        items.map(({ b, snap }) => ({
+        items.map(({ b, snap, now }) => ({
           branchId: b.id,
           title: b.title,
           forkLine: `forked at ${b.forkAge}`,
-          snapshot: `${yearLine(snap)} | people now: ${snap.scene.people.filter((p) => p.role !== "self").map((p) => `${p.role} (${p.ageBand.replace("_", " ")})`).join(", ") || "none"}${snap.year < year ? ` (snapshot from ${snap.year}; now it's ${year}: everyone is ${year - snap.year} years older)` : ""}`,
+          // people with code-computed ages at the current year (ledger), not the model's age bands
+          snapshot: `${yearLine(snap)} | people now (ages computed, use exactly): ${peopleNowLine(now)}${snap.year < year ? ` (snapshot from ${snap.year}; now it's ${year})` : ""}`,
         })),
         age,
       ),
@@ -213,6 +222,7 @@ export async function interludeCuts(env: BranchEnv, state: SessionState, stepped
     title: b.title,
     age,
     scene: snap.scene,
-    caption: captions.get(b.id) ?? truncateWords(snap.summary, 14),
+    // ages and children counts in the caption are rewritten from that life's ledger
+    caption: fixPeopleNumbers(captions.get(b.id) ?? truncateWords(snap.summary, 14), branchNow(state, b, year)).text,
   }));
 }

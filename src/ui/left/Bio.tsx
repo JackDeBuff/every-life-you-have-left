@@ -1,5 +1,6 @@
 /** Left pane: portrait, bio (name, rolling age, place, work, people, net worth), the life rose, tell me more. */
 import { useEffect, useRef, useState } from "react";
+import type { SimYearL } from "../../../worker/engine/ledger";
 import { pronounsFor } from "../../../shared/schema";
 import { CURRENCIES, CURRENCY_CODES, currencyForPlace, type CurrencyCode } from "../../../shared/currency";
 import { money, moneyHint, moneyNote, setCurrencyPref, useCurrency, useCurrencyPref } from "../format";
@@ -51,8 +52,19 @@ export function Bio() {
   if (!p) return null;
   const startAge = p.age;
   const progress = (age - startAge) / Math.max(1, endAge - startAge);
-  const work = p.facts.find((f) => f.key === "occupation")?.value ?? "";
-  const people = [...p.people].sort((a, b) => b.closeness - a.closeness).slice(0, 5);
+  // The year's own work line (engine life ledger) follows forks and retirement; the profile fact
+  // is only what they said at the start.
+  const work = (yr as SimYearL | null)?.life?.work || p.facts.find((f) => f.key === "occupation")?.value || "";
+  // People in this year of the life (engine ledger: partner, children with code-computed ages,
+  // pets, family), falling back to the start profile for years written before the ledger existed.
+  const ledgerPeople = (yr as SimYearL | null)?.life?.people;
+  const people = ledgerPeople?.length
+    ? ledgerPeople.slice(0, 5).map((x, i) => {
+        const name = x.name.replace(/^your /, "");
+        const label = name[0]!.toUpperCase() + name.slice(1);
+        return { id: `${i}-${x.name}`, label: x.role === "child" && x.age !== null ? `${label}, ${x.age}` : label, relation: x.role === "partner" ? "partner" : x.relation };
+      })
+    : [...p.people].sort((a, b) => b.closeness - a.closeness).slice(0, 5);
   const yearsIn = age - startAge;
   // The life moved somewhere with another currency: offer to show money in it (once per currency).
   const here = currencyForPlace(yr?.place);

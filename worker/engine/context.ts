@@ -8,11 +8,39 @@ import { DOMAINS, DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Profile, WorldEvent } from "../../shared/schema";
 import type { Decision, DecisionAnswer, LiveSetting, SessionState, SettingNudge, SimYear } from "../../shared/sim";
 import { usd } from "./util";
+import { statedTimelines, todayLine } from "./calendar";
+import { lifeAt, nowBlock, type LifeNow } from "./ledger";
+
+/**
+ * The "life so far" context every generator gets (decisions, years, settings, captions, ending,
+ * chat): today's date, then the NOW block from the life ledger (place, work, people with
+ * code-computed ages, pets, money, forks taken), then any timelines they stated themselves.
+ * `years` = this life's years up to atYear (pass only the years BEFORE a decision's year).
+ */
+export function nowContext(o: {
+  profile: Profile;
+  years: SimYear[];
+  atYear: number;
+  path?: LifeNow["path"];
+  today: Date;
+  /** For a stretch of years: ages are shown from atYear to `to`. */
+  to?: number;
+  title?: string;
+}): { text: string; now: LifeNow } {
+  const now = lifeAt(o.profile, o.years, o.atYear, o.path ?? []);
+  const lines = [todayLine(o.today, o.profile, o.atYear), nowBlock(now, { from: o.atYear, to: o.to ?? o.atYear, title: o.title })];
+  // dated plans already parsed into the profile are listed as KNOWN PLANS in personBlock
+  const tl = o.atYear <= o.profile.startYear + 3 && !o.profile.plans?.length ? statedTimelines(o.profile) : [];
+  if (tl.length) lines.push(`Timelines they stated themselves (keep to them unless a decision changed them): ${tl.map((t) => `"${t}"`).join(" ")}`);
+  return { text: lines.join("\n"), now };
+}
 
 export function personBlock(p: Profile): string {
   const lines: string[] = [];
   const where = [p.city, p.region, p.country].filter(Boolean).join(", ");
-  lines.push(`${p.firstName ?? "They"}, ${p.age}, born ${p.birthYear}, lives in ${where}. Today is ${p.startYear}.`);
+  lines.push(
+    `${p.firstName ?? "They"}, ${p.age}, born ${p.birthYear}, lives in ${where} when the simulation starts (${p.startYear}). This is who they were at the start; where a NOW block disagrees (place, work, people), the NOW block is right.`,
+  );
   lines.push(genderLine(p.gender));
   if (p.country.toUpperCase() !== "US")
     lines.push(`Not in the US: the base-rate table is US data, applied as approximate. Use local realities for money (in USD), housing, family norms and careers.`);
