@@ -67,13 +67,15 @@ export default function Ending() {
   }, []);
 
   const quotes = p.quotes;
-  const firstQuote = quotes[0]?.shortForm ?? null;
+  // The postcard quotes the most "you" sentence: a want or a fear, not a job title.
+  const heartQuote =
+    [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
+  const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
-  const message = useMemo(() => {
-    const ev = s.years.flatMap((y) => y.events.filter((e) => e.isTurningPoint).map((e) => e.title)).slice(-3);
-    const bits = ev.length ? `${ev.slice(0, 2).join(". ")}. ` : "";
-    return `I'm writing from ${chosenLast?.place ?? p.city}. ${bits}${lives[0]!.verdict} Decide the small things faster and the big things slower. It worked out more than you'd think.`;
-  }, [s.years, chosenLast, lives, p.city]);
+  const message = useMemo(
+    () => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} Decide the small things faster and the big things slower. It worked out better than you'd think.`,
+    [chosenLast, lives, p.city],
+  );
 
   return (
     <div className="ending scroll" ref={root}>

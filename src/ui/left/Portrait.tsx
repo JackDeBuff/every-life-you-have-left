@@ -51,7 +51,8 @@ export function Portrait({ appearance, age, progress, portraits = [], size = 104
   return (
     <div className="portrait" style={{ width: size, height: h }} role="img" aria-label={label ?? `Illustrated portrait at ${age}`}>
       <svg className="portrait-sky" viewBox="0 0 120 154" preserveAspectRatio="none" aria-hidden="true">
-        <circle cx={28 + progress * 64} cy={30 + Math.sin(progress * Math.PI) * -12 + progress * 34} r="9" fill="var(--sun)" />
+        {/* The sun sits at the window's edge and sinks toward the shoulder line as the life goes on. */}
+        <circle cx={103 - progress * 2} cy={24 + progress * 74} r="8" fill="var(--sun)" opacity={0.95} />
       </svg>
       {real ? (
         <img className="portrait-layer" src={real.url} alt="" />
