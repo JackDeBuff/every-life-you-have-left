@@ -266,7 +266,9 @@
 .il-dots i { font-style: normal; display: inline-block; }
 .il-cap { position: absolute; left: var(--s6); right: var(--s6); bottom: var(--s5); color: #fff; display: grid; gap: 6px; }
 .il-meta { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.il-meta .numeral { font-size: 13px; color: var(--sun); }
+.il-meta .numeral { font-size: 13px; color: var(--branch, var(--sun)); }
+/* the branch's accent: the same colour as its landmark in the 3D cut */
+.il-swatch { align-self: center; width: 14px; height: 4px; border-radius: 1px; background: var(--branch, var(--sun)); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.18); }
 .il-meta .label { color: rgb(255 255 255 / 0.92); font-size: 12px; }
 .il-meta .label.faint { color: rgb(255 255 255 / 0.65); }
 .il-line { font-size: 24px; font-weight: 640; font-stretch: var(--w-wide); letter-spacing: -0.015em; line-height: 1.15; max-width: 28ch; text-shadow: 0 1px 18px rgb(0 0 0 / 0.4); }

@@ -8,6 +8,7 @@ import { Vector3, type Group } from "three";
 import type { Appearance, SceneSpec } from "../../../shared/sim";
 import type { InterludeCut } from "../../../shared/engine";
 import { personUrl, preloadKit, preloadUrl, animalUrl, CLIPS_URL, type StaticKit } from "../assets";
+import { assignLandmarks } from "../landmarks";
 import { compose, type Layout } from "../layout";
 import { cloneLook, dampLook, lerpLook, lookFor, type Look } from "../palette";
 import { clamp01, easeInCubic, easeOutBack, useMotion } from "./anim";
@@ -16,6 +17,7 @@ import { CameraRig, makeRig, type RigState } from "./CameraRig";
 import { Cars } from "./Cars";
 import { Hero } from "./Hero";
 import { Island } from "./Island";
+import { Landmark } from "./Landmark";
 import { LookCtx } from "./look";
 import { MomentDirector, type Moment } from "./Moments";
 import { People, type SelfTracker } from "./People";
@@ -98,6 +100,7 @@ function Diorama({ item, self, frozen }: { item: IslandItem; self: SelfTracker; 
       <Suspense fallback={null}>
         <Cars lanes={layout.cars} flavor={spec.flavor} />
       </Suspense>
+      {layout.landmark && <Landmark spec={layout.landmark} t0={item.born} />}
     </group>
   );
 }
@@ -120,23 +123,26 @@ export function WorldScene(props: SceneProps) {
 
   // ----- which spec is on screen (life: the prop; interlude: the current cut) -----
   const [cutIndex, setCutIndex] = useState(0);
-  const cutSpec = mode === "interlude" && cuts && cuts.length ? cuts[Math.min(cutIndex, cuts.length - 1)]!.scene : null;
+  const cutAt = mode === "interlude" && cuts && cuts.length ? Math.min(cutIndex, cuts.length - 1) : null;
+  const cutSpec = cutAt !== null ? cuts![cutAt]!.scene : null;
   const wantedRaw = cutSpec ?? props.spec;
-  const stable = useRef<{ key: string; spec: SceneSpec }>({ key: "", spec: wantedRaw });
-  const wantedKey = JSON.stringify(wantedRaw);
-  if (stable.current.key !== wantedKey) stable.current = { key: wantedKey, spec: wantedRaw };
-  const deferred = useDeferredValue(stable.current.spec);
+  // A cut is keyed by its index too: two lives in one city can share a spec but never a landmark.
+  const stable = useRef<{ key: string; spec: SceneSpec; cut: number | null }>({ key: "", spec: wantedRaw, cut: cutAt });
+  const wantedKey = JSON.stringify(wantedRaw) + (cutAt === null ? "" : `|cut${cutAt}`);
+  if (stable.current.key !== wantedKey) stable.current = { key: wantedKey, spec: wantedRaw, cut: cutAt };
+  const deferred = useDeferredValue(stable.current);
 
   // reduced motion: snapshot the old frame before applying a new spec, then crossfade in the DOM
-  const [applied, setApplied] = useState<SceneSpec>(deferred);
-  const pendingSnap = useRef<SceneSpec | null>(null);
+  const [appliedState, setApplied] = useState(deferred);
+  const applied = appliedState.spec;
+  const pendingSnap = useRef<typeof deferred | null>(null);
   useEffect(() => {
-    if (deferred === applied) return;
+    if (deferred === appliedState) return;
     if (reduced && mode === "life") {
       pendingSnap.current = deferred;
       invalidate();
     } else setApplied(deferred);
-  }, [deferred, applied, reduced, mode, invalidate]);
+  }, [deferred, appliedState, reduced, mode, invalidate]);
   useFrame(() => {
     const next = pendingSnap.current;
     if (!next) return;
@@ -150,7 +156,13 @@ export function WorldScene(props: SceneProps) {
     invalidate();
   }, 2);
 
-  const layout = useMemo(() => compose(applied, appearance), [applied, appearance]);
+  // Interlude cuts: one signature landmark + accent per branch (src/world/landmarks.ts).
+  const marksKey = cuts?.map((c) => `${c.branchId}${c.age}${c.scene.placeLabel}`).join("|") ?? "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const marks = useMemo(() => assignLandmarks(cuts ?? []), [marksKey]);
+  const appliedCut = appliedState.cut;
+  const mark = appliedCut !== null ? (marks[appliedCut] ?? null) : null;
+  const layout = useMemo(() => compose(applied, appearance, mark), [applied, appearance, mark]);
 
   // ----- islands: same place updates in place; a new place sinks the old island -----
   const idRef = useRef(0);
@@ -264,8 +276,16 @@ export function WorldScene(props: SceneProps) {
     const k = (time() - cutT0.current) / cutLen;
     const i = cutState.current.index;
     const yaw0 = 22 + i * 32;
-    rig.current.shot = { yaw0, yaw1: yaw0 + (reduced ? 0 : 10), dist0: 27, dist1: reduced ? 27 : 22, pitch: 27, t: clamp01(k) };
-    rig.current.focus.set(layout.focus[0], 0.3, layout.focus[2]);
+    const lm = layout.landmark;
+    if (lm) {
+      // frame the life AND its landmark: aim between the stage and the landmark, a little higher, a little wider
+      const tall = lm.kind !== "canal" && lm.kind !== "bridge";
+      rig.current.shot = { yaw0, yaw1: yaw0 + (reduced ? 0 : 10), dist0: 29, dist1: reduced ? 29 : 25, pitch: 26, t: clamp01(k) };
+      rig.current.focus.set(layout.focus[0] * 0.55 + lm.pos[0] * 0.45 * (tall ? 1 : 0.4), tall ? 1.15 : 0.4, layout.focus[2] * 0.55 + lm.pos[2] * 0.45 * (tall ? 1 : 0.4));
+    } else {
+      rig.current.shot = { yaw0, yaw1: yaw0 + (reduced ? 0 : 10), dist0: 27, dist1: reduced ? 27 : 22, pitch: 27, t: clamp01(k) };
+      rig.current.focus.set(layout.focus[0], 0.3, layout.focus[2]);
+    }
     if (k > 0.9 && !cutState.current.fading && !cutState.current.finished) {
       cutState.current.fading = true;
       fade(true);

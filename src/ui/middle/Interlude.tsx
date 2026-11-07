@@ -11,6 +11,7 @@
  * open on another life. Ends with a blink back to yours, then resumes the clock.
  */
 import { useEffect, useRef, useState } from "react";
+import { branchAccent } from "../../world/landmarks";
 import { ROMAN } from "../format";
 import { Icon } from "../icons";
 import { gsap, reducedMotion } from "../motion";
@@ -233,7 +234,8 @@ function Caption({ cut, i }: { cut: InterludeCut | null | undefined; i: number }
     <div className="il-cap">
       {cut && (
         <>
-          <p className="il-meta">
+          <p className="il-meta" style={{ ["--branch" as string]: branchAccent(i) }}>
+            <span className="il-swatch" aria-hidden="true" />
             <span className="numeral">{ROMAN[i]}</span>
             <span className="label">{cut.title}</span>
             <span className="label faint">
