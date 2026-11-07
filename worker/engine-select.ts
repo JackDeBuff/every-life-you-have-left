@@ -17,6 +17,7 @@ import type { StartInput } from "../shared/sim";
 import { createMockEngine } from "./engine-mock";
 import type { SmallDecisionKit } from "./engine/smalls";
 import type { WarmupPort } from "./engine/warmup";
+import type { YearMetric } from "./engine/years";
 import { bindLlm, generationEnabled, type LlmEnv } from "./llm";
 
 export type EngineKind = "mock" | "real";
@@ -58,7 +59,10 @@ const isEngine = (x: unknown): x is Engine => !!x && typeof x === "object" && ty
 /** Every real model call's usage (the session agent tallies the session's cost from it). */
 export type UsageSink = (u: { purpose: string; model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; cachedTokens?: number; hedged: boolean; ms: number; firstTokenMs?: number }) => void;
 
-export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedEngine> {
+/** Year-writer outcomes (repaired, fallback, filler): the session agent logs the bad ones for /admin. */
+export type MetricSink = (m: YearMetric) => void;
+
+export async function loadEngine(env: Env, onUsage?: UsageSink, onMetric?: MetricSink): Promise<LoadedEngine> {
   bindLlm(env as unknown as LlmEnv);
   if (!wantsReal(env)) return { engine: createMockEngine(), kind: "mock", reason: generationEnabled(env) ? "ENGINE=mock" : "generation_disabled" };
   const load = REAL["./engine/index.ts"];
@@ -69,10 +73,10 @@ export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedE
       typeof mod.createFetchLlm === "function"
         ? mod.createFetchLlm({ apiKey: env.GCP_API_KEY, project: env.GCP_PROJECT, location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global" })
         : null;
-    type Create = (d: { llm: unknown; models?: Record<string, unknown>; onUsage?: UsageSink }) => Engine;
+    type Create = (d: { llm: unknown; models?: Record<string, unknown>; onUsage?: UsageSink; onMetric?: MetricSink }) => Engine;
     const made =
       typeof mod.createEngine === "function" && llm
-        ? (mod.createEngine as Create)({ llm, onUsage })
+        ? (mod.createEngine as Create)({ llm, onUsage, onMetric })
       : typeof mod.createEngine === "function" ? (mod.createEngine as (env: Env) => Engine)(env)
       : isEngine(mod.engine) ? mod.engine
       : typeof mod.default === "function" ? (mod.default as (env: Env) => Engine)(env)
@@ -82,14 +86,14 @@ export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedE
     const FAST = env.MODEL_FAST || "gemini-3.5-flash-lite";
     const backup =
       typeof mod.createEngine === "function" && llm
-        ? (mod.createEngine as Create)({ llm, onUsage, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
+        ? (mod.createEngine as Create)({ llm, onUsage, onMetric, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
         : undefined;
     const kit = (made as { small?: SmallDecisionKit } | undefined)?.small;
     // The warm-up refreshes the first fork after the last answer only if that lands in <= 3 s: the
     // fast model for every tier (3.8 Flash takes 5-17 s for that card). No mock fallback either.
     const quick =
       typeof mod.createEngine === "function" && llm
-        ? (mod.createEngine as Create)({ llm, onUsage, models: { heavy: FAST, repair: FAST, forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
+        ? (mod.createEngine as Create)({ llm, onUsage, onMetric, models: { heavy: FAST, repair: FAST, forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
         : undefined;
     const warmup = typeof mod.createWarmup === "function" && llm ? mod.createWarmup({ llm, onUsage }) : undefined;
     if (isEngine(made))

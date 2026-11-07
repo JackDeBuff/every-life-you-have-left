@@ -22,10 +22,50 @@ export class Mirror {
       .catch((e: unknown) => console.error("mirror failed", e instanceof Error ? e.name : "error"));
   }
 
+  /**
+   * The /admin columns (migrations/0004_admin.sql) go in batches of their own: before that migration
+   * is applied they fail (once, then stop trying) and never take the main mirror down with them.
+   */
+  private adminOff = false;
+  private runAdmin(stmts: D1PreparedStatement[]): Promise<void> {
+    if (!this.db || !stmts.length || this.adminOff) return Promise.resolve();
+    return this.db
+      .batch(stmts)
+      .then(() => undefined)
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : "";
+        if (/no such (column|table)|has no column/i.test(msg)) this.adminOff = true;
+        console.error("mirror (admin columns) failed", e instanceof Error ? e.name : "error");
+      });
+  }
+
+  /** Spend, the warm-up and the last engine error, for the /admin sessions list. */
+  extras(s: AgentState): Promise<void> {
+    if (!this.db) return Promise.resolve();
+    const w = s.warmup ?? null;
+    const asked = w ? w.questions.filter((q) => q.status === "answered" || q.status === "skipped").length : null;
+    return this.runAdmin([
+      this.db
+        .prepare(`UPDATE sim_sessions SET usage_usd = ?2, usage_json = ?3, warm_asked = ?4, warmup_json = ?5, last_error = ?6 WHERE id = ?1`)
+        // usage_json 'null' (JSON) = no spend yet (the mock engine): /admin then doesn't look it up again
+        .bind(this.sessionId, s.usage?.usd ?? null, s.usage ? j(s.usage) : "null", asked, w ? j(w) : null, s.error ?? null),
+    ]);
+  }
+
+  /** An engine error (level "error") or a year-writer warning (level "warn": repaired, fallback, filler). */
+  engineLog(level: "error" | "warn", code: string, detail: string | null, life: string | null = null, year: number | null = null): Promise<void> {
+    if (!this.db) return Promise.resolve();
+    return this.runAdmin([
+      this.db
+        .prepare(`INSERT INTO sim_engine_log (session_id, level, code, life, year, detail) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`)
+        .bind(this.sessionId, level, code.slice(0, 80), life, year, detail ? detail.slice(0, 2000) : null),
+    ]);
+  }
+
   session(s: AgentState, start?: StartInput): Promise<void> {
     if (!this.db) return Promise.resolve();
     const p = s.profile;
-    return this.run([
+    const main = this.run([
       this.db
         .prepare(
           `INSERT INTO sim_sessions (id, first_name, age, city, country, speed, phase, engine, end_age, playhead_year, start_json, profile_json, ending_json)
@@ -45,6 +85,8 @@ export class Mirror {
           start ? j(start) : null, p ? j(p) : null, s.ending ? j(s.ending) : null,
         ),
     ]);
+    // after the row exists (the first mirror inserts it)
+    return main.then(() => this.extras(s));
   }
 
   decisions(ds: Decision[]): Promise<void> {
