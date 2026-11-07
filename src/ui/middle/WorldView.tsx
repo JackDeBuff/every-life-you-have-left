@@ -99,16 +99,18 @@ export function CurrentWorld() {
   const [gl] = useState(webglOk);
   const showInterlude = phase === "interlude" && !!cuts?.length && !forking;
 
+  // Captions start from "no cut yet" for every interlude (also when one ends).
   useEffect(() => {
-    if (showInterlude) useUi.setState({ worldCut: -1 });
+    useUi.setState({ worldCut: -1 });
   }, [showInterlude]);
 
-  // A moment's cinematic holds the year until it finishes (capped).
+  // A moment's cinematic holds the year until it finishes, capped. In Auto the cap is short (the
+  // engine marks many years with a moment; a full 4 s each would push the run past 3 minutes).
   const momentKey = world3d && !showInterlude && phase === "playing" && spec?.moment ? `${year}:${spec.moment}` : null;
   useEffect(() => {
     if (!momentKey) return;
     clock.hold("moment", true);
-    const id = window.setTimeout(() => clock.hold("moment", false), speed === "auto" ? 2600 : 4600);
+    const id = window.setTimeout(() => clock.hold("moment", false), speed === "auto" ? 1000 : speed === "4x" ? 2200 : 4600);
     return () => {
       window.clearTimeout(id);
       clock.hold("moment", false);
@@ -121,7 +123,13 @@ export function CurrentWorld() {
     if (sim().phase === "interlude") void sim().pause(false).catch(() => {});
   }, []);
 
-  const thinking = (starved && phase === "playing") || (!raw && phase === "playing") || (phase === "interlude" && !cuts?.length);
+  // "Life is thinking…": the buffer is behind the playhead, the year isn't written yet, a fork is
+  // being worked out (answered, interlude not ready), or the agent is busy.
+  const thinking =
+    (starved && phase === "playing") ||
+    (!raw && phase === "playing") ||
+    (phase === "deciding" && !pendingBig && !forking) ||
+    (phase === "interlude" && !cuts?.length && !forking);
 
   return (
     <>
@@ -144,17 +152,33 @@ export function CurrentWorld() {
       ) : (
         <WorldSlot spec={spec} />
       )}
-      {thinking && (
-        <p className="thinking-chip" role="status">
-          Life is thinking
-          <span className="dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-        </p>
-      )}
+      {thinking && <Thinking fork={phase !== "playing"} />}
     </>
+  );
+}
+
+const LINES = ["Life is thinking", "Writing the next years", "Weighing what you said", "Still writing, nearly there"];
+const FORK_LINES = ["Splitting your life", "Writing the lives you didn't choose", "Almost there"];
+
+/** Calm, intentional waiting: the line changes every few seconds so a long wait reads as work. */
+function Thinking({ fork }: { fork: boolean }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setN((x) => x + 1), 3500);
+    return () => window.clearInterval(id);
+  }, []);
+  const lines = fork ? FORK_LINES : LINES;
+  return (
+    <p className="thinking-chip" role="status" aria-live="polite">
+      <span key={n} className="thinking-line">
+        {lines[Math.min(n, lines.length - 1)]}
+      </span>
+      <span className="dots" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+    </p>
   );
 }
 

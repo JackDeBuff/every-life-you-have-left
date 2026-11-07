@@ -61,7 +61,6 @@ function useAutopilot() {
 export default function Play() {
   const phone = useMedia("(max-width: 819px)");
   const phase = useSim((s) => s.phase);
-  const interlude = useSim((s) => s.interlude);
   const pendingBig = useSim((s) => s.decisions.some((d) => d.kind === "big" && d.status === "pending"));
   const forking = useUi((s) => s.forking);
   useSunSync();
@@ -74,9 +73,8 @@ export default function Play() {
   }, []);
 
   const dim = pendingBig && !forking;
-  const showInterlude = phase === "interlude" && !!interlude && !forking;
 
-  if (phone) return <PhonePlay dim={dim} showInterlude={showInterlude} />;
+  if (phone) return <PhonePlay dim={dim} />;
   return (
     <div className="play" data-dim={dim} data-phase={phase}>
       <TimelineBar />
@@ -84,7 +82,7 @@ export default function Play() {
       <main className="pane middle" data-region="middle" aria-label="Your life">
         <div className="world-wrap">
           <CurrentWorld />
-          {showInterlude && interlude && <Interlude key={interlude.map((c) => c.branchId).join()} cuts={interlude} />}
+          <MeanwhileOverlay />
         </div>
         <LifeLog />
       </main>
@@ -93,12 +91,27 @@ export default function Play() {
   );
 }
 
-function PhonePlay({ dim, showInterlude }: { dim: boolean; showInterlude: boolean }) {
+/**
+ * "Meanwhile, in your other lives…" from the end of the fork moment: while the agent writes the
+ * branches (phase still "deciding", the card answered) the title holds; the cuts play when they
+ * arrive (phase "interlude"). Periodic interludes (1×/2×) just start at "interlude".
+ */
+function MeanwhileOverlay() {
+  const phase = useSim((s) => s.phase);
+  const cuts = useSim((s) => s.interlude);
+  const pendingBig = useSim((s) => s.decisions.some((d) => d.kind === "big" && d.status === "pending"));
+  const lastFork = useSim((s) => s.decisions.findLast((d) => d.kind === "big" && d.status === "answered")?.id ?? "none");
+  const forking = useUi((s) => !!s.forking);
+  const show = !forking && (phase === "interlude" || (phase === "deciding" && !pendingBig && lastFork !== "none"));
+  if (!show) return null;
+  return <Interlude key={lastFork} cuts={cuts ?? []} />;
+}
+
+function PhonePlay({ dim }: { dim: boolean }) {
   const tab = useUi((s) => s.mobileTab);
   const setTab = useUi((s) => s.setMobileTab);
   const sheetOpen = useUi((s) => s.sheetOpen);
   const setSheet = useUi((s) => s.setSheetOpen);
-  const interlude = useSim((s) => s.interlude);
   const pending = useSim((s) => s.decisions.find((d) => d.status === "pending"));
   const forking = useUi((s) => s.forking);
   const states = useSim((s) => s.status);
@@ -117,7 +130,7 @@ function PhonePlay({ dim, showInterlude }: { dim: boolean; showInterlude: boolea
       </div>
       <div className="world-wrap ph-world">
         <CurrentWorld />
-        {showInterlude && interlude && <Interlude key={interlude.map((c) => c.branchId).join()} cuts={interlude} />}
+        <MeanwhileOverlay />
       </div>
       <nav className="ph-tabs" role="tablist">
         {tabs.map((t) => (
