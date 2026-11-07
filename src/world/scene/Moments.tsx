@@ -30,6 +30,8 @@ import { rng } from "../rng";
 import { clamp01, easeInOutCubic, easeOutBack, easeOutCubic, useMotion } from "./anim";
 import type { RigState } from "./CameraRig";
 import type { SelfTracker } from "./People";
+import { markShadows } from "./shadows";
+import { PracticalLight } from "./practical";
 
 export type Moment = NonNullable<SceneSpec["moment"]>;
 
@@ -181,7 +183,7 @@ function Key({ t, at }: { t: MutableRefObject<number>; at: Vector3 }) {
       <mesh geometry={BOX} material={GOLD} position={[0, -0.06, 0]} scale={[0.024, 0.2, 0.02]} />
       <mesh geometry={BOX} material={GOLD} position={[0.025, -0.13, 0]} scale={[0.035, 0.022, 0.02]} />
       <mesh geometry={BOX} material={GOLD} position={[0.022, -0.09, 0]} scale={[0.028, 0.02, 0.02]} />
-      <pointLight color="#FFD27A" intensity={1.2} distance={1.5} />
+      <PracticalLight color="#FFD27A" intensity={1.2} distance={1.5} />
     </group>
   );
 }
@@ -220,7 +222,7 @@ function Rocket({ t, at }: { t: MutableRefObject<number>; at: Vector3 }) {
       <mesh geometry={CYL} material={MATS.white} scale={[0.06, 0.16, 0.06]} castShadow />
       <mesh geometry={new ConeGeometry(0.03, 0.08, 12)} material={solid(SWATCH.coral)} position={[0, 0.12, 0]} />
       <mesh geometry={SPH} material={MATS.lamp} position={[0, -0.1, 0]} scale={[0.05, 0.08, 0.05]} />
-      <pointLight color="#FFB774" intensity={0.8} distance={1.2} position={[0, -0.12, 0]} />
+      <PracticalLight color="#FFB774" intensity={0.8} distance={1.2} position={[0, -0.12, 0]} />
     </group>
   );
 }
@@ -295,7 +297,7 @@ function Trophy() {
       <mesh geometry={CYL} material={GOLD} position={[0, 0.02, 0]} scale={[0.1, 0.04, 0.1]} />
       <mesh geometry={CYL} material={GOLD} position={[0, 0.08, 0]} scale={[0.025, 0.1, 0.025]} />
       <mesh geometry={SPH} material={GOLD} position={[0, 0.17, 0]} scale={[0.14, 0.12, 0.14]} />
-      <pointLight color="#FFD27A" intensity={0.9} distance={1.3} position={[0, 0.25, 0]} />
+      <PracticalLight color="#FFD27A" intensity={0.9} distance={1.3} position={[0, 0.25, 0]} />
     </group>
   );
 }
@@ -341,6 +343,7 @@ export function MomentDirector({ moment, layout, self, rig, memory, glowBoost, o
     return () => window.clearTimeout(id);
   }, [reduced, onDone, self]);
   useFrame(() => {
+    markShadows();
     // dev: window.__momentT freezes the beat at a time (for screenshots)
     const dbg = import.meta.env.DEV ? (window as unknown as { __momentT?: number }).__momentT : undefined;
     t.current = dbg ?? (reduced ? 2.2 : time() - t0.current);
@@ -469,7 +472,7 @@ export function MomentDirector({ moment, layout, self, rig, memory, glowBoost, o
         <>
           <Motes origin={at} t={t} count={30} color="#FFE8C0" />
           <Appear t={t} at={0.6} position={[at.x - 0.25, 0, at.z - 0.2]}>
-            <pointLight color="#FFC98A" intensity={1.4} distance={1.6} position={[0, 0.5, 0]} />
+            <PracticalLight color="#FFC98A" intensity={1.4} distance={1.6} position={[0, 0.5, 0]} />
           </Appear>
         </>
       );

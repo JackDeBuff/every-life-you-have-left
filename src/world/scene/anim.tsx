@@ -4,7 +4,20 @@
  */
 import { useFrame } from "@react-three/fiber";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Group } from "three";
+import type { Group, Object3D } from "three";
+import { markShadows } from "./shadows";
+
+/**
+ * Freeze the local matrices of a static subtree (kit models, procedural set pieces): three.js then
+ * skips recomposing them every frame. The animated wrapper above them keeps auto-updating.
+ */
+export function freezeStatic(root: Object3D) {
+  root.traverse((o) => {
+    o.updateMatrix();
+    o.matrixAutoUpdate = false;
+  });
+  return root;
+}
 
 export const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 export const easeOutBack = (t: number, s = 1.70158) => 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2);
@@ -73,6 +86,17 @@ export function usePresence<T>(items: T[], keyOf: (t: T) => string, exitMs: numb
   return hasOut ? [...prev.current.values()] : list;
 }
 
+/**
+ * React.memo comparator for presence items: compose() builds fresh objects every year, so without
+ * this every piece, prop and room re-renders (and R3F re-diffs every mesh) on each year turn even
+ * when nothing about it changed.
+ */
+export function samePresent<T>(a: { pr: Present<T> } & Record<string, unknown>, b: { pr: Present<T> } & Record<string, unknown>): boolean {
+  if (a.pr.state !== b.pr.state || a.pr.t0 !== b.pr.t0) return false;
+  for (const k of Object.keys(b)) if (k !== "pr" && a[k] !== b[k]) return false;
+  return a.pr.item === b.pr.item || JSON.stringify(a.pr.item) === JSON.stringify(b.pr.item);
+}
+
 export const POP_IN = 0.75;
 export const POP_OUT = 0.5;
 
@@ -86,18 +110,38 @@ interface PopProps {
   position?: [number, number, number];
   rotationY?: number;
   scale?: number;
+  /** Also freeze the children's matrices once settled (static set pieces only). */
+  freeze?: boolean;
+  /** Re-settle (and re-freeze) when this changes: the same piece in a new year may move. */
+  version?: unknown;
 }
 
-/** Grow in with a soft overshoot; sink out. Stops touching the scene graph once settled. */
-export function Pop({ state, t0, delay = 0, children, rise = 0.25, position, rotationY = 0, scale = 1 }: PopProps) {
+/**
+ * Grow in with a soft overshoot; sink out. Once settled it stops touching the scene graph and
+ * freezes its matrix (no per-frame recompose), and asks for a shadow update while it moves.
+ */
+export function Pop({ state, t0, delay = 0, children, rise = 0.25, position, rotationY = 0, scale = 1, freeze = false, version }: PopProps) {
   const ref = useRef<Group>(null);
   const { reduced, time, paused } = useMotion();
   const settled = useRef<string>("");
+  const px = position?.[0];
+  const py = position?.[1];
+  const pz = position?.[2];
+  useEffect(() => {
+    // new props from React: let three recompose until the next settle
+    settled.current = "";
+    const g = ref.current;
+    if (!g) return;
+    if (freeze) g.traverse((o) => (o.matrixAutoUpdate = true));
+    else g.matrixAutoUpdate = true;
+  }, [px, py, pz, rotationY, scale, version, freeze]);
   useFrame(() => {
     const g = ref.current;
     if (!g) return;
     const tag = `${state}${t0}`;
     if (settled.current === tag) return;
+    g.matrixAutoUpdate = true;
+    markShadows();
     let k: number;
     if (reduced || paused) k = state === "in" ? 1 : 0;
     else if (state === "in") {
@@ -113,6 +157,13 @@ export function Pop({ state, t0, delay = 0, children, rise = 0.25, position, rot
     g.scale.set(s, s, s);
     g.position.y = (position?.[1] ?? 0) - (1 - Math.min(1, k)) * rise;
     g.visible = k > 0.002;
+    if (settled.current === tag) {
+      if (freeze) freezeStatic(g);
+      else {
+        g.updateMatrix();
+        g.matrixAutoUpdate = false;
+      }
+    }
   });
   return (
     <group ref={ref} position={position} rotation-y={rotationY} scale={0.0001} visible={false}>

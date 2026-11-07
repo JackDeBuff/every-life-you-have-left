@@ -34,6 +34,22 @@ export interface WorldProps {
   className?: string;
 }
 
+/**
+ * `?perf` exposes the R3F state (renderer.info) in production builds, for frame-time measurements;
+ * `?perf=hi|mid|lo` also pins the quality tier (no adaptive changes), for A/B numbers.
+ */
+const PERF_PARAM = typeof location !== "undefined" ? new URLSearchParams(location.search).get("perf") : null;
+const PERF_HOOK = PERF_PARAM !== null;
+const PINNED: Tier | null = PERF_PARAM === "hi" ? 2 : PERF_PARAM === "mid" ? 1 : PERF_PARAM === "lo" ? 0 : null;
+
+/**
+ * Quality tiers. 2: DPR <= 1.5, MSAA x4, AO; 1: DPR <= 1.25, MSAA x2, cheaper AO; 0: DPR 1, no
+ * MSAA, no AO / tilt-shift, smaller shadow map. Machines start at 2 (1 on small CPUs / very high
+ * DPR screens) and step down (or back up) with the measured frame rate.
+ */
+export type Tier = 0 | 1 | 2;
+const TIER_PIXELS: Record<Tier, { maxDpr: number; mp: number }> = { 2: { maxDpr: 1.5, mp: 1.6e6 }, 1: { maxDpr: 1.25, mp: 1.1e6 }, 0: { maxDpr: 1, mp: 0 } };
+
 function webglAvailable(): boolean {
   try {
     const c = document.createElement("canvas");
@@ -85,7 +101,6 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
   // Pixel budget: keep the drawing buffer near 1.6 MP (crisp in the expo pane, sane full-screen),
   // and step down further if the frame rate declines (drei PerformanceMonitor).
   const [area, setArea] = useState(800 * 450);
-  const [degraded, setDegraded] = useState(false);
   useEffect(() => {
     const el = host.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -143,13 +158,27 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
     return () => window.clearTimeout(id);
   }, [snap]);
 
-  const quality = useMemo<"high" | "low">(() => {
+  const startTier = useMemo<Tier>(() => {
+    if (PINNED !== null) return PINNED;
     const cores = navigator.hardwareConcurrency ?? 8;
-    return cores >= 8 && window.devicePixelRatio <= 2 ? "high" : "low";
+    return cores >= 8 && window.devicePixelRatio <= 2 ? 2 : 1;
   }, []);
+  const [tier, setTier] = useState<Tier>(startTier);
+  // Adaptive quality watches the frame rate only once the scene has warmed up (kit loads and
+  // shader compiles in the first seconds are not a slow machine) and only while it animates.
+  const [watch, setWatch] = useState(false);
+  useEffect(() => {
+    if (!active || PINNED !== null) return;
+    const id = window.setTimeout(() => setWatch(true), 6000);
+    return () => {
+      window.clearTimeout(id);
+      setWatch(false);
+    };
+  }, [active]);
+  const step = useCallback((d: -1 | 1) => setTier((t) => Math.max(0, Math.min(startTier, t + d)) as Tier), [startTier]);
 
-  const maxDpr = quality === "high" ? 1.5 : 1.25;
-  const dpr = degraded ? 1 : Math.max(1, Math.min(maxDpr, Math.sqrt(1.6e6 / area)));
+  const px = TIER_PIXELS[tier];
+  const dpr = tier === 0 ? 1 : Math.max(1, Math.min(px.maxDpr, Math.sqrt(px.mp / area)));
 
   if (!gl) {
     return (
@@ -172,11 +201,18 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
           camera={{ fov: 22, near: 1, far: 260, position: [25, 20, 25] }}
           onCreated={(state) => {
             state.gl.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
-            if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state;
+            // Production: don't block on getProgramInfoLog after every shader link (it stalls the
+            // frame until the compile finishes; parallel compilation can't help while it does).
+            state.gl.debug.checkShaderErrors = import.meta.env.DEV;
+            // The scene root never moves: without this, its per-frame updateMatrix() would force
+            // a world-matrix recompute of every object. Static set pieces freeze their own matrices.
+            state.scene.matrixAutoUpdate = false;
+            state.scene.updateMatrix();
+            if (import.meta.env.DEV || PERF_HOOK) (window as unknown as { __r3f: unknown }).__r3f = state;
           }}
         >
           <MotionCtx.Provider value={motion}>
-            <PerformanceMonitor onDecline={() => setDegraded(true)} flipflops={2} onFallback={() => setDegraded(true)} />
+            {watch && <PerformanceMonitor ms={400} iterations={8} bounds={(hz) => (hz > 90 ? [55, 85] : [44, 57])} flipflops={3} onDecline={() => step(-1)} onIncline={() => step(1)} />}
             <DemandTicker on={!active && visible && pageVisible} />
             <WorldScene
               spec={spec}
@@ -189,7 +225,7 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
               cutSeconds={cutSeconds}
               fade={fade}
               snapshot={snapshot}
-              quality={degraded ? "low" : quality}
+              tier={tier}
             />
           </MotionCtx.Provider>
         </Canvas>

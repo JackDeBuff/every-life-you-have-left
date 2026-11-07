@@ -24,6 +24,9 @@ import { People, type SelfTracker } from "./People";
 import { Pieces } from "./Pieces";
 import { Post } from "./Post";
 import { Procs } from "./Procs";
+import { markShadows, ShadowDirector } from "./shadows";
+import { PracticalLights } from "./practical";
+import { warmShaders } from "./warmup";
 import { Weather } from "./Weather";
 
 export interface SceneProps {
@@ -40,7 +43,8 @@ export interface SceneProps {
   fade: (on: boolean) => void;
   /** Reduced motion: called with a snapshot before a change is applied. */
   snapshot: (dataUrl: string) => void;
-  quality: "high" | "low";
+  /** Quality tier (World.tsx): 2 high, 1 medium, 0 low. */
+  tier: 0 | 1 | 2;
 }
 
 interface IslandItem {
@@ -61,31 +65,35 @@ function Diorama({ item, self, frozen }: { item: IslandItem; self: SelfTracker; 
   const ref = useRef<Group>(null);
   const { time, reduced } = useMotion();
   const { layout, spec } = item;
+  // The island's own matrix is recomposed only while it rises or sinks (matrixAutoUpdate off), so a
+  // settled island does not force a world-matrix update of everything on it every frame.
   useFrame(() => {
     const g = ref.current;
     if (!g) return;
-    if (reduced) {
-      g.position.y = 0;
-      g.scale.setScalar(1);
-      g.visible = item.leaving === null;
-      return;
-    }
-    if (item.leaving !== null) {
+    let y = 0;
+    let s = 1;
+    let vis = true;
+    if (reduced) vis = item.leaving === null;
+    else if (item.leaving !== null) {
       const k = clamp01((time() - item.leaving) / 1.5);
-      g.position.y = -easeInCubic(k) * 11;
-      g.scale.setScalar(1 - 0.25 * k);
-      g.visible = k < 1;
-    } else if (!item.rise) {
-      g.position.y = 0;
-      g.scale.setScalar(1);
-    } else {
+      y = -easeInCubic(k) * 11;
+      s = 1 - 0.25 * k;
+      vis = k < 1;
+    } else if (item.rise) {
       const k = clamp01((time() - item.born - 0.35) / 1.6);
-      g.position.y = (1 - easeOutBack(k, 1.1)) * -10;
-      g.scale.setScalar(0.8 + 0.2 * Math.min(1, k * 1.2));
+      y = (1 - easeOutBack(k, 1.1)) * -10;
+      s = 0.8 + 0.2 * Math.min(1, k * 1.2);
+    }
+    g.visible = vis;
+    if (g.position.y !== y || g.scale.x !== s) {
+      g.position.y = y;
+      g.scale.setScalar(s);
+      g.updateMatrix();
+      markShadows();
     }
   });
   return (
-    <group ref={ref}>
+    <group ref={ref} matrixAutoUpdate={false}>
       <Island coast={layout.coast} seed={layout.placeKey} />
       <Procs procs={layout.procs} />
       <Suspense fallback={null}>
@@ -95,7 +103,7 @@ function Diorama({ item, self, frozen }: { item: IslandItem; self: SelfTracker; 
         <Hero hero={layout.hero} flavor={spec.flavor} snowy={layout.snowCover > 0.5} />
       </Suspense>
       <Suspense fallback={null}>
-        <People people={layout.people} islandBorn={item.born} self={self} frozen={frozen} />
+        <People people={layout.people} islandBorn={item.born} self={self} frozen={frozen} track={item.leaving === null} />
       </Suspense>
       <Suspense fallback={null}>
         <Cars lanes={layout.cars} flavor={spec.flavor} />
@@ -112,12 +120,12 @@ function preloadFor(layout: Layout) {
 }
 
 export function WorldScene(props: SceneProps) {
-  const { mode, cuts, appearance, onMomentDone, onCut, onInterludeDone, fade, snapshot, quality } = props;
+  const { mode, cuts, appearance, onMomentDone, onCut, onInterludeDone, fade, snapshot, tier } = props;
   const cutLen = Math.max(1.2, props.cutSeconds ?? 2.5);
   const { time, reduced } = useMotion();
   const { gl, invalidate } = useThree();
   const rig = useRef<RigState>(makeRig());
-  const self = useMemo<SelfTracker>(() => ({ pos: new Vector3(1.5, 0, 1.5), override: null }), []);
+  const self = useMemo<SelfTracker>(() => ({ pos: new Vector3(1.5, 0, 1.5), override: null, cast: new Map() }), []);
   const memory = useRef(0);
   const glowBoost = useRef(0);
 
@@ -190,11 +198,17 @@ export function WorldScene(props: SceneProps) {
     return () => window.clearTimeout(id);
   }, [islands, time]);
 
-  // prefetch the remaining kits when idle (lazy, after the first scene is up)
+  // prefetch the remaining kits when idle (lazy, after the first scene is up), and warm the
+  // moments' shader variants in the background before the first one plays
+  const { scene, camera } = useThree();
   useEffect(() => {
     const id = window.setTimeout(() => ALL_KITS.forEach((k) => preloadKit(k)), 8000);
-    return () => window.clearTimeout(id);
-  }, []);
+    const w = window.setTimeout(() => warmShaders(gl, scene, camera), 2500);
+    return () => {
+      window.clearTimeout(id);
+      window.clearTimeout(w);
+    };
+  }, [gl, scene, camera]);
 
   // ----- look -----
   const target = useMemo(() => lookFor(applied), [applied]);
@@ -309,7 +323,9 @@ export function WorldScene(props: SceneProps) {
   return (
     <LookCtx.Provider value={eff}>
       <CameraRig rig={rig} />
-      <Atmosphere center={[top.layout.focus[0], 0, top.layout.focus[2]]} />
+      <ShadowDirector live={mode === "interlude"} />
+      <PracticalLights />
+      <Atmosphere center={[top.layout.focus[0], 0, top.layout.focus[2]]} shadowSize={tier === 0 ? 1024 : 2048} />
       <Weather spec={applied} />
       {islands.map((it) => (
         <Diorama key={it.id} item={it} self={self} frozen={frozen} />
@@ -319,7 +335,7 @@ export function WorldScene(props: SceneProps) {
           <MomentDirector key={moment.token} moment={moment.kind} token={moment.token} layout={layout} self={self} rig={rig} memory={memory} glowBoost={glowBoost} onDone={momentDone} />
         </Suspense>
       )}
-      <Post memory={memory as MutableRefObject<number>} quality={quality} />
+      <Post memory={memory as MutableRefObject<number>} tier={tier} />
     </LookCtx.Provider>
   );
 }

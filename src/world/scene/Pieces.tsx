@@ -1,11 +1,11 @@
 /** Kit models placed by the composer, each growing in / sinking out with <Pop>. */
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { Mesh, Object3D } from "three";
 import type { SceneSpec } from "../../../shared/sim";
 import { loadKit, template } from "../assets";
 import type { PieceSpec } from "../layout";
 import { MATS, solid } from "../materials";
-import { Pop, usePresence, useMotion, type Present } from "./anim";
+import { freezeStatic, Pop, samePresent, usePresence, useMotion, type Present } from "./anim";
 
 const BLOSSOM_DARK = solid("#E79AAE");
 
@@ -20,19 +20,19 @@ function Model({ p, flavor, snowy }: { p: PieceSpec; flavor: SceneSpec["flavor"]
         if (m.material === MATS.foliage) m.material = MATS.blossom;
         else if (m.material === MATS.foliageDark) m.material = BLOSSOM_DARK;
       });
-    return o;
+    return freezeStatic(o);
   }, [gltf, p.kit, p.id, flavor, p.variant, p.tint, snowy]);
   return <primitive object={obj} />;
 }
 
-export function PieceItem({ pr, flavor, snowy = false }: { pr: Present<PieceSpec>; flavor: SceneSpec["flavor"]; snowy?: boolean }) {
+export const PieceItem = memo(function PieceItem({ pr, flavor, snowy = false }: { pr: Present<PieceSpec>; flavor: SceneSpec["flavor"]; snowy?: boolean }) {
   const p = pr.item;
   return (
-    <Pop state={pr.state} t0={pr.t0} delay={p.delay} position={p.pos} rotationY={p.rotY} scale={p.scale} rise={0.3}>
+    <Pop state={pr.state} t0={pr.t0} delay={p.delay} position={p.pos} rotationY={p.rotY} scale={p.scale} rise={0.3} version={p}>
       <Model p={p} flavor={flavor} snowy={snowy} />
     </Pop>
   );
-}
+}, samePresent);
 
 export function Pieces({ pieces, flavor, snowy }: { pieces: PieceSpec[]; flavor: SceneSpec["flavor"]; snowy: boolean }) {
   const { time } = useMotion();

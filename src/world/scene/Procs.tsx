@@ -3,7 +3,7 @@
  * pram, picnic blanket, academic halls...). All share unit geometries and palette materials.
  */
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useRef } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import {
   BoxGeometry,
   CanvasTexture,
@@ -20,7 +20,7 @@ import {
 import type { ProcSpec } from "../layout";
 import { MATS, solid } from "../materials";
 import { rng } from "../rng";
-import { Pop, usePresence, useMotion, type Present } from "./anim";
+import { Pop, samePresent, usePresence, useMotion, type Present } from "./anim";
 
 const BOX = new BoxGeometry(1, 1, 1);
 BOX.translate(0, 0.5, 0);
@@ -526,15 +526,15 @@ function Boat({ p }: { p: ProcSpec }) {
   );
 }
 
-export function ProcItem({ pr }: { pr: Present<ProcSpec> }) {
+export const ProcItem = memo(function ProcItem({ pr }: { pr: Present<ProcSpec> }) {
   const p = pr.item;
   const flat = p.type === "road" || p.type === "roadZ" || p.type === "sidewalk" || p.type === "path" || p.type === "plaza" || p.type === "lawn" || p.type === "field" || p.type === "crosswalk";
   return (
-    <Pop state={pr.state} t0={pr.t0} delay={p.delay} position={p.pos} rotationY={p.type === "crosswalk" ? 0 : p.rotY} rise={flat ? 0.02 : 0.2}>
+    <Pop state={pr.state} t0={pr.t0} delay={p.delay} position={p.pos} rotationY={p.type === "crosswalk" ? 0 : p.rotY} rise={flat ? 0.02 : 0.2} freeze={p.type !== "boat"} version={p}>
       <ProcBody p={p} />
     </Pop>
   );
-}
+}, samePresent);
 
 export function Procs({ procs }: { procs: ProcSpec[] }) {
   const { time } = useMotion();
