@@ -324,3 +324,16 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
 - The postcard quote is a whole sentence or clause (`ui/ending/quote.ts`), never cut mid-thought.
 - Talk to any version: "You at 60 is writing you a letter" while a reply is on its way; its voice is fetched once the text completes.
 - Interlude captions carry the branch accent (I marigold, II teal, III rose) that its 3D landmark wears.
+
+**Pass 6 (Sat Nov 7, owner's playtest: fork markers), shots in `docs/fix-shots/forks-*`**
+- Clicking a past ◆ opens "the road not taken" (`ui/timeline/RoadNotTaken.tsx`, a Radix popover: role dialog, focus
+  inside, Esc closes, focus back on the ◆): the question with age · year; "You chose" + where it led you today; then every
+  other answer as "If you'd chosen X → today you'd be N: …" with place · work · net worth. Branch snapshots are coarse
+  (fork year, then every 5 years, the engine writes up to fork+10 at once), so the line uses the snapshot nearest the
+  playhead and says "At 30:" when its age isn't today's. Each row has a state tag: Still running · II / Faded out /
+  Not followed / Being written, so 1 vs 3 rows is never a mystery. First open in a browser shows the one-line explainer.
+- No portraits or roses in these rows any more; text is 13.5px ink/ink-2, never faint.
+- Timeline: the part not lived yet sits on a sunken band labelled "not lived yet"; small choices are dots (hover: the
+  question and your answer; slid ones hollow); big forks are diamonds with a tooltip; a "Key" button by the name opens a
+  legend. The lives badge reads "3 other lives still running" (no clipped digit), with a tooltip; its popover shows each
+  running life today. "Time slowed" now hangs under the keys instead of taking width.
