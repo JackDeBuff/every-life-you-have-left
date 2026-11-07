@@ -322,7 +322,7 @@ export function warmupWith(call: Caller): WarmupPort {
       });
       const d = r.data;
       if (!d) return null;
-      const labels = d.options.map((o) => truncateClean(o.label.trim(), 11)).filter((l) => l.length > 2);
+      const labels = d.options.map((o) => truncateClean(o.label.trim(), 11).replace(/\.+$/, "")).filter((l) => l.length > 2);
       if (labels.length < 4 || new Set(labels.map(norm)).size < 4) return null;
       const quoteIds = new Set(profile.quotes.map((x) => x.id));
       return {

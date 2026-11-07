@@ -158,7 +158,11 @@ export const SEED_MEANING: Record<"path" | "leap" | "careful" | "unjudged", stri
 
 export const PERSONAL_SYSTEM = `You write the four quick answers for one warm-up question in a life simulator, for a specific person. The question itself stays exactly as given.
 
-- options: exactly 4. First person, <= 10 words each, the way this person might actually say it, given what they told us. Genuinely different from each other (not a scale of one thing, not good/bad/neutral). At least one should be something they haven't said yet, so there is room to surprise us. No option may be offensive, extreme or a joke.
+- options: exactly 4. First person, <= 10 words each, the way this person might actually say it, given what they told us. Each one must be a sincere, direct answer to THIS question as asked:
+  - "who has a say": each names real people in their life (a parent, a partner, family, a boss, friends) or "mostly me"; never an institution or a bill.
+  - "if nobody judged": things they'd want for themselves, never what others expect of them.
+  - "afraid will be true in ten years": a fear about their own future.
+  Genuinely different from each other (not a scale of one thing, not good/bad/neutral). At least one should be something they haven't said yet, so there is room to surprise us. No option may be offensive, extreme or a joke. No full stop at the end.
 - hint: null, or <= 8 words when it helps tell two options apart.
 - whyAsking: one line, <= 20 words, why this question matters for their life, citing their words when you can. whyQuoteId: the quote id you cite, or null.
 - Never ask about or assume race, religion, orientation, diagnoses or immigration status.`;
