@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 import type { Route } from "../Admin";
 import { ApiError, AuthError, listSessions } from "./api";
-import { ago, cost, dayTime, isLive, toDate } from "./model";
+import { ago, cost, dayTime, isLive, OLD_RATES_TITLE, OLD_RATES_UNTIL, toDate } from "./model";
 import type { ListRow } from "./types";
 import { AIcon, Chip } from "./ui";
 
@@ -19,6 +19,8 @@ const useFilters = create<{ q: string; speed: string; phase: string; hideScripte
   hideScripted: false,
   sort: "created",
 }));
+
+const corrected = (r: ListRow) => r.usage_corrected ?? r.usage_usd ?? null;
 
 const scripted = (id: string) => /^(smoke|judge|qa|eval)-/.test(id);
 
@@ -86,12 +88,14 @@ export function SessionList({ go, onAuthError }: { go: (r: Partial<Route>) => vo
     );
     const t = (s: string) => toDate(s)?.getTime() ?? 0;
     if (f.sort === "updated") out.sort((a, b) => t(b.updated_at) - t(a.updated_at));
-    else if (f.sort === "cost") out.sort((a, b) => (b.usage_usd ?? -1) - (a.usage_usd ?? -1));
+    else if (f.sort === "cost") out.sort((a, b) => (corrected(b) ?? -1) - (corrected(a) ?? -1));
     else out.sort((a, b) => t(b.created_at) - t(a.created_at));
     return out;
   }, [rows, f]);
   const liveCount = (rows ?? []).filter((r) => isLive(r.updated_at, now)).length;
-  const totalCost = shown.reduce((n, r) => n + (r.usage_usd ?? 0), 0);
+  const totalCost = shown.reduce((n, r) => n + (corrected(r) ?? 0), 0);
+  const totalRecorded = shown.reduce((n, r) => n + (r.usage_usd ?? 0), 0);
+  const oldCount = shown.filter((r) => r.old_rates && r.old_rates !== "no").length;
 
   return (
     <main className="adm-main">
@@ -100,7 +104,14 @@ export function SessionList({ go, onAuthError }: { go: (r: Partial<Route>) => vo
           <h1 className="adm-h1">Sessions</h1>
           <p className="meta muted">
             {rows ? `${shown.length} of ${rows.length}` : "…"} · <span className="adm-livecount">{liveCount} live now</span>
-            {shown.some((r) => typeof r.usage_usd === "number") ? ` · ${cost(totalCost)} model cost in view` : ""}
+            {shown.some((r) => typeof r.usage_usd === "number") ? (
+              <span title={oldCount ? `Recorded ${cost(totalRecorded)}; ${oldCount} session${oldCount === 1 ? "" : "s"} in view priced at the old rates, corrected here. Media (portraits, voice) not included.` : "Media (portraits, voice) not included."}>
+                {` · ${cost(totalCost)} model cost in view`}
+                {oldCount ? <span className="faint">{` (corrected; ${cost(totalRecorded)} recorded)`}</span> : null}
+              </span>
+            ) : (
+              ""
+            )}
           </p>
         </div>
         <div className="adm-refresh meta muted">
@@ -159,7 +170,8 @@ export function SessionList({ go, onAuthError }: { go: (r: Partial<Route>) => vo
               <th className="num" title="Decisions written (forks in brackets)">Decisions</th>
               <th className="num" title="Decisions answered (+ let slide)">Answers</th>
               <th className="num" title="Years played (mirrored)">Years</th>
-              <th className="num">Cost</th>
+              <th className="num" title="As recorded in the session">Recorded</th>
+              <th className="num" title={`At the real prices: sessions priced before ${OLD_RATES_UNTIL} are corrected (worker/admin-cost.ts)`}>Corrected</th>
               <th className="num" title="Engine errors (warnings)">Errors</th>
               <th>Created</th>
               <th>Updated</th>
@@ -203,7 +215,17 @@ export function SessionList({ go, onAuthError }: { go: (r: Partial<Route>) => vo
                     {r.slid ? <span className="faint"> +{r.slid}</span> : null}
                   </td>
                   <td className="num">{r.years}</td>
-                  <td className="num">{cost(r.usage_usd)}</td>
+                  <td className="num faint">{cost(r.usage_usd)}</td>
+                  <td className="num">
+                    {r.old_rates && r.old_rates !== "no" ? (
+                      <span className="adm-oldrate" title={OLD_RATES_TITLE[r.old_rates]}>
+                        <Chip tone="warn">{r.old_rates === "partly" ? "partly old rates" : "old rates"}</Chip>
+                        {cost(corrected(r))}
+                      </span>
+                    ) : (
+                      cost(corrected(r))
+                    )}
+                  </td>
                   <td className="num" title={r.last_error ?? undefined}>
                     {errs ? <span className="adm-bad">{errs}</span> : r.errors === undefined ? "—" : "0"}
                     {r.warnings ? <span className="faint"> ({r.warnings})</span> : null}
@@ -219,7 +241,7 @@ export function SessionList({ go, onAuthError }: { go: (r: Partial<Route>) => vo
             })}
             {rows && !shown.length && (
               <tr>
-                <td colSpan={14} className="adm-empty">
+                <td colSpan={15} className="adm-empty">
                   No sessions match.
                 </td>
               </tr>

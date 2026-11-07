@@ -6,6 +6,7 @@
  *   GET /api/admin/session/:id                 every D1 row for the session (JSON columns parsed)
  *                                              + `live`: the session's Durable Object state (AgentState)
  *   GET /api/admin/session/:id/checks          the engine's pure code checks over the stored session
+ *   GET /api/admin/spend                       the app-wide ledger (worker/spend.ts), caps and the price table
  *
  * Sources. D1 (worker/agent/mirror.ts) has the list columns and most of a session, but not the life
  * log, and only since 0004_admin.sql the spend, the warm-up and the engine log. The Durable Object
@@ -22,6 +23,9 @@ import type { AgentState, ChatMessage, SessionUsage, WarmupState } from "./agent
 import { Mirror } from "./agent/mirror";
 import { runChecks } from "./admin-checks";
 import { passcodeOk } from "./admin-auth";
+import { PRICES_FIXED_AT, sessionCost } from "./admin-cost";
+import { CACHED_INPUT_FACTOR, PRICES, SEARCH_QUERY_USD } from "./engine/pricing";
+import { MEDIA_USD, sessionCaps, spendRows, spendStatus } from "./spend";
 
 type AppEnv = { Bindings: Env };
 export const admin = new Hono<AppEnv>();
@@ -92,11 +96,21 @@ const LIST_BASE = `s.id, s.created_at, s.updated_at, s.first_name, s.age, s.city
   (SELECT COUNT(*) FROM sim_years y WHERE y.session_id = s.id) AS years,
   (SELECT COUNT(*) FROM sim_chat m WHERE m.session_id = s.id) AS chat`;
 // 0004_admin.sql columns; the list falls back to LIST_BASE before that migration is applied
-const LIST_ADMIN = `, s.usage_usd, s.warm_asked, s.last_error, (s.usage_json IS NOT NULL) AS has_usage,
+const LIST_ADMIN = `, s.usage_usd, s.usage_json, s.warm_asked, s.last_error, (s.usage_json IS NOT NULL) AS has_usage,
   (SELECT COUNT(*) FROM sim_engine_log e WHERE e.session_id = s.id AND e.level = 'error') AS errors,
   (SELECT COUNT(*) FROM sim_engine_log e WHERE e.session_id = s.id AND e.level = 'warn') AS warnings`;
 
-type ListRow = Record<string, unknown> & { id: string; phase: string | null; has_usage?: number; usage_usd?: number | null; warm_asked?: number | null; last_error?: string | null };
+type ListRow = Record<string, unknown> & {
+  id: string;
+  phase: string | null;
+  created_at?: string;
+  updated_at?: string;
+  has_usage?: number;
+  usage_usd?: number | null;
+  usage_json?: string | null;
+  warm_asked?: number | null;
+  last_error?: string | null;
+};
 
 admin.get("/api/admin/sessions", async (c) => {
   const limit = Math.max(1, Math.min(500, Number(c.req.query("limit") ?? 200)));
@@ -126,6 +140,7 @@ admin.get("/api/admin/sessions", async (c) => {
       const w = x?.warmup ?? null;
       const asked = w ? w.questions.filter((q) => q.status === "answered" || q.status === "skipped").length : null;
       r.usage_usd = x?.usage?.usd ?? null;
+      r.usage_json = x?.usage ? JSON.stringify(x.usage) : null;
       r.warm_asked = asked;
       r.last_error = x?.error ?? null;
       r.has_usage = 1;
@@ -138,7 +153,38 @@ admin.get("/api/admin/sessions", async (c) => {
     }
     if (writes.length && backfillOn(c.env)) c.executionCtx.waitUntil(db.batch(writes).catch(() => undefined));
   }
-  return c.json({ ok: true, migrated, sessions: rows });
+  // Recorded vs corrected cost (worker/admin-cost.ts); usage_json itself stays out of the list.
+  const sessions = rows.map(({ usage_json, ...r }) => {
+    const cv = sessionCost(parse(usage_json) as SessionUsage | null, r.created_at, r.updated_at);
+    return { ...r, usage_corrected: cv?.corrected ?? r.usage_usd ?? null, old_rates: cv?.oldRates ?? "no" };
+  });
+  return c.json({ ok: true, migrated, sessions });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Spend (worker/spend.ts)
+// ---------------------------------------------------------------------------------------------
+
+admin.get("/api/admin/spend", async (c) => {
+  let rows: Awaited<ReturnType<typeof spendRows>> = [];
+  let error: string | null = null;
+  try {
+    rows = await spendRows(c.env);
+  } catch (e) {
+    error = e instanceof Error ? e.message.slice(0, 160) : "error";
+  }
+  return c.json({
+    ok: true,
+    status: await spendStatus(c.env),
+    error,
+    rows,
+    sessionCaps: sessionCaps(c.env),
+    prices: PRICES,
+    cachedInputFactor: CACHED_INPUT_FACTOR,
+    searchQueryUsd: SEARCH_QUERY_USD,
+    media: MEDIA_USD,
+    pricesFixedAt: PRICES_FIXED_AT,
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -287,6 +333,8 @@ admin.get("/api/admin/session/:id", async (c) => {
     engineLog: d?.engineLog ?? [],
     // the Durable Object's state, or the D1 copy rebuilt into the same shape
     live: live?.state ?? (d ? stateFromD1(id, d) : null),
+    // the per-session spend caps this deployment runs with
+    sessionCaps: sessionCaps(c.env),
   });
 });
 

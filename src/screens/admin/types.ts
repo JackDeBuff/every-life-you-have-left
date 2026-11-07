@@ -31,6 +31,9 @@ export interface ListRow {
   chat: number;
   // after migrations/0004_admin.sql
   usage_usd?: number | null;
+  /** At the real prices (worker/admin-cost.ts); = usage_usd unless the session was priced at the old rates. */
+  usage_corrected?: number | null;
+  old_rates?: "no" | "yes" | "partly";
   warm_asked?: number | null;
   last_error?: string | null;
   errors?: number;
@@ -109,6 +112,21 @@ export interface DetailResponse {
   media: D1Media[];
   engineLog: EngineLogRow[];
   live: AgentState | null;
+  /** The per-session spend caps this deployment runs with (USD). */
+  sessionCaps?: { soft: number; hard: number };
+}
+
+export interface SpendResponse {
+  ok: true;
+  status: { usd: number; cap: number; capped: boolean } | null;
+  error: string | null;
+  rows: { day: string; usd: number; updated_at: string }[];
+  sessionCaps: { soft: number; hard: number };
+  prices: Record<string, { in: number; out: number; note?: string }>;
+  cachedInputFactor: number;
+  searchQueryUsd: number;
+  media: Record<string, number>;
+  pricesFixedAt: string;
 }
 
 export interface ChecksResponse extends ChecksResult {
@@ -116,5 +134,7 @@ export interface ChecksResponse extends ChecksResult {
   source: "durable_object" | "d1";
   ms: number;
 }
+
+export type View = "sessions" | "spend";
 
 export type Tab = "life" | "decisions" | "profile" | "lives" | "settings" | "chat" | "uploads" | "portraits" | "ending" | "health";

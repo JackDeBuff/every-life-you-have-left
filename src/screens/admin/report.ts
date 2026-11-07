@@ -225,7 +225,8 @@ export function sessionSummary(v: SessionView, checks: { counts: Record<string, 
   if (last) lines.push(`Now: ${last.place} · ${last.life?.work ?? "?"} · ${(last.life?.people ?? []).map((x) => `${x.name} (${x.relation}${x.age !== null ? `, ${x.age}` : ""})`).join(", ") || "no one listed"} · income ${formatMoney(last.money.income, v.currency)} · net worth ${formatMoney(last.money.netWorth, v.currency)}`);
   lines.push(`Other lives: ${st.branches.filter((b) => b.status === "active").length} active, ${st.branches.filter((b) => b.status === "retired").length} retired`);
   if (st.ending) lines.push(`Ending: "${st.ending.verdict}"${st.ending.postcard ? ` · postcard "${st.ending.postcard}"` : ""}`);
-  if (st.usage) lines.push(`Model cost: $${st.usage.usd.toFixed(3)} over ${st.usage.calls} calls (${Object.entries(st.usage.byPurpose).sort((a, b) => b[1] - a[1]).map(([k, x]) => `${k} $${x.toFixed(3)}`).join(", ")})`);
+  if (v.cost && v.cost.oldRates !== "no") lines.push(`Model cost at the real prices (corrected; recorded at the old rates${v.cost.oldRates === "partly" ? ", partly" : ""}): $${v.cost.corrected.toFixed(3)}`);
+  if (st.usage) lines.push(`Model cost${v.cost && v.cost.oldRates !== "no" ? " (recorded)" : ""}: $${st.usage.usd.toFixed(3)} over ${st.usage.calls} calls (${Object.entries(st.usage.byPurpose).sort((a, b) => b[1] - a[1]).map(([k, x]) => `${k} $${x.toFixed(3)}`).join(", ")})`);
   if (st.error) lines.push(`Last engine error: ${st.error}`);
   const errs = d.engineLog.filter((x) => x.level === "error");
   if (errs.length) lines.push(`Engine errors logged: ${errs.length} (${[...new Set(errs.map((x) => x.code))].join(", ")})`);

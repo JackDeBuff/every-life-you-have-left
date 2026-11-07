@@ -109,6 +109,23 @@ export async function recordSpend(env: SpendEnv, usd: number, opts: { now?: bool
   }, 2_000);
 }
 
+/** The per-session caps (SESSION_SOFT_CAP_USD / SESSION_HARD_CAP_USD; same defaults as the session agent). */
+export function sessionCaps(env: object): { soft: number; hard: number } {
+  const e = env as { SESSION_SOFT_CAP_USD?: unknown; SESSION_HARD_CAP_USD?: unknown };
+  const num = (v: unknown, d: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : d;
+  };
+  return { soft: num(e.SESSION_SOFT_CAP_USD, 2.5), hard: num(e.SESSION_HARD_CAP_USD, 5) };
+}
+
+/** For /admin: the ledger, one row per UTC day, newest first. */
+export async function spendRows(env: SpendEnv): Promise<{ day: string; usd: number; updated_at: string }[]> {
+  if (!env.DB) return [];
+  await ensure(env.DB);
+  return (await env.DB.prepare("SELECT day, usd, updated_at FROM spend_ledger ORDER BY day DESC").all<{ day: string; usd: number; updated_at: string }>()).results;
+}
+
 /** For /api/health and /admin. */
 export async function spendStatus(env: SpendEnv): Promise<{ usd: number; cap: number; capped: boolean } | null> {
   if (!env.DB) return null;

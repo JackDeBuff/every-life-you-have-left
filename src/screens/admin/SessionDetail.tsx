@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "../Admin";
 import { ApiError, AuthError, sessionChecks, sessionDetail } from "./api";
-import { ago, buildView, cost, dayTime, isLive, money, moneyTitle, type SessionView } from "./model";
+import { ago, buildView, capLine, cost, dayTime, isLive, money, moneyTitle, type SessionView } from "./model";
 import { sessionSummary } from "./report";
 import { ChatTab, EndingTab, PortraitsTab, SettingsTab, UploadsTab } from "./tabs-misc";
 import { DecisionsTab } from "./tabs-decisions";
@@ -180,7 +180,19 @@ export function SessionDetail({ route, go, onAuthError }: { route: Route; go: (r
           <div>
             <dt>Model cost</dt>
             <dd>
-              {cost(st.usage?.usd)} <span className="faint">{st.usage ? `${st.usage.calls} calls` : ""}</span>
+              {v.cost && v.cost.oldRates !== "no" ? (
+                <span title={`Recorded ${cost(v.cost.recorded)} at the old rates; corrected to the real prices`}>
+                  {cost(v.cost.corrected)} <Chip tone="warn">{v.cost.oldRates === "partly" ? "partly old rates" : "old rates"}</Chip>
+                </span>
+              ) : (
+                cost(st.usage?.usd)
+              )}{" "}
+              <span className="faint">{st.usage ? `${st.usage.calls} calls` : ""}</span>
+              {st.usage && detail.sessionCaps && (
+                <span className={`adm-capline${capLine(st.usage.usd, detail.sessionCaps).over !== "none" ? " adm-bad" : " faint"}`} title="The caps are checked against the recorded tally (worker/spend.ts)">
+                  {capLine(st.usage.usd, detail.sessionCaps).text}
+                </span>
+              )}
             </dd>
           </div>
           <div>

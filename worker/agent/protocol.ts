@@ -147,6 +147,8 @@ export interface SessionUsage {
   listUsd?: number;
   /** Per full purpose ("decision.small", "decision.smallBatch", "answer.fold", "years", ...). */
   detail?: Record<string, { calls: number; usd: number; inTok: number; cachedTok: number; outTok: number }>;
+  /** Per model id (recorded from Sat Nov 7 evening on; older sessions don't have it). Out includes thought tokens. */
+  byModel?: Record<string, { calls: number; usd: number; inTok: number; outTok: number }>;
   /** D-089 small-card serving: cards served, how many came straight from the written-ahead queue, the wait for the rest. */
   smalls?: { served: number; fromQueue: number; waitMs: number; maxWaitMs: number; batches: number; discarded: number; followUps: number; folds: number; folded: number };
 }

@@ -324,3 +324,24 @@ td.adm-empty { text-align: center; padding: var(--s5); }
   .adm-violations li .adm-vwhere, .adm-violations li .adm-vmsg { grid-column: 1 / -1; }
   .adm-timing { margin-left: 0; width: 100%; }
 }
+
+/* spend: meters, cap lines, the Sessions | Spend switch */
+.adm-nav { display: inline-flex; gap: 2px; margin-left: var(--s4); }
+.adm-nav a { height: 26px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--r1); color: var(--ink-2); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+.adm-nav a:hover { color: var(--ink); background: var(--sunken); }
+.adm-nav a[aria-current="page"] { color: var(--ink); background: var(--sunken); box-shadow: inset 0 -2px 0 var(--sun); }
+.adm-top-left { display: inline-flex; align-items: center; min-width: 0; }
+.adm-meter { position: relative; display: block; height: 8px; border-radius: 4px; background: var(--hair-2); overflow: visible; min-width: 80px; }
+.adm-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--ink-2); }
+.adm-meter[data-level="warn"] .adm-meter-fill { background: var(--sun); }
+.adm-meter[data-level="over"] .adm-meter-fill { background: var(--tone-down); }
+.adm-meter-mark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink-3); border-radius: 1px; }
+.adm-capline { display: block; font-size: 11.5px; font-weight: 500; margin-top: 2px; }
+.adm-capcell { display: grid; gap: 6px; }
+.adm-oldrate { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.adm-spendbig { font-variant-numeric: tabular-nums; font-stretch: var(--w-data); }
+.adm-spendnum { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+@media (max-width: 640px) {
+  .adm-nav { margin-left: var(--s2); }
+  .adm-brand .label { display: none; }
+}

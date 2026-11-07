@@ -2,7 +2,7 @@
  * Admin API client. The passcode lives in sessionStorage (this tab only, gone when it closes) and is
  * sent as `x-admin-passcode`. A 401 anywhere clears it and sends the page back to the login.
  */
-import type { ChecksResponse, DetailResponse, ListResponse } from "./types";
+import type { ChecksResponse, DetailResponse, ListResponse, SpendResponse } from "./types";
 
 const KEY = "elyl.admin.passcode";
 
@@ -64,4 +64,5 @@ async function get<T>(path: string, pass = passcode(), signal?: AbortSignal): Pr
 export const ping = (pass: string) => get<{ ok: true }>("/api/admin/ping", pass);
 export const listSessions = (signal?: AbortSignal) => get<ListResponse>("/api/admin/sessions?limit=300", undefined, signal);
 export const sessionDetail = (id: string, signal?: AbortSignal) => get<DetailResponse>(`/api/admin/session/${encodeURIComponent(id)}`, undefined, signal);
+export const spend = (signal?: AbortSignal) => get<SpendResponse>("/api/admin/spend", undefined, signal);
 export const sessionChecks = (id: string, signal?: AbortSignal) => get<ChecksResponse>(`/api/admin/session/${encodeURIComponent(id)}/checks`, undefined, signal);

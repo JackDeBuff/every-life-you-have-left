@@ -103,6 +103,25 @@ export const Section = ({ title, aside, children, id }: { title: ReactNode; asid
   </section>
 );
 
+/** A filled bar for spend against a cap: ink up to the soft mark, warm past it, the down tone at the cap. */
+export function Meter({ value, max, marks = [], label }: { value: number; max: number; marks?: { at: number; label: string }[]; label: string }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  const level = value >= max ? "over" : marks.some((m) => value >= m.at) ? "warn" : "ok";
+  return (
+    <span className="adm-meter" data-level={level} role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.round(value * 100) / 100}>
+      <span className="adm-meter-fill" style={{ width: `${pct}%` }} />
+      {marks.map((m) => (
+        <span key={m.label} className="adm-meter-mark" style={{ left: `${Math.min(100, (m.at / max) * 100)}%` }} title={m.label} />
+      ))}
+    </span>
+  );
+}
+
+/** A session's spend against its soft and hard caps. */
+export const CapBar = ({ usd, soft, hard }: { usd: number; soft: number; hard: number }) => (
+  <Meter value={usd} max={hard} marks={[{ at: soft, label: `soft cap $${soft.toFixed(2)}` }]} label="Session spend against its hard cap" />
+);
+
 export const Empty = ({ children }: { children: ReactNode }) => <p className="adm-empty">{children}</p>;
 
 /** The user's own words: serif italic, like everywhere in the product. */
