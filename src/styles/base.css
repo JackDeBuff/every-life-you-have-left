@@ -198,3 +198,14 @@ h1, h2, h3, h4, p { margin: 0; }
 .conn-note .actions { display: flex; gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap; }
 .conn-dot { width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--sun); animation: dot 1.2s var(--e-tide) infinite; }
 .start-err { color: var(--ink); background: var(--sun-soft); padding: 8px 12px; border-radius: var(--r1); margin: 0; }
+
+/* Hold-to-talk notes (blocked mic, couldn't hear): calm, inline under the field, never a modal. */
+.say-note {
+  display: flex; gap: 6px; align-items: flex-start; margin: 0;
+  font-size: 12.5px; line-height: 1.4; color: var(--ink);
+  animation: fadein var(--t-base) var(--e-settle) both;
+}
+.say-note svg { flex: none; margin-top: 2px; color: var(--sun-text); }
+.composer .say-note { margin-top: var(--s2); }
+/* Without an inline slot (start screen), the bubble wraps instead of running off the field. */
+.talk-err.wrap { white-space: normal; width: max-content; max-width: min(280px, calc(100vw - 32px)); line-height: 1.35; }

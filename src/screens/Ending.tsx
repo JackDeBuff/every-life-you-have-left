@@ -75,10 +75,10 @@ export default function Ending() {
     [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
   const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
-  const message = useMemo(
-    () => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} Decide the small things faster and the big things slower. It worked out better than you'd think.`,
-    [chosenLast, lives, p.city],
-  );
+  // The letter is this life's own verdict (no stock advice line: it read the same on every card);
+  // the picture's caption is the path you took, so the two don't repeat each other.
+  const message = useMemo(() => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict}`.trim(), [chosenLast, lives, p.city]);
+  const caption = lives[0]!.path || `${p.firstName ? `${p.firstName}'s` : "Your"} life, ${p.age} to ${s.endAge}`;
 
   return (
     <div className="ending scroll" ref={root}>
@@ -155,6 +155,7 @@ export default function Ending() {
           endYear={endYear}
           place={chosenLast?.place ?? p.city ?? ""}
           verdict={lives[0]!.verdict}
+          caption={caption}
           message={message}
           quote={firstQuote}
           states={chosenLast?.states ?? null}

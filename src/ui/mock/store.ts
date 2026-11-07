@@ -781,6 +781,9 @@ export const useMockSim = create<Store>()((set, get) => {
   };
 });
 
+// QA handle (dev only): `__mock.setState(...)` injects long questions / labels for layout checks.
+if (import.meta.env.DEV) (window as unknown as { __mock: typeof useMockSim }).__mock = useMockSim;
+
 /** Small read helpers shared by the UI. */
 export const lifeTitle = (s: SessionState, life: string) => (life === "chosen" ? "Your life" : (s.branches.find((b) => b.id === life)?.title ?? "Another life"));
 export const settingById = (s: SessionState, id: string): LiveSetting | undefined => s.settings.find((x) => x.id === id);

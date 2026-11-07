@@ -3,12 +3,31 @@
  * Live: the real transcript, or a short "couldn't hear that" (we never put words in your mouth).
  * Offline demo (mock backend): if the mic or the endpoint fails, a sample transcript is used so the
  * demo never dead-ends. Hold with the pointer, or hold Space while the button has focus.
+ * Blocked mic (permission denied): no pretend listening; a calm note says so at once. With
+ * `onNotice` the parent shows the note inline under its field; without it, a small bubble does.
  */
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { backend } from "./session";
 
-type Status = "idle" | "listening" | "transcribing" | "error";
+type Status = "idle" | "listening" | "transcribing" | "error" | "blocked";
+
+export const MIC_BLOCKED = "Microphone is blocked. Type instead, or allow it in your browser.";
+
+/** A remembered "deny" for this site, when the browser can tell us without prompting. */
+async function micDenied(): Promise<boolean> {
+  try {
+    const p = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+    return p?.state === "denied";
+  } catch {
+    return false;
+  }
+}
+
+const isBlocked = (err: unknown) => {
+  const name = (err as { name?: string } | null)?.name ?? "";
+  return name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError";
+};
 
 const MOCK: string[] = [
   "Honestly, I'd stay, but only if I can keep painting on weekends.",
@@ -39,8 +58,30 @@ export async function transcribe(blob: Blob | null, hint: string): Promise<strin
   return MOCK[Math.floor(Math.random() * MOCK.length)]!;
 }
 
-export function HoldToTalk({ onText, hint = "", compact = false, disabled = false }: { onText: (t: string) => void; hint?: string; compact?: boolean; disabled?: boolean }) {
-  const [status, setStatus] = useState<Status>("idle");
+export function HoldToTalk({
+  onText,
+  hint = "",
+  compact = false,
+  disabled = false,
+  onNotice,
+}: {
+  onText: (t: string) => void;
+  hint?: string;
+  compact?: boolean;
+  disabled?: boolean;
+  /** Show notes (blocked mic, couldn't hear) inline in the parent instead of the bubble. */
+  onNotice?: (note: string | null) => void;
+}) {
+  const [status, setStatusState] = useState<Status>("idle");
+  const statusRef = useRef<Status>("idle");
+  const setStatus = (s: Status | ((p: Status) => Status)) => {
+    const next = typeof s === "function" ? s(statusRef.current) : s;
+    statusRef.current = next;
+    setStatusState(next);
+  };
+  const notice = useRef(onNotice);
+  notice.current = onNotice;
+  const noteTimer = useRef(0);
   const [level, setLevel] = useState(0);
   const rec = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -48,7 +89,27 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
   const raf = useRef<number>(0);
   const started = useRef(0);
 
-  useEffect(() => () => stopAll(), []);
+  useEffect(
+    () => () => {
+      stopAll();
+      window.clearTimeout(noteTimer.current);
+    },
+    [],
+  );
+
+  /** Show a note for a few seconds, then go quiet again. */
+  function note(kind: "error" | "blocked", text: string) {
+    setStatus(kind);
+    notice.current?.(text);
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(
+      () => {
+        setStatus((s) => (s === kind ? "idle" : s));
+        notice.current?.(null);
+      },
+      kind === "blocked" ? 6000 : 2600,
+    );
+  }
 
   function stopAll() {
     cancelAnimationFrame(raf.current);
@@ -57,7 +118,13 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
   }
 
   async function begin() {
-    if (disabled || status === "listening" || status === "transcribing") return;
+    const st = statusRef.current;
+    if (disabled || st === "listening" || st === "transcribing") return;
+    if (await micDenied()) {
+      note("blocked", MIC_BLOCKED);
+      return;
+    }
+    notice.current?.(null);
     setStatus("listening");
     started.current = performance.now();
     chunks.current = [];
@@ -81,9 +148,14 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
       r.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
       r.start();
       rec.current = r;
-    } catch {
-      // No mic (or denied): keep the gesture alive and fall back to the mock transcript.
+    } catch (err) {
       rec.current = null;
+      if (isBlocked(err)) {
+        stopAll();
+        note("blocked", MIC_BLOCKED);
+        return;
+      }
+      // No mic device: keep the gesture alive (the offline demo falls back to a sample transcript).
       const fake = () => {
         setLevel(0.25 + Math.random() * 0.5);
         raf.current = requestAnimationFrame(fake);
@@ -93,7 +165,7 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
   }
 
   async function end() {
-    if (status !== "listening") return;
+    if (statusRef.current !== "listening") return;
     const held = performance.now() - started.current;
     setStatus("transcribing");
     setLevel(0);
@@ -116,8 +188,7 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
       onText(text);
       setStatus("idle");
     } catch {
-      setStatus("error");
-      window.setTimeout(() => setStatus((s) => (s === "error" ? "idle" : s)), 2600);
+      note("error", rec.current ? "I couldn't hear that. Try again, or type it." : "No microphone. Type it instead.");
     }
   }
 
@@ -125,6 +196,7 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
     status === "listening" ? "Listening… release to stop"
     : status === "transcribing" ? "Writing it down…"
     : status === "error" ? (rec.current ? "I couldn't hear that. Try again, or type it." : "No microphone. Type it instead.")
+    : status === "blocked" ? MIC_BLOCKED
     : "Hold to talk";
   return (
     <button
@@ -153,13 +225,13 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
       }}
     >
       <span className="talk-ring" aria-hidden="true" />
-      {status === "error" && (
-        <span className="talk-err" role="status">
+      {(status === "error" || status === "blocked") && !onNotice && (
+        <span className={`talk-err${status === "blocked" ? " wrap" : ""}`} role="status">
           {label}
         </span>
       )}
       <Icon name="mic" size={compact ? 15 : 16} />
-      {!compact && <span className="talk-label">{status === "idle" ? "Hold to talk" : status === "listening" ? "Listening" : status === "error" ? "Try again" : "Writing…"}</span>}
+      {!compact && <span className="talk-label">{status === "idle" ? "Hold to talk" : status === "listening" ? "Listening" : status === "error" ? "Try again" : status === "blocked" ? "Mic blocked" : "Writing…"}</span>}
     </button>
   );
 }
