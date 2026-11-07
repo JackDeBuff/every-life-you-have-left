@@ -56,14 +56,25 @@ export function Bio() {
   // is only what they said at the start.
   const work = (yr as SimYearL | null)?.life?.work || p.facts.find((f) => f.key === "occupation")?.value || "";
   // People in this year of the life (engine ledger: partner, children with code-computed ages,
-  // pets, family), falling back to the start profile for years written before the ledger existed.
-  const ledgerPeople = (yr as SimYearL | null)?.life?.people;
-  const people = ledgerPeople?.length
-    ? ledgerPeople.slice(0, 5).map((x, i) => {
-        const name = x.name.replace(/^your /, "");
-        const label = name[0]!.toUpperCase() + name.slice(1);
-        return { id: `${i}-${x.name}`, label: x.role === "child" && x.age !== null ? `${label}, ${x.age}` : label, relation: x.role === "partner" ? "partner" : x.relation };
-      })
+  // pets, family). Only a year with no ledger at all (written before it existed) falls back to the
+  // start profile: an empty ledger list is the truth (friends who drifted are gone, not restored).
+  // The engine may send `closeness` (0..1) per person: closest first when it does.
+  const life = (yr as SimYearL | null)?.life;
+  const closeness = (x: unknown) => {
+    const c = (x as { closeness?: unknown }).closeness;
+    return typeof c === "number" && Number.isFinite(c) ? c : null;
+  };
+  const people = life
+    ? (life.people ?? [])
+        .map((x, i) => ({ x, i, c: closeness(x) }))
+        // With closeness, closest first (people without it after, in ledger order); else ledger order.
+        .sort((a, b) => (b.c ?? -1) - (a.c ?? -1) || a.i - b.i)
+        .slice(0, 5)
+        .map(({ x, i }) => {
+          const name = x.name.replace(/^your /, "");
+          const label = (name[0] ?? "").toUpperCase() + name.slice(1);
+          return { id: `${i}-${x.name}`, label: x.role === "child" && x.age !== null ? `${label}, ${x.age}` : label, relation: x.role === "partner" ? "partner" : x.relation };
+        })
     : [...p.people].sort((a, b) => b.closeness - a.closeness).slice(0, 5);
   const yearsIn = age - startAge;
   // The life moved somewhere with another currency: offer to show money in it (once per currency).
@@ -113,18 +124,27 @@ export function Bio() {
           <dd>
             <span className="money-line">
               <Count value={netWorth} code={cur} className="money data" />
-              <select className="cur-pick" aria-label="Show money in" value={cur} onChange={(e) => setCurrencyPref(sid, { override: e.target.value as CurrencyCode })}>
-                {CURRENCY_CODES.map((c) => (
-                  <option key={c} value={c}>
-                    {CURRENCIES[c].symbol} {c}
-                  </option>
-                ))}
-              </select>
+              <span className="cur-pick-wrap">
+                <select className="cur-pick" aria-label="Show money in" title="Show money in another currency" value={cur} onChange={(e) => setCurrencyPref(sid, { override: e.target.value as CurrencyCode })}>
+                  {CURRENCY_CODES.map((c) => (
+                    <option key={c} value={c}>
+                      {CURRENCIES[c].symbol} {c}
+                    </option>
+                  ))}
+                </select>
+                <Icon name="caretDown" size={10} className="cur-pick-caret" aria-hidden="true" />
+              </span>
             </span>
             {offer && (
-              <span className="cur-offer small">
-                <button type="button" className="cur-offer-yes" onClick={() => setCurrencyPref(sid, { override: offer })}>
-                  You're in {yr!.place.split(",")[0]} now · show {CURRENCIES[offer].symbol}?
+              <span className="cur-offer">
+                <button
+                  type="button"
+                  className="cur-offer-yes"
+                  title={`You're in ${yr!.place.split(",")[0]} now. Show money in ${CURRENCIES[offer].symbol} ${offer}?`}
+                  onClick={() => setCurrencyPref(sid, { override: offer })}
+                >
+                  <span className="cur-offer-t">In {yr!.place.split(",")[0]} now</span>
+                  <span className="cur-offer-go">Show {CURRENCIES[offer].symbol}</span>
                 </button>
                 <button type="button" className="cur-offer-no" aria-label="Keep the current currency" onClick={() => setCurrencyPref(sid, { dismissed: [...pref.dismissed, offer] })}>
                   <Icon name="x" size={11} />
