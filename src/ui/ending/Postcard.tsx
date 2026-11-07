@@ -313,9 +313,11 @@ function draw(c: HTMLCanvasElement, p: Props) {
     ctx.lineTo(W - 70, 484 + i * 64);
     ctx.stroke();
   });
+  // The small print wraps inside the address column (it used to run off the card's right edge).
   ctx.fillStyle = ink2;
   ctx.font = `500 15px ${sans}`;
-  ctx.fillText("A projection, not a prediction · Every Life You Have Left", X + 440, H - 60);
+  const fine = wrapLines(ctx, "A projection, not a prediction · Every Life You Have Left", W - 70 - (X + 440));
+  drawLines(ctx, fine, X + 440, H - 60 - (fine.length - 1) * 21, 21);
   // caption under the picture (the path you took, or the verdict): bottom-anchored, below the
   // threads, stepping down a size rather than cutting off.
   const caption = (p.caption ?? p.verdict).trim();
