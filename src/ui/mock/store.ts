@@ -677,6 +677,13 @@ export const useMockSim = create<Store>()((set, get) => {
       stepBranches(year);
       const slot = I.slots.find((x) => x.year === year);
       if (slot?.kind === "big" && !get().decisions.some((d) => d.year === year && d.kind === "big")) {
+        // A fork preempts an open small card: shelve it silently (no chat line, never asked again).
+        const open = get().decisions.filter((d) => d.kind === "small" && d.status === "pending");
+        if (open.length)
+          set({
+            decisions: get().decisions.map((d) => (open.includes(d) ? { ...d, status: "slid" as const } : d)),
+            dialogue: get().dialogue.filter((e) => !open.some((d) => d.id === e.decisionId && e.role === "guide")),
+          } as Partial<Store>);
         makeDecision(year, "big");
         return; // the year is logged once the fork is answered
       }

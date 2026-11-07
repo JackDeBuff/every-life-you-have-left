@@ -312,7 +312,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   async answer(a: AnswerInput): Promise<void> {
     const d = this.s.decisions.find((x) => x.id === a.decisionId);
-    if (!d || d.status !== "pending") return;
+    if (!d) return;
+    // A small card that slid (or was shelved by a fork) while they were answering it: their answer
+    // still counts, bound to the card they answered (never to whatever is pending now).
+    const late = d.kind === "small" && d.status === "slid" && !a.slid && (!!a.optionId || !!a.text?.trim());
+    if (d.status !== "pending" && !late) return;
     const rec: DecisionAnswer = {
       decisionId: d.id,
       optionId: a.optionId ?? null,
@@ -342,8 +346,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const decisionLine = this.line(d.year, "decision", opt ? `You chose: ${opt.label}` : `You said: "${short(rec.text ?? "", 18)}"`, d.id, d.domains[0] ?? null);
     this.update((s) => ({
       decisions: s.decisions.map((x) => (x.id === d.id ? answered : x)),
-      answers: [...s.answers, rec],
-      log: [...s.log, decisionLine],
+      answers: [...s.answers.filter((x) => !(late && x.decisionId === d.id)), rec],
+      log: [...s.log.filter((l) => !(late && l.kind === "slid" && l.refId === d.id)), decisionLine],
       thinking: isBig ? true : s.thinking,
     }));
 
@@ -690,7 +694,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (s.phase !== "playing" && s.phase !== "start") return;
     const big = s.decisions.find((d) => d.kind === "big" && d.status === "pending" && d.year <= s.playhead.year);
     if (big) {
-      this.update((st) => ({ phase: "deciding", playhead: { ...st.playhead, paused: true }, thinking: false }));
+      // A fork preempts an open small card: it is shelved silently (status "slid" with no answer
+      // record and no log line, so it never resurfaces and the chat doesn't mention it). The QA
+      // run locked up at 2x: the small card held the right pane while the dimmed fork waited.
+      const shelved = s.decisions.filter((d) => d.kind === "small" && d.status === "pending");
+      this.update((st) => ({
+        phase: "deciding",
+        playhead: { ...st.playhead, paused: true },
+        thinking: false,
+        decisions: shelved.length ? st.decisions.map((d) => (d.kind === "small" && d.status === "pending" ? { ...d, status: "slid" as const } : d)) : st.decisions,
+      }));
+      if (shelved.length) void this.mirror.decisions(this.s.decisions.filter((d) => shelved.some((x) => x.id === d.id)));
       this.persistNow();
       void this.mirror.session(this.s);
     }

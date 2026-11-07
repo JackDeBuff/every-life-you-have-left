@@ -119,7 +119,8 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
     // A slid question leaves no prompt in the chat, only a quiet line (runs collapse below);
     // the life log keeps it.
     if (d.status === "slid") {
-      push({ id: `slid-${d.id}`, role: "system", text: slidLine(1) }, d.age, at);
+      // No answer record = shelved by a fork, silently.
+      if (ans) push({ id: `slid-${d.id}`, role: "system", text: slidLine(1) }, d.age, at);
       continue;
     }
     push({ id: `d-${d.id}`, role: "guide", text: d.prompt, decisionId: d.id }, d.age, at - 2);

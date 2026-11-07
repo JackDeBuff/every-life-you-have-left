@@ -15,7 +15,10 @@ import { LiveSettings } from "./LiveSettings";
 export function RightPane() {
   const decisions = useSim((s) => s.decisions);
   const forking = useUi((s) => s.forking);
-  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : decisions.find((d) => d.status === "pending");
+  const deciding = useSim((s) => s.phase === "deciding");
+  // A due fork always takes the pane (it preempts a small card; the agent shelves that one).
+  const pendingBig = deciding ? decisions.find((d) => d.kind === "big" && d.status === "pending") : undefined;
+  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending"));
   const big = active?.kind === "big";
   return (
     <aside className="pane right" data-region="right" data-big={big} aria-label="Settings and conversation">
