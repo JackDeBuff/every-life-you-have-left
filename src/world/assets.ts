@@ -89,7 +89,7 @@ const srgb = (hex: string): [number, number, number] => {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
 
-function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, mode: RecolorMode) {
+function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, mode: RecolorMode, snowy = false) {
   const img = src.image as CanvasImageSource & { width: number; height: number };
   const w = img.width;
   const h = img.height;
@@ -104,9 +104,11 @@ function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, m
   em.height = h;
   const ectx = em.getContext("2d")!;
   const edata = ectx.createImageData(w, h);
-  const roof = srgb(style?.roof ?? "#888888");
+  const roof = srgb(snowy ? "#EEF3F6" : style?.roof ?? "#888888");
   const wallC = srgb(wall ?? "#ffffff");
   const trim = srgb(style?.trim ?? "#ffffff");
+  const dark = srgb(style?.dark ?? "#4E5560");
+  const coral = srgb("#EE8E7A");
   const px = data.data;
   for (let i = 0; i < px.length; i += 4) {
     const r = px[i]! / 255;
@@ -127,6 +129,12 @@ function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, m
         glow = 1;
       } else if (s < 0.2 && l > 0.55) {
         out = [trim[0] * l, trim[1] * l, trim[2] * l];
+      } else if (s < 0.3 && l >= 0.15 && l <= 0.55) {
+        const k = 0.55 + l * 0.9; // dark facades, frames and flat roofs -> the flavour's deep neutral
+        out = [dark[0] * k, dark[1] * k, dark[2] * k];
+      } else if (hh >= 255 && hh <= 340 && s > 0.3) {
+        const k = Math.min(1.15, l / 0.62); // Kenney purples / pinks -> our coral (no purple in the world)
+        out = [coral[0] * k, coral[1] * k, coral[2] * k];
       }
     }
     if (!out) {
@@ -158,16 +166,16 @@ function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, m
 /** Materials whose emissive follows window glow (updated by the world each frame). */
 export const GLOW_MATERIALS = new Set<MeshStandardMaterial>();
 
-function kenneyMaterial(kit: StaticKit, original: MeshStandardMaterial, flavor: SceneSpec["flavor"], variant: number) {
+function kenneyMaterial(kit: StaticKit, original: MeshStandardMaterial, flavor: SceneSpec["flavor"], variant: number, snowy: boolean) {
   const building = kit === "suburban" || kit === "commercial";
   const style = building ? FLAVOR[flavor] : null;
   const wall = style ? style.walls[variant % style.walls.length]! : null;
-  const key = `${kit}|${building ? flavor : "-"}|${building ? variant % (style?.walls.length ?? 1) : 0}`;
+  const key = `${kit}|${building ? flavor : "-"}|${building ? variant % (style?.walls.length ?? 1) : 0}|${building && snowy ? "snow" : ""}`;
   let m = recolorCache.get(key);
   if (m) return m;
   const src = original.map;
   if (!src?.image) return original;
-  const { map, emissiveMap } = recolor(src, style, wall, building ? "building" : "soft");
+  const { map, emissiveMap } = recolor(src, style, wall, building ? "building" : "soft", building && snowy);
   m = new MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 });
   if (building) {
     m.emissiveMap = emissiveMap;
@@ -184,7 +192,7 @@ function kenneyMaterial(kit: StaticKit, original: MeshStandardMaterial, flavor: 
 // ---------------------------------------------------------------------------------------------
 const templateCache = new Map<string, Object3D>();
 
-function remap(kit: StaticKit, mat: Material, flavor: SceneSpec["flavor"], variant: number): Material {
+function remap(kit: StaticKit, mat: Material, flavor: SceneSpec["flavor"], variant: number, snowy: boolean): Material {
   const name = mat.name;
   if (kit === "nature") {
     const k = NATURE_MAP[name];
@@ -195,7 +203,7 @@ function remap(kit: StaticKit, mat: Material, flavor: SceneSpec["flavor"], varia
     if (name === "Glass") return MATS.glass;
     return hex ? solid(hex) : mat;
   }
-  if ((mat as MeshStandardMaterial).map) return kenneyMaterial(kit, mat as MeshStandardMaterial, flavor, variant);
+  if ((mat as MeshStandardMaterial).map) return kenneyMaterial(kit, mat as MeshStandardMaterial, flavor, variant, snowy);
   return mat;
 }
 
@@ -203,9 +211,9 @@ function remap(kit: StaticKit, mat: Material, flavor: SceneSpec["flavor"], varia
  * A prepared, palette-mapped template for one model. Clone it per placement (shares geometry +
  * materials). `scene` is the loaded kit scene (from loadKit()).
  */
-export function template(kit: StaticKit, scene: Object3D, id: string, flavor: SceneSpec["flavor"], variant = 0): Object3D {
+export function template(kit: StaticKit, scene: Object3D, id: string, flavor: SceneSpec["flavor"], variant = 0, snowy = false): Object3D {
   const building = kit === "suburban" || kit === "commercial";
-  const key = `${kit}|${id}|${building ? flavor : ""}|${building ? variant : 0}`;
+  const key = `${kit}|${id}|${building ? flavor : ""}|${building ? variant : 0}|${building && snowy ? 1 : 0}`;
   const hit = templateCache.get(key);
   if (hit) return hit;
   const node = scene.getObjectByName(id);
@@ -220,8 +228,8 @@ export function template(kit: StaticKit, scene: Object3D, id: string, flavor: Sc
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.material = Array.isArray(mesh.material)
-        ? mesh.material.map((m) => remap(kit, m, flavor, variant))
-        : remap(kit, mesh.material, flavor, variant);
+        ? mesh.material.map((m) => remap(kit, m, flavor, variant, snowy))
+        : remap(kit, mesh.material, flavor, variant, snowy);
     });
     root.add(copy);
   }

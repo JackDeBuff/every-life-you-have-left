@@ -71,7 +71,8 @@ export function CameraRig({ rig }: { rig: MutableRefObject<RigState> }) {
       yaw += Math.sin(t * 0.26) * 2.6;
       pitch += Math.sin(t * 0.19 + 1.3) * 0.8;
     }
-    if (reduced || !c.init || R.shot) {
+    const snap = import.meta.env.DEV && (window as unknown as { __camSnap?: boolean }).__camSnap;
+    if (reduced || !c.init || R.shot || snap) {
       c.yaw = yaw;
       c.pitch = pitch;
       c.dist = dist;

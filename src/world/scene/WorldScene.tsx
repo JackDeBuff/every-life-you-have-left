@@ -44,6 +44,8 @@ interface IslandItem {
   spec: SceneSpec;
   layout: Layout;
   born: number;
+  /** Rise up from the clouds (a new place) or just appear (first load, interlude, reduced motion). */
+  rise: boolean;
   leaving: number | null;
 }
 
@@ -69,6 +71,9 @@ function Diorama({ item, self, frozen }: { item: IslandItem; self: SelfTracker; 
       g.position.y = -easeInCubic(k) * 11;
       g.scale.setScalar(1 - 0.25 * k);
       g.visible = k < 1;
+    } else if (!item.rise) {
+      g.position.y = 0;
+      g.scale.setScalar(1);
     } else {
       const k = clamp01((time() - item.born - 0.35) / 1.6);
       g.position.y = (1 - easeOutBack(k, 1.1)) * -10;
@@ -80,10 +85,10 @@ function Diorama({ item, self, frozen }: { item: IslandItem; self: SelfTracker; 
       <Island coast={layout.coast} seed={layout.placeKey} />
       <Procs procs={layout.procs} />
       <Suspense fallback={null}>
-        <Pieces pieces={layout.pieces} flavor={spec.flavor} />
+        <Pieces pieces={layout.pieces} flavor={spec.flavor} snowy={layout.snowCover > 0.5} />
       </Suspense>
       <Suspense fallback={null}>
-        <Hero hero={layout.hero} flavor={spec.flavor} />
+        <Hero hero={layout.hero} flavor={spec.flavor} snowy={layout.snowCover > 0.5} />
       </Suspense>
       <Suspense fallback={null}>
         <People people={layout.people} islandBorn={item.born} self={self} frozen={frozen} />
@@ -143,7 +148,7 @@ export function WorldScene(props: SceneProps) {
 
   // ----- islands: same place updates in place; a new place sinks the old island -----
   const idRef = useRef(0);
-  const [islands, setIslands] = useState<IslandItem[]>(() => [{ id: 0, spec: applied, layout, born: time() - 10, leaving: null }]);
+  const [islands, setIslands] = useState<IslandItem[]>(() => [{ id: 0, spec: applied, layout, born: time(), rise: false, leaving: null }]);
   const yearStep = useRef(0);
   useEffect(() => {
     setIslands((prev) => {
@@ -155,7 +160,7 @@ export function WorldScene(props: SceneProps) {
       const t = time();
       const instant = mode === "interlude" || reduced;
       const kept = instant ? [] : prev.filter((i) => i.leaving === null || t - i.leaving < 1.6).map((i) => (i.leaving === null ? { ...i, leaving: t } : i));
-      return [...kept, { id: ++idRef.current, spec: applied, layout, born: instant ? t - 10 : t, leaving: null }];
+      return [...kept, { id: ++idRef.current, spec: applied, layout, born: t, rise: !instant, leaving: null }];
     });
     yearStep.current += 1;
     preloadFor(layout);
@@ -203,7 +208,10 @@ export function WorldScene(props: SceneProps) {
   const momentToken = useRef(0);
   const [moment, setMoment] = useState<{ kind: Moment; token: number } | null>(null);
   useEffect(() => {
-    if (mode !== "life") return;
+    if (mode !== "life") {
+      setMoment(null);
+      return;
+    }
     if (applied.moment) setMoment({ kind: applied.moment, token: ++momentToken.current });
     else setMoment(null);
   }, [applied, mode]);

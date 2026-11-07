@@ -251,14 +251,14 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
   );
 }
 
-export function Hero({ hero, flavor }: { hero: HeroSpec; flavor: SceneSpec["flavor"] }) {
+export function Hero({ hero, flavor, snowy }: { hero: HeroSpec; flavor: SceneSpec["flavor"]; snowy: boolean }) {
   const { time, reduced } = useMotion();
   const list = usePresence([hero], (h) => h.key, 800, time);
   return (
     <group position={hero.pos}>
       {list.map((pr) => (
         <Pop key={pr.key} state={pr.state} t0={pr.t0} delay={0.15} rise={0.5}>
-          <HeroCut hero={pr.item} flavor={flavor} reduced={reduced} />
+          <HeroCut hero={snowy ? { ...pr.item, roofColor: "#EEF3F6" } : pr.item} flavor={flavor} reduced={reduced} />
         </Pop>
       ))}
     </group>

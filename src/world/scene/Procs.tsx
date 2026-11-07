@@ -100,7 +100,29 @@ function plaidTex(a: string, b: string) {
     ctx.globalAlpha = 1;
   });
 }
+function calcadaTex() {
+  const t = canvasTex("calcada", 128, 128, (ctx) => {
+    ctx.fillStyle = "#F3EEE4";
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = "#3E4652";
+    for (let band = -1; band < 5; band++) {
+      ctx.beginPath();
+      for (let x = 0; x <= 128; x += 4) {
+        const y = band * 32 + 10 + Math.sin((x / 128) * Math.PI * 2) * 8;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      for (let x = 128; x >= 0; x -= 4) ctx.lineTo(x, band * 32 + 17 + Math.sin((x / 128) * Math.PI * 2) * 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+  });
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.repeat.set(2, 2);
+  return t;
+}
 function pavingTex(base: string) {
+  if (base === "calcada") return calcadaTex();
   const t = canvasTex(`pave${base}`, 128, 128, (ctx) => {
     ctx.fillStyle = base;
     ctx.fillRect(0, 0, 128, 128);
@@ -437,7 +459,22 @@ function ProcBody({ p }: { p: ProcSpec }) {
         </group>
       );
     case "fountain":
+      if (p.color === "pond")
+        return (
+          <group>
+            <mesh geometry={CYL} material={MATS.sand} position={[0, -0.01, 0]} scale={[w + 0.14, 0.03, d + 0.14]} receiveShadow />
+            <mesh geometry={CYL} material={MATS.water} position={[0, 0, 0]} scale={[w, 0.035, d]} receiveShadow />
+            <mesh geometry={CYL} material={MATS.foliage} position={[w * 0.25, 0.03, -d * 0.1]} scale={[0.14, 0.008, 0.14]} />
+            <mesh geometry={CYL} material={MATS.foliage} position={[-w * 0.2, 0.03, d * 0.15]} scale={[0.1, 0.008, 0.1]} />
+          </group>
+        );
       return <Fountain size={p.size} />;
+    case "hay":
+      return (
+        <group>
+          <mesh geometry={CYL} material={col(p.color, MATS.wheat)} position={[0, w / 2, 0]} rotation-z={Math.PI / 2} scale={[w, h * 1.2, w]} castShadow receiveShadow />
+        </group>
+      );
     case "pier":
       return (
         <group>

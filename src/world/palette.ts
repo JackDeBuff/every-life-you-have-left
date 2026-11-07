@@ -41,6 +41,8 @@ export interface FlavorStyle {
   /** Vegetation family weights. */
   trees: { broad: number; pine: number; birch: number; palm: number; cactus: number; willow: number };
   roofKind: "gable" | "hip" | "flat";
+  /** Deep neutral that replaces Kenney's dark greys (frames, dark facades, flat roofs). */
+  dark: string;
   hills: boolean;
   haze: number;
 }
@@ -50,19 +52,19 @@ const T = (broad: number, pine: number, birch: number, palm: number, cactus = 0,
 });
 
 export const FLAVOR: Record<Flavor, FlavorStyle> = {
-  us_south: { walls: ["#C46E55", "#F3EEE4", "#E9D8BC"], roof: "#5B6470", trim: "#FFFFFF", door: "#2F4F6F", ground: "#A9C59A", paving: "#E9E0D0", trees: T(5, 2, 1, 0, 0, 1), roofKind: "gable", hills: false, haze: 0.15 },
-  us_northeast: { walls: ["#E9E2D3", "#9FB4C7", "#C9D6CF"], roof: "#4B5563", trim: "#FFFFFF", door: "#7A2E2E", ground: "#A3C294", paving: "#E4E1DA", trees: T(4, 2, 3, 0), roofKind: "gable", hills: false, haze: 0.1 },
-  us_west: { walls: ["#EBD9BE", "#F4EBDD", "#E3C9A8"], roof: "#C9764F", trim: "#F7F2E8", door: "#3E8C93", ground: "#C4C58E", paving: "#EADFC9", trees: T(1, 2, 0, 3, 1), roofKind: "hip", hills: true, haze: 0.2 },
-  us_midwest: { walls: ["#F1EBDD", "#D9C7A7", "#BFD0D8"], roof: "#7B4B3A", trim: "#FFFFFF", door: "#3F6B5A", ground: "#A9C59A", paving: "#E4DDCF", trees: T(5, 1, 1, 0), roofKind: "gable", hills: false, haze: 0.1 },
-  europe_south: { walls: ["#F7F2E8", "#E8C27A", "#F2D3B3"], roof: "#D9825B", trim: "#FBF8F1", door: "#3E6E8E", ground: "#B9C48E", paving: "#EFE4CF", trees: T(2, 3, 0, 1, 0, 0), roofKind: "hip", hills: true, haze: 0.15 },
-  europe_north: { walls: ["#B4553F", "#DDB45A", "#F3EFE6"], roof: "#3E4652", trim: "#FFFFFF", door: "#2E3A4F", ground: "#9FBE90", paving: "#DCDDD8", trees: T(1, 5, 3, 0), roofKind: "gable", hills: true, haze: 0.12 },
-  east_asia: { walls: ["#F2EEE6", "#D6DCDD", "#EADCC8"], roof: "#4F5D6B", trim: "#FFFFFF", door: "#9C3B2E", ground: "#A9C59A", paving: "#E2E0DA", trees: T(4, 2, 1, 0, 0, 2), roofKind: "hip", hills: true, haze: 0.18 },
-  southeast_asia: { walls: ["#F2D3B3", "#B7DCCF", "#F4E3A1", "#F4C7B8"], roof: "#C9764F", trim: "#FBF8F1", door: "#3E8C93", ground: "#8FC08A", paving: "#EADFCB", trees: T(2, 0, 0, 5), roofKind: "hip", hills: false, haze: 0.4 },
-  south_asia: { walls: ["#F0D9A8", "#E7A983", "#F4EBDD"], roof: "#B5654A", trim: "#FBF8F1", door: "#3E8C93", ground: "#B4C17E", paving: "#EADBB9", trees: T(3, 0, 0, 3, 0), roofKind: "flat", hills: false, haze: 0.35 },
-  latam: { walls: ["#F1B97A", "#9ED3C6", "#EE8E7A", "#F4EBDD"], roof: "#C9764F", trim: "#FBF8F1", door: "#2F4F6F", ground: "#A8C487", paving: "#EBDCC2", trees: T(2, 0, 0, 3, 1), roofKind: "flat", hills: true, haze: 0.2 },
-  middle_east: { walls: ["#E7D3B0", "#F4EBDD", "#DCC39A"], roof: "#C9A77A", trim: "#FBF8F1", door: "#3E8C93", ground: "#D8C9A0", paving: "#EBDDC1", trees: T(0, 0, 0, 4, 2), roofKind: "flat", hills: false, haze: 0.3 },
-  africa: { walls: ["#E8C49A", "#C9764F", "#F4EBDD"], roof: "#8E5B3E", trim: "#FBF8F1", door: "#2F4F6F", ground: "#C3B37A", paving: "#E0C9A3", trees: T(3, 0, 0, 2, 1), roofKind: "flat", hills: true, haze: 0.25 },
-  oceania: { walls: ["#F4EBDD", "#9ED3C6", "#E9D8BC"], roof: "#6E7A86", trim: "#FFFFFF", door: "#D9825B", ground: "#A9C59A", paving: "#E9E2D4", trees: T(2, 0, 3, 2), roofKind: "hip", hills: false, haze: 0.12 },
+  us_south: { walls: ["#C46E55", "#F3EEE4", "#E9D8BC"], roof: "#5B6470", trim: "#FFFFFF", door: "#2F4F6F", ground: "#A9C59A", paving: "#E9E0D0", trees: T(5, 2, 1, 0, 0, 1), roofKind: "gable", dark: "#4E5560", hills: false, haze: 0.15 },
+  us_northeast: { walls: ["#E9E2D3", "#9FB4C7", "#C9D6CF"], roof: "#4B5563", trim: "#FFFFFF", door: "#7A2E2E", ground: "#A3C294", paving: "#E4E1DA", trees: T(4, 2, 3, 0), roofKind: "gable", dark: "#4A5260", hills: false, haze: 0.1 },
+  us_west: { walls: ["#EBD9BE", "#F4EBDD", "#E3C9A8"], roof: "#C9764F", trim: "#F7F2E8", door: "#3E8C93", ground: "#C4C58E", paving: "#EADFC9", trees: T(1, 2, 0, 3, 1), roofKind: "hip", dark: "#7A6656", hills: true, haze: 0.2 },
+  us_midwest: { walls: ["#F1EBDD", "#D9C7A7", "#BFD0D8"], roof: "#7B4B3A", trim: "#FFFFFF", door: "#3F6B5A", ground: "#A9C59A", paving: "#E4DDCF", trees: T(5, 1, 1, 0), roofKind: "gable", dark: "#5A5450", hills: false, haze: 0.1 },
+  europe_south: { walls: ["#F7F2E8", "#E8C27A", "#F2D3B3"], roof: "#D9825B", trim: "#FBF8F1", door: "#3E6E8E", ground: "#B9C48E", paving: "#EFE4CF", trees: T(2, 3, 0, 1, 0, 0), roofKind: "hip", dark: "#8A7464", hills: true, haze: 0.15 },
+  europe_north: { walls: ["#B4553F", "#DDB45A", "#F3EFE6"], roof: "#3E4652", trim: "#FFFFFF", door: "#2E3A4F", ground: "#9FBE90", paving: "#DCDDD8", trees: T(1, 5, 3, 0), roofKind: "gable", dark: "#3E4652", hills: true, haze: 0.12 },
+  east_asia: { walls: ["#F2EEE6", "#D6DCDD", "#EADCC8"], roof: "#4F5D6B", trim: "#FFFFFF", door: "#9C3B2E", ground: "#A9C59A", paving: "#E2E0DA", trees: T(4, 2, 1, 0, 0, 2), roofKind: "hip", dark: "#7D8790", hills: true, haze: 0.18 },
+  southeast_asia: { walls: ["#F2D3B3", "#B7DCCF", "#F4E3A1", "#F4C7B8"], roof: "#C9764F", trim: "#FBF8F1", door: "#3E8C93", ground: "#8FC08A", paving: "#EADFCB", trees: T(2, 0, 0, 5), roofKind: "hip", dark: "#8F9AA0", hills: false, haze: 0.4 },
+  south_asia: { walls: ["#F0D9A8", "#E7A983", "#F4EBDD"], roof: "#B5654A", trim: "#FBF8F1", door: "#3E8C93", ground: "#B4C17E", paving: "#EADBB9", trees: T(3, 0, 0, 3, 0), roofKind: "flat", dark: "#8A7058", hills: false, haze: 0.35 },
+  latam: { walls: ["#F1B97A", "#9ED3C6", "#EE8E7A", "#F4EBDD"], roof: "#C9764F", trim: "#FBF8F1", door: "#2F4F6F", ground: "#A8C487", paving: "#EBDCC2", trees: T(2, 0, 0, 3, 1), roofKind: "flat", dark: "#7A6050", hills: true, haze: 0.2 },
+  middle_east: { walls: ["#E7D3B0", "#F4EBDD", "#DCC39A"], roof: "#C9A77A", trim: "#FBF8F1", door: "#3E8C93", ground: "#D8C9A0", paving: "#EBDDC1", trees: T(0, 0, 0, 4, 2), roofKind: "flat", dark: "#9A8268", hills: false, haze: 0.3 },
+  africa: { walls: ["#E8C49A", "#C9764F", "#F4EBDD"], roof: "#8E5B3E", trim: "#FBF8F1", door: "#2F4F6F", ground: "#C3B37A", paving: "#E0C9A3", trees: T(3, 0, 0, 2, 1), roofKind: "flat", dark: "#7A5A44", hills: true, haze: 0.25 },
+  oceania: { walls: ["#F4EBDD", "#9ED3C6", "#E9D8BC"], roof: "#6E7A86", trim: "#FFFFFF", door: "#D9825B", ground: "#A9C59A", paving: "#E9E2D4", trees: T(2, 0, 3, 2), roofKind: "hip", dark: "#5E6670", hills: false, haze: 0.12 },
 };
 
 /** Flavours with real seasons (autumn colour, snowy winters). */

@@ -108,12 +108,13 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
   const motion = useMemo<WorldMotion>(
     () => ({
       reduced,
+      paused,
       time: () => {
         const c = clock.current;
         return (c.pausedAt ?? performance.now() / 1000) - c.offset;
       },
     }),
-    [reduced],
+    [reduced, paused],
   );
 
   const active = visible && pageVisible && !paused && !reduced;
@@ -149,8 +150,9 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
           frameloop={active ? "always" : "demand"}
           gl={{ antialias: false, powerPreference: "high-performance", stencil: false, preserveDrawingBuffer: false }}
           camera={{ fov: 22, near: 1, far: 260, position: [25, 20, 25] }}
-          onCreated={({ gl: r }) => {
-            r.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
+          onCreated={(state) => {
+            state.gl.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
+            if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state;
           }}
         >
           <MotionCtx.Provider value={motion}>

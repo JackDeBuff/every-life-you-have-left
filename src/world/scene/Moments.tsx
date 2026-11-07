@@ -54,7 +54,7 @@ const GOLD = new MeshStandardMaterial({ color: "#E8B04A", roughness: 0.35, metal
 const GLOW = new MeshBasicMaterial({ color: "#FFE3A3", transparent: true, opacity: 0.5, blending: AdditiveBlending, depthWrite: false, side: DoubleSide });
 
 /** A burst of tumbling confetti (or petals / caps) from a point. */
-function Burst({ origin, count = 140, colors = CONFETTI, start = 0.6, t, spread = 1, up = 2.4, size = 0.035, gravity = 2.2, shape = "paper" }: {
+function Burst({ origin, count = 180, colors = CONFETTI, start = 0.6, t, spread = 1.2, up = 2.6, size = 0.06, gravity = 2.2, shape = "paper" }: {
   origin: Vector3; count?: number; colors?: string[]; start?: number; t: MutableRefObject<number>; spread?: number; up?: number; size?: number; gravity?: number; shape?: "paper" | "petal";
 }) {
   const ref = useRef<InstancedMesh>(null);
@@ -158,8 +158,8 @@ function Cap({ i, origin, t }: { i: number; origin: Vector3; t: MutableRefObject
   });
   return (
     <group ref={ref} visible={false}>
-      <mesh geometry={BOX} material={MATS.ink} scale={[0.13, 0.012, 0.13]} castShadow />
-      <mesh geometry={CYL} material={MATS.ink} position={[0, -0.025, 0]} scale={[0.08, 0.045, 0.08]} />
+      <mesh geometry={BOX} material={MATS.ink} scale={[0.2, 0.018, 0.2]} castShadow />
+      <mesh geometry={CYL} material={MATS.ink} position={[0, -0.035, 0]} scale={[0.12, 0.065, 0.12]} />
       <mesh geometry={BOX} material={solid(SWATCH.butter)} position={[0.04, -0.03, 0.04]} scale={[0.008, 0.06, 0.008]} />
     </group>
   );
@@ -341,7 +341,9 @@ export function MomentDirector({ moment, layout, self, rig, memory, glowBoost, o
     return () => window.clearTimeout(id);
   }, [reduced, onDone, self]);
   useFrame(() => {
-    t.current = reduced ? 2.2 : time() - t0.current;
+    // dev: window.__momentT freezes the beat at a time (for screenshots)
+    const dbg = import.meta.env.DEV ? (window as unknown as { __momentT?: number }).__momentT : undefined;
+    t.current = dbg ?? (reduced ? 2.2 : time() - t0.current);
     const k = t.current;
     const R = rig.current;
     if (!reduced) {
@@ -353,7 +355,7 @@ export function MomentDirector({ moment, layout, self, rig, memory, glowBoost, o
     if (moment === "layoff" || moment === "breakup") memory.current = 0.55 * Math.sin(Math.PI * clamp01(k / dur));
     if (moment === "house_keys") glowBoost.current = k > 2.0 ? clamp01((k - 2.0) / 0.4) * clamp01(1 - (k - 3.8) / 0.6) : 0;
     if (moment === "moving_in") glowBoost.current = k > 1.8 ? clamp01((k - 1.8) / 0.6) * clamp01(1 - (k - 3.6) / 0.6) * 0.7 : 0;
-    if (k >= dur && !done.current) {
+    if (k >= dur && !done.current && dbg === undefined) {
       done.current = true;
       self.override = null;
       onDone();

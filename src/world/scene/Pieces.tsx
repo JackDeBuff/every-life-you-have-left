@@ -9,10 +9,10 @@ import { Pop, usePresence, useMotion, type Present } from "./anim";
 
 const BLOSSOM_DARK = solid("#E79AAE");
 
-function Model({ p, flavor }: { p: PieceSpec; flavor: SceneSpec["flavor"] }) {
+function Model({ p, flavor, snowy }: { p: PieceSpec; flavor: SceneSpec["flavor"]; snowy: boolean }) {
   const gltf = loadKit(p.kit);
   const obj = useMemo<Object3D>(() => {
-    const o = template(p.kit, gltf.scene, p.id, flavor, p.variant).clone();
+    const o = template(p.kit, gltf.scene, p.id, flavor, p.variant, snowy).clone();
     if (p.tint === "blossom")
       o.traverse((x) => {
         const m = x as Mesh;
@@ -21,26 +21,26 @@ function Model({ p, flavor }: { p: PieceSpec; flavor: SceneSpec["flavor"] }) {
         else if (m.material === MATS.foliageDark) m.material = BLOSSOM_DARK;
       });
     return o;
-  }, [gltf, p.kit, p.id, flavor, p.variant, p.tint]);
+  }, [gltf, p.kit, p.id, flavor, p.variant, p.tint, snowy]);
   return <primitive object={obj} />;
 }
 
-export function PieceItem({ pr, flavor }: { pr: Present<PieceSpec>; flavor: SceneSpec["flavor"] }) {
+export function PieceItem({ pr, flavor, snowy = false }: { pr: Present<PieceSpec>; flavor: SceneSpec["flavor"]; snowy?: boolean }) {
   const p = pr.item;
   return (
     <Pop state={pr.state} t0={pr.t0} delay={p.delay} position={p.pos} rotationY={p.rotY} scale={p.scale} rise={0.3}>
-      <Model p={p} flavor={flavor} />
+      <Model p={p} flavor={flavor} snowy={snowy} />
     </Pop>
   );
 }
 
-export function Pieces({ pieces, flavor }: { pieces: PieceSpec[]; flavor: SceneSpec["flavor"] }) {
+export function Pieces({ pieces, flavor, snowy }: { pieces: PieceSpec[]; flavor: SceneSpec["flavor"]; snowy: boolean }) {
   const { time } = useMotion();
   const list = usePresence(pieces, (p) => p.key, 700, time);
   return (
     <>
       {list.map((pr) => (
-        <PieceItem key={pr.key} pr={pr} flavor={flavor} />
+        <PieceItem key={pr.key} pr={pr} flavor={flavor} snowy={snowy} />
       ))}
     </>
   );

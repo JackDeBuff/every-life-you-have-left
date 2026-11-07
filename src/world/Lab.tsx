@@ -60,7 +60,7 @@ export default function Lab() {
 
   // dev hook for scripted screenshots: window.__lab.setSpec({...})
   useEffect(() => {
-    (window as unknown as { __lab: unknown }).__lab = { setSpec, setMode, setCuts, ALEX, DEMO_CUTS, setAppearance };
+    (window as unknown as { __lab: unknown }).__lab = { setSpec, setMode, setCuts, ALEX, DEMO_CUTS, setAppearance, setPaused, setAuto, setAutoIdx };
   }, []);
 
   const note = useCallback((s: string) => setLog((l) => [`${new Date().toLocaleTimeString()}  ${s}`, ...l].slice(0, 8)), []);

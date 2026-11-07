@@ -42,7 +42,7 @@ export type ProcType =
   | "road" | "roadZ" | "sidewalk" | "path" | "plaza" | "field" | "hill" | "pier" | "boat" | "busStop" | "stringLights"
   | "picnic" | "pram" | "suitcase" | "easel" | "canvasStack" | "desk" | "laptop" | "monitorDesk" | "bookStack"
   | "partyTable" | "arch" | "podium" | "spotlight" | "gallery" | "whiteboard" | "hedge" | "fountain" | "barn"
-  | "academic" | "planter" | "crosswalk" | "lawn" | "tower" | "parasolTable" | "flowerBed" | "mailbox" | "wallArt" | "wallArtZ";
+  | "academic" | "planter" | "crosswalk" | "lawn" | "tower" | "parasolTable" | "flowerBed" | "mailbox" | "wallArt" | "wallArtZ" | "hay";
 
 export interface ProcSpec {
   key: string;
@@ -357,7 +357,13 @@ function composeSetting(b: Builder, setting: Setting) {
         b.proc("planter", x!, z!, 0, [0.42, 0.12, 0.42], `pl${i}`, { color: b.style.paving });
         b.tree(x!, z!, b.style.trees.palm > 2 ? "palm" : "broad", `pt${i}`);
       });
-      b.proc("plaza", 1.85, 1.85, 0, [3.3, 0.04, 3.3], "plaza", { color: b.style.paving });
+      b.proc("plaza", 1.95, 1.95, 0, [2.7, 0.04, 2.7], "plaza", { color: b.spec.flavor === "europe_south" ? "calcada" : b.style.paving });
+      [[0.75, 3.45], [3.45, 0.75]].forEach(([x, z], i) => b.piece("props", "bench", x!, z!, i === 0 ? FACE_NZ : FACE_NX, fit("props", "bench", 0.2), `pbench${i}`));
+      [[0.85, 2.95], [2.95, 0.85]].forEach(([x, z], i) => {
+        b.proc("planter", x!, z!, 0, [0.42, 0.12, 0.42], `ppl${i}`, { color: b.style.paving });
+        b.tree(x!, z!, b.style.trees.palm > 2 ? "palm" : "broad", `ppt${i}`);
+      });
+      b.kits.add("props");
       b.kits.add("street").add("commercial").add("cars");
       b.scatter(6, bush, 0.3, "bu", 4);
       break;
@@ -413,6 +419,12 @@ function composeSetting(b: Builder, setting: Setting) {
       b.claim(2.4, -1.2, 0.4);
       b.piece("camp", "fence", -1.5, 3.9, 0, fit("camp", "fence", 0.22), "rf1");
       b.piece("camp", "fence", -0.5, 3.95, 0, fit("camp", "fence", 0.22), "rf2");
+      b.proc("fountain", -2.9, 3.0, 0, [1.5, 0.05, 1.1], "pond", { color: "pond" });
+      b.claim(-2.9, 3.0, 0.9);
+      [[-0.6, -3.1], [-0.2, -3.25], [3.9, 1.4]].forEach(([x, z], i) => {
+        b.proc("hay", x!, z!, i * 0.7, [0.22, 0.2, 0.22], `hay${i}`, { color: "#E2C27A" });
+        b.claim(x!, z!, 0.2);
+      });
       b.kits.add("cars").add("camp");
       b.forest(10);
       b.scatter(16, grassBits, 0.15, "gr");
@@ -436,25 +448,26 @@ function composeSetting(b: Builder, setting: Setting) {
       break;
     }
     case "campus": {
-      b.proc("lawn", -2.6, -2.6, 0, [4.0, 0.03, 4.0], "quad", { color: "#9DC283" });
-      b.proc("path", -2.6, -2.6, Math.PI / 4, [5.4, 0.035, 0.35], "qp1", { color: b.style.paving });
-      b.proc("path", -2.6, -2.6, -Math.PI / 4, [5.4, 0.035, 0.35], "qp2", { color: b.style.paving });
-      b.proc("fountain", -2.6, -2.6, 0, [0.7, 0.25, 0.7], "fountain", { color: b.style.paving });
-      b.claim(-2.6, -2.6, 0.6);
-      b.proc("academic", -2.6, -4.55, 0, [3.6, 1.6, 0.9], "acad1", { color: "#B5654A", color2: "#F4EBDD" });
-      b.proc("academic", -4.55, -1.3, Math.PI / 2, [2.4, 1.4, 0.9], "acad2", { color: "#C46E55", color2: "#F4EBDD" });
-      b.proc("tower", 1.4, -4.2, 0, [0.9, 2.6, 0.9], "clock", { color: "#B5654A", color2: "#F4EBDD" });
-      for (let x = -4.5; x < 0; x += 0.8) b.claim(x, -4.5, 0.6);
-      for (let z = -2.6; z < 0.2; z += 0.8) b.claim(-4.5, z, 0.6);
-      b.claim(1.4, -4.2, 0.7);
-      b.proc("path", 1.2, 1.2, Math.PI / 4, [3.4, 0.035, 0.4], "walk", { color: b.style.paving });
-      [[-0.9, -2.6], [-2.6, -0.9], [-4.0, -4.0]].forEach(([x, z], i) =>
-        b.piece("props", "bench", x!, z!, i === 0 ? FACE_NX : FACE_NZ, fit("props", "bench", 0.16), `bench${i}`),
+      // the quad sits back-right so the camera sees it past the hero; halls frame it
+      b.proc("lawn", 2.35, -2.75, 0, [3.9, 0.03, 3.1], "quad", { color: "#9DC283" });
+      b.proc("path", 2.35, -2.75, Math.atan2(3.1, 3.9), [4.6, 0.035, 0.32], "qp1", { color: b.style.paving });
+      b.proc("path", 2.35, -2.75, -Math.atan2(3.1, 3.9), [4.6, 0.035, 0.32], "qp2", { color: b.style.paving });
+      b.proc("fountain", 2.35, -2.75, 0, [0.7, 0.25, 0.7], "fountain", { color: b.style.paving });
+      b.claim(2.35, -2.75, 0.7);
+      for (let x = 0.7; x <= 4.2; x += 0.7) for (const z of [-1.6, -3.9]) b.claim(x, z, 0.3);
+      b.proc("academic", 2.4, -4.55, 0, [3.6, 1.6, 0.9], "acad1", { color: "#B5654A", color2: "#F4EBDD" });
+      b.proc("academic", -4.5, -0.6, Math.PI / 2, [2.6, 1.4, 0.9], "acad2", { color: "#C46E55", color2: "#F4EBDD" });
+      b.proc("tower", -3.7, -3.8, 0, [0.9, 2.6, 0.9], "clock", { color: "#B5654A", color2: "#F4EBDD" });
+      for (let x = 0.6; x < 4.6; x += 0.8) b.claim(x, -4.5, 0.6);
+      for (let z = -2.0; z < 0.9; z += 0.8) b.claim(-4.5, z, 0.6);
+      b.claim(-3.7, -3.8, 0.8);
+      [[0.9, -1.75, 0], [3.8, -1.75, 0], [0.9, -3.75, Math.PI], [3.8, -3.75, Math.PI]].forEach(([x, z, rr], i) =>
+        b.piece("props", "bench", x!, z!, rr!, fit("props", "bench", 0.2), `bench${i}`),
       );
-      for (let i = 0; i < 3; i++) b.light(-0.5 + i * 0.01, -4.0 + i * 1.6, FACE_NX, `l${i}`);
-      [[-1.2, -1.2], [-4.0, -1.2], [-1.2, -4.0], [3.2, -2.6], [2.8, -4.0]].forEach(([x, z], i) => b.tree(x!, z!, "broad", `ct${i}`));
-      b.forest(4);
-      b.scatter(10, grassBits, 0.15, "gr");
+      [[0.6, -2.75], [4.15, -2.75], [-2.4, -2.4], [-3.3, -1.6], [-1.6, -3.4], [-3.5, 1.4], [-3.0, 3.2]].forEach(([x, z], i) => b.tree(x!, z!, i < 2 ? "broad" : undefined, `ct${i}`));
+      for (let i = 0; i < 3; i++) b.light(0.55 + i * 1.8, -1.45, FACE_NZ, `l${i}`);
+      b.forest(5);
+      b.scatter(12, grassBits, 0.15, "gr");
       b.kits.add("props").add("street");
       break;
     }
@@ -683,13 +696,13 @@ function stageFor(spec: SceneSpec, b: Builder): Vignette {
       break;
     }
     case "moving": {
-      v.pieces.push(piece("cars", "truck", 2.9, -0.2, 0, 0.3, "movetruck"));
+      v.pieces.push(piece("cars", "truck", 2.3, -1.72, Math.PI / 2, 0.36, "movetruck"));
       v.pieces.push(piece("camp", "box-large", sx + 0.5, sz - 0.6, 0.2, fit("camp", "box-large", 0.16), "mbox1"));
       v.pieces.push(piece("camp", "box", sx + 0.7, sz - 0.35, 0.6, fit("camp", "box", 0.11), "mbox2"));
       v.pieces.push(piece("camp", "box-open", sx + 0.25, sz - 0.75, 0.9, fit("camp", "box-open", 0.11), "mbox3"));
       v.pieces.push(piece("camp", "box", sx + 0.62, sz - 0.62, 1.4, fit("camp", "box", 0.1), "mbox4", ));
-      const path: V3[] = [[2.75, 0, 0.75], [1.5, 0, 0.85], [0.95, 0, 0.75], [1.5, 0, 0.85]];
-      v.self = sp(2.75, 0.75, -Math.PI / 2, "carry", { path, speed: 0.32, carry: "box" });
+      const path: V3[] = [[1.75, 0, -1.15], [1.2, 0, 0.0], [0.45, 0, 0.85], [1.2, 0, 0.0]];
+      v.self = sp(1.75, -1.15, -Math.PI / 2, "carry", { path, speed: 0.32, carry: "box" });
       v.partner = sp(1.0, 0.95, 0, "carry", { path: [path[2]!, path[3]!, path[0]!, path[1]!], speed: 0.32, carry: "box" });
       v.others = [sp(sx + 0.85, sz - 0.1, -2.4, "idle")];
       break;
@@ -914,6 +927,28 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
       : { pieces: [], procs: [], floor: "#D9B48C", wallIn: "#F4EBDD", rug: null },
   };
 
+  // ambient walkers on the sidewalks make a place feel lived in (muted clothes, never the hero coral)
+  const walkerCount: Record<Setting, number> = { city_dense: 3, city_midrise: 2, small_town: 2, suburb: 1, campus: 3, coastal: 1, rural: 0 };
+  const wr = rng(`${placeKey}|walkers`);
+  const walkLines: V3[][] = spec.setting === "campus"
+    ? [[[0.8, 0, -2.0], [3.9, 0, -3.5]], [[3.9, 0, -2.0], [0.8, 0, -3.5]], [[-2.0, 0, -1.4], [-2.0, 0, 3.6]]]
+    : spec.setting === "rural"
+      ? []
+      : [[[-4.4, 0, -1.4], [4.4, 0, -1.4]], [[4.4, 0, -2.75], [-4.4, 0, -2.75]], [[-1.4, 0, 4.2], [-1.4, 0, -1.0]]];
+  for (let i = 0; i < Math.min(walkerCount[spec.setting], walkLines.length); i++) {
+    const line = walkLines[i]!;
+    const cl = CLOTHES.others[(i + 2) % CLOTHES.others.length]!;
+    const t0 = wr();
+    const sx = line[0]![0] + (line[1]![0] - line[0]![0]) * t0;
+    const sz = line[0]![2] + (line[1]![2] - line[0]![2]) * t0;
+    people.push({
+      key: `walker${i}`, role: "friend", ageBand: "adult", model: wr.pick(OTHER_MODELS.friend), pet: false,
+      pos: [sx, 0, sz], rotY: 0, pose: "walk", path: line, speed: wr.range(0.28, 0.36), enterFrom: [sx, 0, sz],
+      scale: wr.range(0.94, 1.02), stoop: 0, grey: wr.chance(0.25) ? 0.6 : 0, skin: wr.pick(OTHER_SKIN), hair: wr.pick(OTHER_HAIR),
+      shirt: cl.shirt, pants: cl.pants, carry: null, index: i,
+    });
+  }
+
   const cars: CarLane[] = [];
   if (b.kits.has("cars") && spec.setting !== "rural") {
     const ids = spec.flavor === "southeast_asia" || spec.flavor === "east_asia" ? ["taxi", "sedan", "van"] : ["sedan", "hatchback-sports", "suv", "van", "taxi"];
@@ -922,7 +957,9 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
     for (let i = 0; i < n; i++) {
       const dir = i % 2 === 0 ? 1 : -1;
       const lane = roadZ + dir * 0.24;
-      cars.push({ key: `car${i}`, id: ids[(i + r.int(0, 4)) % ids.length]!, from: [-dir * (HALF - 0.2), 0, lane], to: [dir * (HALF - 0.2), 0, lane], speed: 0.75 + i * 0.12, offset: i * 0.37 });
+      const x0 = spec.setting === "coastal" ? -0.7 : -(HALF - 0.2);
+      const x1 = HALF - 0.2;
+      cars.push({ key: `car${i}`, id: ids[(i + r.int(0, 4)) % ids.length]!, from: [dir > 0 ? x0 : x1, 0, lane], to: [dir > 0 ? x1 : x0, 0, lane], speed: 0.75 + i * 0.12, offset: i * 0.37 });
     }
   }
 

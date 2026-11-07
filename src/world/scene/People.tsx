@@ -343,7 +343,7 @@ export function People({ people, islandBorn, self, frozen }: { people: PersonSlo
   return (
     <>
       {list.map((pr) => {
-        const walkIn = pr.t0 - islandBorn > 0.6 && pr.item.role !== "self";
+        const walkIn = pr.t0 - islandBorn > 0.6 && pr.item.role !== "self" && !pr.item.key.startsWith("walker");
         return pr.item.pet ? (
           <Pet key={pr.key} pr={pr} walkIn={walkIn} frozen={frozen} />
         ) : (

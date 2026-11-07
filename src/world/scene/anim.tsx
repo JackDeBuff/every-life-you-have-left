@@ -18,6 +18,8 @@ export const now = () => performance.now() / 1000;
 
 export interface WorldMotion {
   reduced: boolean;
+  /** Paused: time is frozen, so anything that mounts now should simply appear. */
+  paused?: boolean;
   /** Seconds; pausing freezes animation time. */
   time: () => number;
 }
@@ -89,7 +91,7 @@ interface PopProps {
 /** Grow in with a soft overshoot; sink out. Stops touching the scene graph once settled. */
 export function Pop({ state, t0, delay = 0, children, rise = 0.25, position, rotationY = 0, scale = 1 }: PopProps) {
   const ref = useRef<Group>(null);
-  const { reduced, time } = useMotion();
+  const { reduced, time, paused } = useMotion();
   const settled = useRef<string>("");
   useFrame(() => {
     const g = ref.current;
@@ -97,7 +99,7 @@ export function Pop({ state, t0, delay = 0, children, rise = 0.25, position, rot
     const tag = `${state}${t0}`;
     if (settled.current === tag) return;
     let k: number;
-    if (reduced) k = state === "in" ? 1 : 0;
+    if (reduced || paused) k = state === "in" ? 1 : 0;
     else if (state === "in") {
       const t = clamp01((time() - t0 - delay) / POP_IN);
       k = t <= 0 ? 0 : easeOutBack(t, 1.6);
