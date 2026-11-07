@@ -2,7 +2,7 @@
  * Corrected cost for sessions tallied at the old prices (/admin; shared by worker/admin.ts and
  * src/screens/admin/). No worker-only imports: the browser build reads this file too.
  *
- * Until production 627b35b1 (2026-11-07T21:55Z) worker/engine/pricing.ts priced 3.8 / 3.6 Flash at
+ * Until production 627b35b1 (2026-11-07T20:46Z) worker/engine/pricing.ts priced 3.8 / 3.6 Flash at
  * $0.75 / $3.75 per 1M tokens, half what GCP Billing charged ($1.50 / $7.50). Flash-Lite was right
  * ($0.30 / $2.50). A session's stored `usage` keeps tokens per purpose (`detail`) but no model, so
  * the correction works per purpose:
@@ -18,7 +18,7 @@ import { CACHED_INPUT_FACTOR, PRICES } from "./engine/pricing";
 import type { SessionUsage } from "./agent/protocol";
 
 /** When production started pricing at the GCP Billing rates (version 627b35b1). */
-export const PRICES_FIXED_AT = "2026-11-07T21:55:00Z";
+export const PRICES_FIXED_AT = "2026-11-07T20:46:00Z";
 
 /** The heavy-model prices used before PRICES_FIXED_AT (USD per 1M tokens). */
 const OLD_HEAVY = { in: 0.75, out: 3.75 };

@@ -118,6 +118,7 @@ Notes:
 - Caps (wrangler vars): `SPEND_CAP_USD=30` app-wide since the ledger started (at the cap all model calls stop like the kill switch; new sessions get the offline engine); per session `SESSION_SOFT_CAP_USD=2.5` (no more small cards) and `SESSION_HARD_CAP_USD=5` (no more calls).
 - Prices in `worker/engine/pricing.ts` were half of what GCP bills for 3.8/3.6 Flash and Argon; fixed (1.5/7.5, 4/20). Per-session costs in /admin before this date read ~half the truth.
 - Local evals use the local D1, so they are NOT counted by the prod ledger: keep dev runs small.
+- /admin: a "Sessions | Spend" switch (`/admin?view=spend`, `GET /api/admin/spend`): ledger vs cap, per-day rows, session caps, real prices. The sessions list shows Recorded and Corrected cost: sessions priced before 627b35b1 (2026-11-07T20:46Z) carry an "old rates" tag and a corrected estimate (`worker/admin-cost.ts`). New sessions also record `usage.byModel`. Media is counted only in the app-wide ledger, not per session.
 
 ## Playtest fixes round 1: DONE (Sat Nov 7 afternoon, production `23ad6f96`)
 From the owner's and Paul's own lives. Six agents in worktrees, merged into main:
