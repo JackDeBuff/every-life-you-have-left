@@ -108,6 +108,12 @@ Start click = 0. "answer → cuts" is what the user waits for after each fork.
 | After, Maya (31, nurse) | 3 s | **154 s** | 4.3 s | 17.9 / 0.1 / 0.8 / 0.1 / 4.3 s | 0 | 6 | $257k-$1.72M (6.7x) | 0.35 |
 | Final (main merged), Alex | 2 s | **166 s** | 4.5 s | 7.6 / 0.1 / 0.1 / 0.1 / 0.1 s | 8.2 s (one stall) | 9 | $140k-$845k (6.0x) | 0.41 |
 | Final, Ploy (Durham → Bangkok at 47) | 3 s | **157 s** | 4.9 s | 6.5 / 0.1 / 0.1 / 0.1 / 0.1 s | 0 | 7 | $220k-$718k (3.3x), Bangkok pay ~1/3 | 0.42 |
+| Production (7c1a672 deployed), Alex | 4 s | **196 s** | 3.9 s | 5.0 / 0.1 / 4.3 / 0.1 / 0.1 s | **38 s** (one 35 s stall at 37) | 7 | $131k-$970k (7.4x) | 0.39 |
+
+The production run lost 35 s to one stalled year stretch (every racer waited). Likely cause: the Worker's ~6
+open connections were shared by the year stream and its hedges, three hidden-branch steps, the next decision and
+settings. Hidden-branch steps now wait while a year stretch is in flight with < 4 years buffered (commit after
+7c1a672, not deployed by this pass).
 
 - Each fork now costs ~7.9 s from the answer to life resuming (2.4 s fork moment + 3 x 1.8 s cuts), down from
   10-18 s. Forks are prepared while the card is open (`prepareFork`); the first fork still waits on the profile

@@ -884,6 +884,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private stepBranchesCoarse(): void {
     if (this.steppingBranches) return;
     const ph = this.s.playhead.year;
+    // The chosen life's own years come first: a Worker holds ~6 open connections, and a production
+    // run starved 35 s at 37 while branch steps, a decision and settings shared them with the year
+    // stream and its hedges. Hidden lives wait until the buffer is healthy again.
+    const lastGen = this.s.years.at(-1)?.year ?? ph;
+    if (this.genRunning !== null && lastGen - ph < 4) return;
     const due = this.s.branches.filter((b) => b.status === "active" && (b.years.at(-1)?.year ?? b.forkYear) + BRANCH_STEP <= ph);
     if (!due.length) return;
     this.steppingBranches = true;
