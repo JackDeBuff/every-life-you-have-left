@@ -179,7 +179,7 @@
   color: #fff; text-shadow: 0 1px 14px rgb(0 0 0 / 0.38);
 }
 .world-slot-tag {
-  position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
+  position: absolute; bottom: 10px; right: 10px; font-size: 10px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
   color: rgb(255 255 255 / 0.75); border: 1px dashed rgb(255 255 255 / 0.5); padding: 2px 6px; border-radius: 2px;
 }
 .w-rain, .w-snow, .w-fog { position: absolute; inset: 0; pointer-events: none; }
@@ -220,7 +220,8 @@
   animation: rise var(--t-base) var(--e-settle);
 }
 .fork-chosen { font-weight: 700; font-stretch: var(--w-wide); font-size: 15px; letter-spacing: -0.01em; }
-.fork-others { white-space: pre-wrap; }
+.fork-others { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.fork-others > span { white-space: nowrap; }
 .jump { position: absolute; right: var(--s5); bottom: var(--s3); background: var(--raised); }
 
 .why-pop { width: 340px; position: relative; }

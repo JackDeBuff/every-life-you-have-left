@@ -13,6 +13,18 @@ export function jumpParams(): { age: number | "end"; stopAtBig: boolean } | null
 }
 
 export async function fastForward(target: number | "end", stopAtBig: boolean) {
+  await run(target, stopAtBig);
+  // `&answer=2`: then answer the open decision through the real card (plays the fork moment).
+  const k = new URLSearchParams(location.search).get("answer");
+  if (k && /^[1-4]$/.test(k)) {
+    window.setTimeout(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: k }));
+      window.setTimeout(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })), 250);
+    }, 900);
+  }
+}
+
+async function run(target: number | "end", stopAtBig: boolean) {
   let n = 0;
   for (;;) {
     if (++n > 400) return;

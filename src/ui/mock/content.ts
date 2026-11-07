@@ -145,7 +145,7 @@ function forkOffer(c: Ctx, place: string): DecisionDraft {
       effect: { move: moveTo(place), incomeMul: 1.28, family: 0.16, caution: 0.04, risk: 22, leap: true,
         queue: [
           { inYears: 1, domain: "lifeGoals", category: "move", title: `You land in ${place}`, narrative: "A smaller flat than you'd like, with a spare room on purpose.", tone: "mixed", baseRate: "moving", moment: "travel_abroad", activity: "moving" },
-          { inYears: 3, domain: "family", category: "move", title: `${cap(t.parent)} joins you in ${place}`, narrative: "Three years of video calls end at arrivals, holding a sign you made.", tone: "up", baseRate: "caregiving", moment: "reunion", activity: "family_time" },
+          { inYears: 3, domain: "family", category: "move", title: `${cap(t.parent)} ${t.parent === "your parents" ? "join" : "joins"} you in ${place}`, narrative: "Three years of video calls end at arrivals, holding a sign you made.", tone: "up", baseRate: "caregiving", moment: "reunion", activity: "family_time" },
         ] },
     },
   ]);
@@ -295,7 +295,7 @@ function forkParents(c: Ctx): DecisionDraft {
   const { year, t } = c;
   const why = q(c.quotes, "family");
   const p = cap(t.parent);
-  return base(c, ["family", "mentalHealth", "wealth"], `It's ${year}. ${p} fell in the kitchen. Nothing broken, but it scared you both.`,
+  return base(c, ["family", "mentalHealth", "wealth"], `It's ${year}. ${t.parent === "your parents" ? "One of your parents" : p} fell in the kitchen. Nothing broken, but it scared everyone.`,
     `${said(why)}This is what that looks like now.`, why, [
     { label: `Move ${t.parent} in with you`, hint: "Close, and a lot on you", branchTitle: `Bring ${t.parent} home`, effect: { caring: true, family: 0.2, balance: -0.08 } },
     { label: "Move back to be nearby", hint: "Your city for theirs", branchTitle: "Move back", effect: { move: null, family: 0.2, caring: true } },
@@ -492,7 +492,8 @@ export function replyFrom(opts: { life: string; title: string; age: number; nowA
 }
 
 export function interludeCaption(title: string, summary: string, age: number): string {
-  return `${title}. At ${age}: ${lowerFirst(summary.replace(/\.$/, ""))}.`;
+  const line = summary.replace(/\.$/, "");
+  return `${title}. ${cap(line)}${/, at \d+$/.test(line) ? "" : `, at ${age}`}.`;
 }
 
 export const cap = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);

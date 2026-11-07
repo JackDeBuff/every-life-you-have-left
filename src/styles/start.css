@@ -191,7 +191,7 @@
   .speed-card { min-height: 82px; }
   .consent { padding: var(--s3); gap: var(--s2); }
 }
-.ld-name { font: 700 11px var(--f-sans); font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; fill: var(--ink-2); }
+.ld-name { font: 700 11px var(--f-sans); font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; fill: var(--ink-2); paint-order: stroke; stroke: var(--panel); stroke-width: 5px; stroke-linejoin: round; }
 .ld-key { font: 520 12.5px var(--f-sans); fill: var(--ink-3); }
 @media (max-width: 1100px) {
   .start-go { bottom: 0; margin: 0 calc(-1 * clamp(24px, 3vw, 44px)); padding: var(--s3) clamp(24px, 3vw, 44px); background: var(--panel); border-top: 1px solid var(--hair); }

@@ -1,10 +1,15 @@
 /* Phone (<820px): world on top, tabs for Log / Bio / Settings, the conversation as a bottom sheet. */
 .phone {
   height: 100dvh; display: grid; grid-template-rows: 48px 56px minmax(180px, 34dvh) 40px minmax(0, 1fr) 64px;
+  grid-template-columns: minmax(0, 1fr); width: 100%;
   background: var(--panel); overflow: hidden; position: relative;
 }
+.phone > * { min-width: 0; }
 .ph-bar { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--s4); border-bottom: 1px solid var(--hair); }
-.ph-bar .wordmark { font-size: 10px; letter-spacing: 0.1em; }
+.ph-bar { gap: 8px; }
+.ph-bar .wordmark { font-size: 9px; letter-spacing: 0.08em; line-height: 1.25; max-width: 120px; }
+.ph-bar .keys { gap: 3px; flex: none; }
+.ph-bar .key.pausekey { margin-left: 2px; }
 .ph-bar .key { height: 30px; min-width: 34px; padding: 6px 5px 3px; font-size: 11px; }
 .ph-bar .slowed { display: none; }
 .ph-timeline { overflow: hidden; border-bottom: 1px solid var(--hair); }

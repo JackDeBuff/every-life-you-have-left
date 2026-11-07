@@ -453,7 +453,11 @@ export const useMockSim = create<Store>()((set, get) => {
     const cuts: InterludeCut[] = active.map((b) => {
       const full = I.branchTraj.get(b.id)!.full;
       const y = full[full.length - 1]!;
-      return { branchId: b.id, title: b.title, age: y.age, scene: y.scene, caption: interludeCaption(b.title, y.events[0]?.title ?? y.summary, y.age) };
+      // The caption tells the most telling thing that happened in that life lately, not just this year.
+      const recent = [...full].reverse().find((x) => x.year > y.year - 6 && x.events.some((e) => e.category !== "texture"));
+      const ev = recent?.events.find((e) => e.category !== "texture");
+      const line = ev ? (recent!.year === y.year ? ev.title : `${ev.title}, at ${recent!.age}`) : y.summary;
+      return { branchId: b.id, title: b.title, age: y.age, scene: y.scene, caption: interludeCaption(b.title, line, y.age) };
     });
     patch({ phase: "interlude", interlude: cuts });
     log([{ year: s.playhead.year, age: s.playhead.age, kind: "interlude", text: "Meanwhile, in your other lives…", domain: null, tone: null, why: null, baseRate: null, refId: null }]);

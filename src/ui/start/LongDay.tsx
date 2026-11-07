@@ -42,6 +42,7 @@ export function LongDay({ startAge, endAge }: { startAge: number; endAge: number
 
   useEffect(() => {
     const state = { p: 0 };
+    const reduce = reducedMotion();
     const render = () => {
       const { x, y } = arc(state.p);
       const c = sunAt(state.p);
@@ -62,7 +63,11 @@ export function LongDay({ startAge, endAge }: { startAge: number; endAge: number
         g.dataset.on = String(on);
         const ps = g.querySelectorAll<SVGPathElement>("path");
         const label = g.querySelector("text");
-        if (on) {
+        if (on && reduce) {
+          // Reduced motion: the finished picture, no drawing.
+          gsap.set(ps, { opacity: 0.6 });
+          gsap.set(label, { opacity: 1 });
+        } else if (on) {
           ps.forEach((p, k) => {
             const L = p.getTotalLength();
             gsap.fromTo(p, { strokeDasharray: `${L} ${L}`, strokeDashoffset: L, opacity: 0.9 }, { strokeDashoffset: 0, opacity: 0.6, duration: 1.8, delay: k * 0.12, ease: "expo.out", onComplete: () => p.removeAttribute("stroke-dasharray") });
@@ -74,7 +79,7 @@ export function LongDay({ startAge, endAge }: { startAge: number; endAge: number
         }
       });
     };
-    if (reducedMotion()) {
+    if (reduce) {
       state.p = 0.74;
       render();
       return;
