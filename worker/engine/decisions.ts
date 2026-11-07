@@ -3,7 +3,7 @@ import type { DecisionSlot } from "../../shared/engine";
 import { DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Decision, DecisionOption, SessionState } from "../../shared/sim";
 import { decisionsBlock, lifeSoFarBlock, personBlock, quotesBlock, worldBlock } from "./context";
-import type { Caller } from "./models";
+import type { Caller, Tier } from "./models";
 import { BIG_DECISION_SYSTEM, bigDecisionPrompt, SMALL_DECISION_SYSTEM, smallDecisionPrompt } from "./prompts/decision";
 import { DecisionLLM, LEANS, type DecisionLLM as DecisionDraft } from "./schemas";
 import { parseSlotReason } from "./slots";
@@ -51,7 +51,7 @@ function finalize(state: SessionState, slot: DecisionSlot, draft: DecisionDraft,
 }
 
 /** Deterministic fallback card if the model fails twice (keeps the run alive). */
-function fallbackDecision(state: SessionState, slot: DecisionSlot, kind: "big" | "small", domain: DomainKey): Decision {
+function fallbackDecision(state: SessionState, slot: DecisionSlot, kind: "big" | "small", domain: DomainKey, stage = ""): Decision {
   const p = state.profile!;
   const big: [string, string, string][] = [
     ["Keep going the way I'm going", "Steady, and you'll know what it cost", "Stay the course"],
@@ -65,7 +65,7 @@ function fallbackDecision(state: SessionState, slot: DecisionSlot, kind: "big" |
     year: slot.year,
     age: slot.age,
     domains: [domain],
-    prompt: `It's ${slot.year}. You're ${slot.age}. ${kind === "big" ? "Something has to give this year." : "A quiet moment, and a question."} What do you do?`,
+    prompt: `It's ${slot.year}. You're ${slot.age}. ${stage ? `${stage.replace(/\s*\([^)]*\)/g, "").replace(/^./, (c) => c.toUpperCase()).replace(/[.:;]?$/, ".")}` : kind === "big" ? "Something has to give this year." : "A quiet moment, and a question."} What do you do?`,
     whyAsking: kind === "big" ? "This is one of the moments a life turns on." : "It helps your lives sound like you.",
     whyQuoteId: p.quotes[0]?.id ?? null,
     options: big.map(([label, hint, title], i) => ({ id: IDS[i]!, label, hint, branchTitle: kind === "big" ? title : null })),
@@ -84,10 +84,10 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
   const isFirst = kind === "big" && !state.decisions.some((d) => d.kind === "big");
   const startLine = profile.quotes.filter((q) => q.questionId === "start").map((q) => q.text).join(" ");
 
-  const attempt = async () => {
+  const attempt = async (tier: Tier) => {
     if (kind === "big") {
       return call.json({
-        tier: "heavy",
+        tier,
         purpose: "decision.big",
         system: BIG_DECISION_SYSTEM,
         prompt: bigDecisionPrompt({
@@ -113,7 +113,7 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
       .map((d) => `- ${d.prompt}`)
       .join("\n");
     return call.json({
-      tier: "fast",
+      tier,
       purpose: "decision.small",
       system: SMALL_DECISION_SYSTEM,
       prompt: smallDecisionPrompt({
@@ -132,13 +132,39 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     });
   };
 
-  for (let i = 0; i < 2; i++) {
+  // Two tries on the slot's model, then one on the other tier; a strict-schema miss is coerced
+  // from the raw JSON first (argon returned near-valid cards that zod rejected in the eval).
+  const tiers: Tier[] = kind === "big" ? ["heavy", "heavy", "fast"] : ["fast", "fast", "heavy"];
+  for (const tier of tiers) {
     try {
-      const res = await attempt();
-      if (res.data && res.data.options.length === 4) return finalize(state, slot, res.data, kind, r.domain);
+      const res = await attempt(tier);
+      const draft = res.data ?? coerceDecision(res.raw);
+      if (draft) return finalize(state, slot, draft, kind, r.domain);
     } catch {
-      /* retry once */
+      /* next try */
     }
   }
-  return fallbackDecision(state, slot, kind, r.domain);
+  return fallbackDecision(state, slot, kind, r.domain, r.why);
+}
+
+/** Best-effort repair of a near-valid card: needs a prompt and 4 labelled options. */
+function coerceDecision(raw: unknown): DecisionDraft | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const opts = Array.isArray(o.options) ? (o.options as Record<string, unknown>[]) : [];
+  const good = opts.filter((x) => x && typeof x.label === "string" && x.label.trim());
+  if (typeof o.prompt !== "string" || !o.prompt.trim() || good.length < 4) return null;
+  return {
+    domains: Array.isArray(o.domains) ? (o.domains.filter((d) => (DOMAIN_KEYS as readonly unknown[]).includes(d)) as DomainKey[]) : [],
+    prompt: o.prompt,
+    whyAsking: typeof o.whyAsking === "string" ? o.whyAsking : "",
+    whyQuoteId: typeof o.whyQuoteId === "string" ? o.whyQuoteId : null,
+    options: good.slice(0, 4).map((x, i) => ({
+      lean: (LEANS as readonly unknown[]).includes(x.lean) ? (x.lean as (typeof LEANS)[number]) : LEANS[i]!,
+      label: String(x.label),
+      hint: typeof x.hint === "string" ? x.hint : null,
+      branchTitle: typeof x.branchTitle === "string" ? x.branchTitle : null,
+    })),
+    placeholder: typeof o.placeholder === "string" ? o.placeholder : "",
+  };
 }

@@ -18,6 +18,7 @@ export const CONTENT_LINE = `CONTENT LINE (never cross it)
 - Never the death of a partner or a child, pregnancy loss, or a child's illness.
 - A parent may die of old age at most once in a life: late (the parent is ~85+), offscreen, one gentle sentence, never a twist or a plot device.
 - Never use or guess race, ethnicity, religion, sexual orientation or disability. If the user framed one themselves, use only their framing.
+- Never infer heritage or culture from a name, a face or a job. Foods, languages, holidays, faith and customs appear only if they told you, or as the everyday culture of the place they actually live. A restaurant they didn't describe stays "the restaurant", "the lunch rush", "your mom's cooking".
 - Real employers and schools appear only in neutral or good events. Bad news uses generic names ("your company", "the startup").
 - No disasters, pandemics, wars or crime. The only world events are the ones you are given.`;
 

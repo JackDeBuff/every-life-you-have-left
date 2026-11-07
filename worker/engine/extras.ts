@@ -96,6 +96,8 @@ export async function settingsForState(call: Caller, state: SessionState): Promi
 // Ending (verdicts + five-year answers)
 // ---------------------------------------------------------------------------------------------
 
+const RANKING = /\b(best|better|worse|worst|happiest|richest|right choice|wrong choice|should have|most successful)\b/i;
+
 function compactLife(years: SimYear[], fromYear: number, maxLines: number): string {
   const ys = years.filter((y) => y.year >= fromYear);
   const important = ys.filter((y, i) => i < 6 || y.events.some((e) => e.isTurningPoint) || i === ys.length - 1);
@@ -119,15 +121,16 @@ export async function endingFor(call: Caller, state: SessionState, branches: Bra
     fiveYear: {},
   });
   try {
-    const r = await call.json({
-      tier: "heavy",
-      purpose: "ending",
-      system: ENDING_SYSTEM,
-      prompt: endingPrompt({ person: personBlock(profile), quotes: quotesBlock(profile), lives: lives.join("\n\n") }),
-      schema: EndingLLM,
-      maxOutputTokens: 3000,
-      hedgeMs: 15000,
-    });
+    const prompt = endingPrompt({ person: personBlock(profile), quotes: quotesBlock(profile), lives: lives.join("\n\n") });
+    const ask = (extra: string) =>
+      call.json({ tier: "heavy", purpose: "ending", system: ENDING_SYSTEM, prompt: prompt + extra, schema: EndingLLM, maxOutputTokens: 3000 });
+    let r = await ask("");
+    // D-010: no life is ranked best. One rewrite if a verdict compares or ranks.
+    const ranked = r.data?.lives.map((l) => l.verdict).find((v) => RANKING.test(v));
+    if (ranked) {
+      const again = await ask(`\n\nYour previous draft ranked or compared the lives ("${ranked}"). Rewrite every verdict so it stands on its own: no best, better, worse, happiest, right choice or should have.`);
+      if (again.data && !again.data.lives.some((l) => RANKING.test(l.verdict))) r = again;
+    }
     if (!r.data) return fallback();
     const byId = new Map(r.data.lives.map((l) => [l.id, l]));
     const chosen = byId.get("chosen");

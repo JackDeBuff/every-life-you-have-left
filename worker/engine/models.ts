@@ -134,6 +134,7 @@ export const FAST_FIRST_TOKEN_MS = 3500;
 export const FIRST_TOKEN_DEADLINE_MS = 30_000;
 /** Abort a stream that sends nothing for this long after it started. */
 export const STREAM_IDLE_MS = 20_000;
+const SLOW_FIRST_TOKEN = /argon|pro|gpt-oss/;
 
 const jsonInstruction = (system: string, schema: Record<string, unknown> | undefined) =>
   schema ? `${system}\n\nReply with one JSON object only (no prose, no code fences), matching this JSON Schema:\n${JSON.stringify(schema)}` : system;
@@ -298,7 +299,10 @@ export function createCaller(deps: CallerDeps) {
     const model = c.model || modelFor(models, c.tier);
     const jsonSchema = c.schema ? geminiSchema(c.schema) : undefined;
     type First = { kind: "ok"; s: Src; chunk: Chunk | null } | { kind: "err"; s: Src; err: unknown };
-    const hedgeMs = c.hedgeMs ?? 0;
+    // Thinking-first models (argon, gpt-oss) normally take 5-15 s to a first token: hedge later, wait longer.
+    const slow = SLOW_FIRST_TOKEN.test(model);
+    const hedgeMs = c.hedgeMs ? (slow ? Math.max(c.hedgeMs, 15_000) : c.hedgeMs) : 0;
+    const deadlineMs = slow ? 2 * FIRST_TOKEN_DEADLINE_MS : FIRST_TOKEN_DEADLINE_MS;
     const firstText = (s: Src): Promise<First> =>
       (async (): Promise<First> => {
         for (;;) {
@@ -320,7 +324,7 @@ export function createCaller(deps: CallerDeps) {
     add();
     let winner: Src | null = null;
     let firstChunk: Chunk | null = null;
-    const deadline = t0 + FIRST_TOKEN_DEADLINE_MS;
+    const deadline = t0 + deadlineMs;
     while (!winner) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let stop: ReturnType<typeof setTimeout> | undefined;
@@ -334,7 +338,7 @@ export function createCaller(deps: CallerDeps) {
       if (stop) clearTimeout(stop);
       if (got.kind === "deadline") {
         for (const s of sources) s.ac.abort();
-        throw new LlmError(`${model}: no first token in ${FIRST_TOKEN_DEADLINE_MS}ms`, 504, model, true);
+        throw new LlmError(`${model}: no first token in ${deadlineMs}ms`, 504, model, true);
       }
       if (got.kind === "hedge") {
         add();

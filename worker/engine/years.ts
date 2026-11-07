@@ -205,6 +205,10 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
       return `${y} (${y - profile.birthYear}): income ~${usd(a.income)}, median net worth ~${usd(a.netWorthMedian)}`;
     })
     .join("\n");
+  // Biology: parents are ~30 years older unless known; past ~88 a parent is frail or gone (the
+  // judge caught a mother "still on the veranda" at 98 in a branch).
+  const pa = (y: number) => y - profile.birthYear + 30;
+  const anchorsWithAges = `${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.`;
   const focus = spec.focusQuoteIds
     .map((id) => profile.quotes.find((q) => q.id === id))
     .filter(Boolean)
@@ -230,7 +234,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     world: worldBlock(worldInSpan),
     budget: budgetBlock(past, env.span, first, env.world),
     quiet: quiet.length ? quiet.join(", ") : "(none required in this stretch)",
-    anchors,
+    anchors: anchorsWithAges,
     candidates: renderCandidates(cands),
     attention: attention || "(no strong worries; spread attention evenly)",
     baseRates: spec.coarse ? "(coarse mode: set st to null)" : BASE_RATES_TEXT,
