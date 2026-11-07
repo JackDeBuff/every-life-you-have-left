@@ -192,7 +192,12 @@ export const SceneC = z.object({
 export const YearC = z.object({
   y: int().describe("year"),
   p: z.string().describe("place"),
+  w: z.string().describe('work now, <= 8 words ("Head nurse, St. Luke\'s ER", "Retired"); same as last year unless an event changed it'),
   e: z.array(EventC).max(3),
+  ch: z
+    .array(z.string())
+    .max(4)
+    .describe('people changes THIS year only: "+partner:Name", "-partner:Name", "+child:Name", "+pet:dog:Name", "-pet:Name", "-parent:Name"; [] most years'),
   s: z.string().describe("summary, <= 18 words"),
   inc: int().describe("income USD"),
   nw: int().describe("net worth USD"),
@@ -233,6 +238,9 @@ export const InterludeLLM = z.object({
 });
 
 export const EndingLLM = z.object({
+  postcard: z
+    .string()
+    .describe("The chosen life's postcard line: 1-2 sentences from them at the end age to themselves today, about one concrete thing from THIS life (a person, place or year). Not advice, no 'should'"),
   lives: z.array(
     z.object({
       id: z.string().describe('"chosen" or the branch id'),

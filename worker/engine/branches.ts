@@ -12,6 +12,8 @@ import { INTERLUDE_SYSTEM, interludePrompt } from "./prompts/extras";
 import { InterludeLLM } from "./schemas";
 import { clamp, norm, truncateWords } from "./util";
 import { writeYears, type WriterEnv } from "./years";
+import { fixPeopleNumbers } from "./consistency";
+import { branchPath, lifeAt, peopleNowLine, type LifeNow } from "./ledger";
 
 // ---------------------------------------------------------------------------------------------
 // Divergence: state distance + path difference (research/03 §3.1 "divergence guarantee")
@@ -125,6 +127,7 @@ export async function stepBranchTo(env: BranchEnv, state: SessionState, branch: 
       coarse: !fine,
       tier: fine ? "heavy" : "branch",
       decisionIdsFor: (y) => (y === branch.forkYear ? [branch.forkDecisionId] : []),
+      path: branchPath(state, branch),
     },
     years,
   );
@@ -157,9 +160,10 @@ export async function interludeCuts(env: BranchEnv, state: SessionState, stepped
   const items = steppedBranches
     .map((b) => {
       const snap = b.years.filter((y) => y.year <= year).at(-1) ?? b.years[0];
-      return snap ? { b, snap } : null;
+      const now = lifeAt(profile, [...state.years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= year)], year);
+      return snap ? { b, snap, now } : null;
     })
-    .filter((x): x is { b: Branch; snap: SimYear } => Boolean(x));
+    .filter((x): x is { b: Branch; snap: SimYear; now: LifeNow } => Boolean(x));
   if (!items.length) return [];
   let captions = new Map<string, string>();
   try {
@@ -168,11 +172,12 @@ export async function interludeCuts(env: BranchEnv, state: SessionState, stepped
       purpose: "interlude",
       system: INTERLUDE_SYSTEM,
       prompt: interludePrompt(
-        items.map(({ b, snap }) => ({
+        items.map(({ b, snap, now }) => ({
           branchId: b.id,
           title: b.title,
           forkLine: `forked at ${b.forkAge}`,
-          snapshot: `${yearLine(snap)} | people now: ${snap.scene.people.filter((p) => p.role !== "self").map((p) => `${p.role} (${p.ageBand.replace("_", " ")})`).join(", ") || "none"}${snap.year < year ? ` (snapshot from ${snap.year}; now it's ${year}: everyone is ${year - snap.year} years older)` : ""}`,
+          // people with code-computed ages at the current year (ledger), not the model's age bands
+          snapshot: `${yearLine(snap)} | people now (ages computed, use exactly): ${peopleNowLine(now)}${snap.year < year ? ` (snapshot from ${snap.year}; now it's ${year})` : ""}`,
         })),
         age,
       ),
@@ -184,11 +189,11 @@ export async function interludeCuts(env: BranchEnv, state: SessionState, stepped
   } catch {
     /* fall back to summaries */
   }
-  return items.map(({ b, snap }) => ({
+  return items.map(({ b, snap, now }) => ({
     branchId: b.id,
     title: b.title,
     age,
     scene: snap.scene,
-    caption: captions.get(b.id) ?? truncateWords(snap.summary, 14),
+    caption: fixPeopleNumbers(captions.get(b.id) ?? truncateWords(snap.summary, 14), now).text,
   }));
 }

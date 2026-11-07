@@ -200,6 +200,7 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     if (out.some((x) => x.key === key)) return;
     out.push({ ...p, key, since: start, status: "here", until: null, goneAt: p.goneAt ?? null });
   };
+  let pluralKids = false;
   for (const pp of profile.people) {
     const role = roleOf(pp.relation, pp.label);
     if (role === "other" && !/friend/i.test(pp.relation)) {
@@ -207,6 +208,14 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
       continue;
     }
     if (role === "other") continue;
+    // a plural label ("my kids", "parents", "the girls") is several people, not one named "my kids"
+    if (/\b(kids|children|sons|daughters|parents|sisters|brothers|siblings|girls|boys|twins)\b/i.test(`${pp.label} ${pp.relation}`)) {
+      if (role === "parent") {
+        add({ name: "your mother", generic: true, role, relation: "mother", born: profile.birthYear - 30, ageKnown: false });
+        add({ name: "your father", generic: true, role, relation: "father", born: profile.birthYear - 32, ageKnown: false });
+      } else if (role === "child") pluralKids = true;
+      continue;
+    }
     const generic = GENERIC_NAME.test(pp.label);
     const name = pp.label.trim();
     let born: number | null = null;
@@ -237,10 +246,11 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     return /\b(a|one|my) (son|daughter|kid|child|boy|girl)\b/i.test(kidsFact) ? 1 : 0;
   })();
   const kidAges = [...kidsFact.matchAll(/\b(\d{1,2})\b/g)].map((m) => Number(m[1])).filter((n) => n < 60);
-  for (let i = out.filter((p) => p.role === "child").length; i < kidsSaid; i++) {
+  const kidsWanted = Math.max(kidsSaid, pluralKids ? 2 : 0);
+  for (let i = out.filter((p) => p.role === "child").length; i < kidsWanted; i++) {
     const age = kidAges[i];
     add({
-      name: kidsSaid === 1 ? "your child" : i === 0 ? "your eldest" : i === kidsSaid - 1 ? "your youngest" : `your child ${i + 1}`,
+      name: kidsWanted === 1 ? "your child" : i === 0 ? "your eldest" : i === kidsWanted - 1 ? "your youngest" : `your child ${i + 1}`,
       generic: true, role: "child", relation: "child",
       born: age !== undefined ? start - age : profile.birthYear + Math.min(profile.age - 1, 28 + 2 * i), ageKnown: age !== undefined,
     });
@@ -365,7 +375,8 @@ export function inferChanges(y: SimYear, people: LedgerPerson[]): string[] {
   const partner = people.some((p) => p.role === "partner" && p.status === "here");
   for (const e of y.events) {
     const t = `${e.title}. ${e.narrative}`;
-    if (e.isTurningPoint && e.category === "child") {
+    // only a birth or an adoption adds a child ("Leo starts secondary school" is category child too)
+    if (e.isTurningPoint && e.category === "child" && /\b(born|birth|arriv\w*|welcome\w*|newborn|adopt\w*|first child|second child|third child|baby (?:girl|boy|is))\b/i.test(t)) {
       const nm = t.match(/\b(?:named|name (?:her|him)|welcome|meet|baby|daughter|son),?\s+([A-Z][\p{L}'-]+)/u)?.[1];
       out.push(`+child:${nm ?? "baby"}`);
     }
@@ -520,7 +531,7 @@ export function peopleBlock(now: LifeNow, from = now.year, to = from): string {
   const lines: string[] = [];
   const partner = here(now, "partner")[0];
   const exes = now.people.filter((p) => p.role === "partner" && p.status === "ended");
-  lines.push(`- Partner: ${partner ? `${partner.generic ? partner.name : partner.name}${partner.since > (now.year - now.age + 18) && partner.since > 0 ? ` (together since ${partner.since})` : ""}` : "none, single"}${exes.length ? `. Past: ${exes.map((e) => `${e.name} (until ${e.until})`).join(", ")}` : ""}`);
+  lines.push(`- Partner: ${partner ? `${partner.generic ? partner.name : partner.name}${partner.since > (now.year - now.age + 18) && partner.since > 0 ? ` (together since ${partner.since})` : ""}` : "none"}${exes.length ? `. Past: ${exes.map((e) => `${e.name} (until ${e.until})`).join(", ")}` : ""}`);
   const kids = here(now, "child");
   lines.push(`- Children: ${kids.length ? `${kids.length}: ${kids.map((k) => personLine(k, from, to)).join("; ")}` : "none"}`);
   const pets = here(now, "pet");
@@ -558,6 +569,18 @@ export function nowBlock(now: LifeNow, opts: { from?: number; to?: number; title
     `Ages above are computed from birth years: use exactly these and never work out an age yourself (if unsure, don't state one). No partner, child or pet exists unless listed here; a new one only arrives through an event in the year it happens.`,
   );
   return lines.join("\n");
+}
+
+/** Compact people line for small prompts (interlude captions): who, and code-computed ages. */
+export function peopleNowLine(now: LifeNow): string {
+  const out = here(now)
+    .filter((p) => p.role !== "other")
+    .map((p) => {
+      const a = ageOf(p, now.year);
+      const age = a === null ? "" : p.ageKnown ? `, ${a}` : p.role === "parent" ? `, ~${a}` : "";
+      return `${p.generic ? p.name.replace(/^your /, "") : `${p.name} (${p.relation})`}${p.role === "pet" ? "" : age}`;
+    });
+  return out.join("; ") || "no partner or children";
 }
 
 /** One short line for the ending's people summary (code-computed, never from the model). */
@@ -599,7 +622,7 @@ export function scenePeopleFrom(now: LifeNow, modelPeople: SceneSpec["people"]):
   for (const k of here(now, "child")
     .slice()
     .sort((a, b) => (a.born ?? 0) - (b.born ?? 0))
-    .slice(0, 3))
+    .slice(0, 4))
     out.push({ role: "child", ageBand: bandFor(ageOf(k, now.year), now.age < 40 ? "child" : now.age < 55 ? "teen" : "adult") });
   if (here(now, "pet").length) out.push({ role: "pet", ageBand: "adult" });
   const parentsAlive = here(now, "parent");

@@ -165,7 +165,8 @@ export function stateIssues(text: string, now: LifeNow): Issue[] {
   for (const pp of now.pastPlaces) {
     const city = (pp.place.split(",")[0] ?? "").trim();
     if (!city || cityOf(city) === cur || city.length < 3) continue;
-    const re = new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+    // "in/into/at/around San Francisco", "your San Francisco flat": being there, not "an Osaka firm"
+    const re = new RegExp(`\\b(?:in|into|at|around|across|here in|life in|years in|your)\\s+(?:the\\s+)?${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
     for (const s of ss) {
       if (re.test(s) && !MOVE_CUE.test(s) && !issues.some((i) => i.kind === "place"))
         issues.push({ kind: "place", msg: `talks as if they're in ${city}, but they left in ${pp.to + 1} and live in ${now.place}` });
@@ -244,6 +245,8 @@ export function repeatTopicIssues(card: Pick<Decision, "prompt" | "options">, ea
   const exclude = new Set<string>([
     firstName.toLowerCase(),
     ...now.place.toLowerCase().split(/,\s*/),
+    // places they have lived are settings, not subjects
+    ...now.pastPlaces.flatMap((p) => p.place.toLowerCase().split(/,\s*/)),
     ...now.people.map((p) => p.name.toLowerCase()),
     ...now.people.map((p) => p.name.split(/\s+/)[0]!.toLowerCase()),
     ...now.work.split(/[\s,]+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w.toLowerCase()),
@@ -263,7 +266,7 @@ export function repeatTopicIssues(card: Pick<Decision, "prompt" | "options">, ea
 
 /** Framing buckets (time of day, setting, device) for small cards. */
 const FRAMINGS: [string, RegExp][] = [
-  ["late night (2am, past midnight)", /\b(?:[1-4]\s?(?:am|a\.m\.)|[1-4]:\d\d\s?(?:am|a\.m\.)|midnight|middle of the night|late at night|late-night|can't sleep|cannot sleep|insomnia|wee hours|lying awake|awake at)\b/i],
+  ["late night (2am, past midnight)", /\b(?:1[01]\s?(?:pm|p\.m\.)|[1-4]\s?(?:am|a\.m\.)|[1-4]:\d\d\s?(?:am|a\.m\.)|(?:one|two|three|four) (?:in the morning|a\.?m\.?)|midnight|middle of the night|late at night|late-night|can't sleep|cannot sleep|insomnia|wee hours|lying awake|awake at|in the dark)\b/i],
   ["early morning", /\b(?:dawn|sunrise|[5-7]\s?(?:am|a\.m\.)|early morning|before work|first light)\b/i],
   ["weekend morning", /\b(?:sunday|saturday)\s+(?:morning|brunch)\b/i],
   ["Sunday", /\bsunday\b/i],
