@@ -301,3 +301,15 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
   one line (full hint as the tooltip) and the say-more microcopy keeps its first sentence.
 - Layout QA: `window.__mock` (dev only) is the mock store; inject long copy with
   `__mock.setState(...)` to check layouts.
+
+**Pass 4 (Sat Nov 7, D-090 warm-up), shots in `docs/fix-shots/warmup-*`**
+- Between Start and the first fork, phase `warmup`: up to 5 questions on the decision card itself
+  (`data-kind="warmup"`: header "Before your life starts · 2 of 5" with step pips, the sun on the current
+  one; Skip this one; Next, then "Start my life" on the last). No clock, no slide timer, no dimming.
+- The middle pane's log area is "Here's what I learned" until the life starts (`ui/middle/Learned.tsx`):
+  newest first, each item with its source (your words, with a sun dot / CV / LinkedIn / AI export / my
+  guess), your words in the serif, an × per item (`forget`). On phone it is a strip of chips at the top of
+  the sheet. The know-me dial fills as answers land.
+- While uploads are read (≤ ~1.5 s) the card slot shows the pending frame ("Reading what you gave me");
+  after the last answer, the first-fork pending frame quotes their crossroads answer (≤ 2 s).
+- The offline demo (`?demo=alex`) has no warm-up.

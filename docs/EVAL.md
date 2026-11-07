@@ -125,6 +125,26 @@ settings. Hidden-branch steps now wait while a year stretch is in flight with < 
 - Budget for a judge: ~150 s + 5 x (reading time). With ~5 s per card it lands near 3 minutes; D-090's warm-up
   questions will add to that by design.
 
+## The warm-up (D-090): timing against the real engine (Sat Nov 7 ~6-7am)
+
+`npx tsx scripts/warmup-run.ts <url> --persona minimal|medium|rich [--think 6] [--tap]` on a local production
+build (`vite preview`, real Gemini). "Start → Q1" is the agent's latency (the browser adds ~0.2-1 s to mount the
+Play screen; measured 0.16-1.2 s in headless Chrome). "Card" = last answer → first big card on screen.
+
+| Persona | Start line / uploads | Asked | Covered by line/uploads | Start → Q1 | Card after last answer | Card uses the warm-up |
+|---|---|---|---|---|---|---|
+| Minimal (Sam, 22, Chicago) | "idk, stressed about jobs" | 5 | 0 | 0.07 s | **1.95 s** (typed, 6 s/question); 1.93 s (taps, 2 s/question) | yes: the uncle's Milwaukee warehouse job, Mom, editing videos in LA (crossroads, people, unjudged); taps: cites the warm-up quote |
+| Medium (Priya, 29, Columbus) | 52-word line: ER nurse, $72k, money home to Pune, in-laws | 2 (fear, unjudged) | 3 (now, crossroads, people) | 0.07 s | **1.58 s** | yes: whyQuoteId = the fear answer; New Zealand travel nursing is an option |
+| Rich (Marcus, 34, Seattle) | AI export, 2.6k chars | 1 (unjudged) | 4 | 1.34 s ("Reading what you gave me" while the check runs) | **1.83 s** | yes: "Quit tech to teach high school physics and build furniture" |
+
+- How: the first fork is written in the background (heavy model) once the crossroads is known, again whenever
+  answers came in since; after the last answer a fast-model refresh with every answer gets 3 s, else the newest
+  card stands. In every run above the refresh landed (1.5-1.9 s) and was used.
+- Full Auto judge run with the warm-up (`judge-run.ts --persona maya --read 2`, taps): 3 warm-up questions,
+  first fork 1.8 s after the last answer, **144 s Start → ending**, 5 forks, no errors. Warm-up model spend
+  $0.008 of the session's $0.36 (coverage + folds + personalized answers on Flash-Lite; the rolling first-fork
+  cards are under "decision").
+
 ## What the judge caught, and what changed in the engine since the main run
 
 The main run used commit `85b4dbb`. Fixes made from its transcripts and the judge's "fix" notes:
