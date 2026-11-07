@@ -1,0 +1,61 @@
+{
+ "stamp": "2026-11-07T11-40-06",
+ "budget": 0.8,
+ "spent": 0.6205271299999997,
+ "summary": [
+  {
+   "group": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "personas": "kenji, lucia",
+   "sessions": 2,
+   "ok": 2,
+   "judged": 0,
+   "overall": null,
+   "personal": null,
+   "believable": null,
+   "no_melodrama": null,
+   "forks": null,
+   "specificity": null,
+   "ending": null,
+   "safety": null,
+   "schemaValidPct": 100,
+   "ruleValidPct": 95.3125,
+   "repaired": 3,
+   "fallback": 0,
+   "filler": 0,
+   "years": 64,
+   "contractErrors": 0,
+   "tpPerLife": 7.5,
+   "tpCitedPct": 100,
+   "quietPct": 76.5625,
+   "firstYearMsMean": 7767.1,
+   "firstYearMsMedian": 4730,
+   "perYearMs": 2547,
+   "decisionMs": 4749.125,
+   "profileMs": 13243,
+   "firstCardMs": 4167,
+   "sessionMin": 3.550775,
+   "costPerSession": 0.308819765,
+   "heavyCostPerSession": 0,
+   "branchCostPerSession": 0.10421619,
+   "tokensPerSession": 426666.5,
+   "judgeCost": 0,
+   "hedges": 3,
+   "cliches": 2
+  }
+ ],
+ "notes": [
+  {
+   "persona": "kenji-42-osaka",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": null,
+   "error": null
+  },
+  {
+   "persona": "lucia-36-valencia",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": null,
+   "error": null
+  }
+ ]
+}

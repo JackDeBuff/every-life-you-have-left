@@ -189,6 +189,74 @@ schedule, a child arrives through `+child:Leo` with a code-owned age, and the fu
 Cost and speed held: $0.27-0.34 per session (was $0.24-0.33), 3.67 s per year, 6.2 s median first year
 after a fork (before: 3.3-6.2 s/yr, 5.1-8.2 s). Spend for this pass: ~$2.91 (baselines $1.38, after $1.51, smoke $0.02).
 
+## D-089: small decisions in batches, and the 1× deep mode (Sat Nov 7 ~7-9am)
+
+**What changed.**
+- One fast call (`decision.smallBatch`) writes the next 3-4 small cards, each on its own domain and gap. The domain is
+  chosen at batch time (worry-weighted, least known, least asked) and each domain has 3-4 gaps taken in turn. The agent
+  keeps the cards in a queue and serves each one the moment its slot comes. `bindSmall` re-checks it in code against
+  the life then (place, job, people, date).
+- A batch covers only the slots before the next fork. The queue is dropped only when the context changes: a fork, a
+  nudge, a speed change, new documents, or an answer that opens a new thread. That check is code heuristics (a person
+  they never named, quitting, moving, love, a baby), plus the fold's profile delta. A thread, or an answer that begs a
+  question ("only if...", "it depends on..."), gets one follow-up, written singly and served next.
+- A small answer becomes a quote at once, in code. Answers fold into the profile every 3 answers or before the next
+  year call, in one call (`answer.fold`). A fork's answer folds together with the small answers still waiting.
+  **Small answers no longer rewrite the buffered future.** Only forks and nudges do. Safety still screens every text.
+- Prompts put the stable part first: year prompts open with the base-rate table, then the person, their words and the
+  life so far; the volatile parts come last. DECISIONS shows every fork and only the last 8 small answers.
+- 1×: ~150 small / 20 big (D-081 amended). It allows up to 7 cards in a free year and blocks only the fork's own
+  year. With the old two-year block, the 45-card plan placed **5** cards at 1× for a 25-year-old.
+- `SMALL_BATCH=off` (an env var) brings back the old path, for measuring.
+
+**Measured** with `npx tsx scripts/judge-run.ts <url> --speed 1x --read 3 --small-read 3` on a local dev server
+(Alex, 25, 46 years). The script answers every card after 3 s; about half the answers include a sentence of its own,
+and every 9th opens a thread.
+
+| | Before (`SMALL_BATCH=off`, old prompt order), first 10 years | After, first 10 years (full run) | After, first 10 years (final code) | **After, full 1× life** |
+|---|---|---|---|---|
+| Cost (cache-discounted / list) | $0.303 / $0.305 | $0.310 | $0.299 / $0.311 | **$1.38 / $1.43** |
+| Model calls | 77 | 89 | 81 | 357 |
+| Small cards shown (answered) | 6 (5) | 17 | 13 (12) | 86 (69, 39 with text) |
+| Small-card calls | 6 single | 10 batch + 2 single | 7 batch + 1 single | 50 batch + 5 single |
+| Fold calls (answers folded) | 3 (3) | 4 | 4 (6) | 21 (38) |
+| Year calls (+ repairs) | 11 (+1) | 8 | 8 | 25 (+8) |
+| Forks | 6 | 6 | 6 | 21 |
+| Cache hits (share of input tokens) | 2.0% | — | 11.0% | 7.5% |
+
+- **Old path, projected to the same life.** Every answered small card cost one rewrite of the buffered years
+  ($0.0106 per call), plus a card ($0.0015) and, for typed answers, a fold and a safety call. That is about $0.012 per
+  answer. Applied to the run above (86 cards, 69 answers) the old path comes to **~$2.1**; at 150 answered cards,
+  **~$3.1**. The new path costs about $0.003 per card. At 150 cards that would be **~$1.6**, still under the $1.8 target.
+  The old path also showed far fewer cards. When an answer bumped the epoch, the second card of the same year was
+  dropped: 6 cards in 10 years against 17.
+- **Where a 1× life's $1.38 goes:** hidden branches $0.45, year calls $0.32, small batches $0.20, big cards $0.18,
+  settings $0.11, folds $0.04, everything else $0.08.
+- **Speed.** The time from an answer to the next card in the same year was a median of **0.07 s** (max 1.9 s, 65
+  cases); 81 of 86 cards came straight from the queue. 5 cards waited: 56 s in all, the longest 19.6 s. The run had 8
+  answers that opened a thread, and each one drops the queue by design (the follow-up is written singly). They are the
+  likely cause, and a `[small] waited` log line now records each wait. Never starved; the whole 1× life took 13 min.
+- **Pacing at 1×.** The clock runs at 0.5× while a card is up. There is one card at a time, and cards the playhead
+  passes are dropped. Answering in 3 s, the script saw 86 of the 150 planned cards (~3.5 per free year), so a person
+  sees as many as they answer. The first full run had 17 cards shelved by the fork that followed them. Now no new card
+  starts in the last part of the year before a fork.
+- **Auto must not get worse:** $0.382 (list $0.412), 156 s, 5 forks; before: $0.37-0.43 for Alex (table above).
+- **Implicit cache.** A probe sent the same 6.5k-token prefix (system + base rates + a life) back to back on the
+  `global` endpoint. `gemini-3.8-flash` never reported `cachedContentTokenCount` (0 of 11, serial or parallel).
+  `gemini-3.5-flash-lite` hit 2 of 8 parallel calls, ~4k tokens each time. 3.8 Flash isn't served on `us-central1`
+  (404). So the hits are almost all on the hidden branches (Flash-Lite, written in parallel bursts): 14-25% of their
+  input. Moving the per-life label after the shared prefix raised branch hits from 3% to 14-25%. Cached tokens are
+  priced at 10% of input. That is an assumption (Google's published rate for 2.5); research/04 has no cache price
+  for 3.x. Cache savings are small (~$0.04 per 1× life), so the gain comes from making fewer calls.
+- **Content-consistency guard** (`npx tsx scripts/eval/index.ts --models gemini-3.8-flash+auto:gemini-3.5-flash-lite
+  --personas lucia-36-valencia,kenji-42-osaka --smalls 15 --no-judge`; small cards now written 4 per call). Final
+  code: **Kenji 0, Lucía 0 violations**, against a baseline of 0 and 0 (engine-content after-run). An earlier run had 5
+  "age" violations for Lucía. A later answer said Leo was nineteen, and the ledger read that age as said on day one
+  (Leo 8 → 30). Fixed in `ledger.ts`: an age counts from the year it was said.
+
+Spend for this pass: ~$3.6 (before run $0.30, full 1× $1.38, two eval runs $1.21, Auto $0.38, 10-year check $0.30,
+cache probes ~$0.05).
+
 ## Method
 
 **Personas** (`scripts/eval/personas.ts`): eight fictional people, written as the start line they would type

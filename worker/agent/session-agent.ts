@@ -781,6 +781,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
           const w = Date.now() - this.waitingSince;
           sm.waitMs += w;
           sm.maxWaitMs = Math.max(sm.maxWaitMs, w);
+          // Timing trail only (no personal data): why a due card wasn't ready.
+          console.log(`[small] waited ${w} ms${q.ctx !== this.smallCtx ? " (stale ctx)" : ""} queue=${this.smallQ.length} batches=${sm.batches} followUps=${sm.followUps}`);
         }
         this.waitingSince = null;
         this.publishSpend();
