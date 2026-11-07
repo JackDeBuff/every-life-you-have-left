@@ -27,6 +27,7 @@ import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
 import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, PARENT_DEATH_RE, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
 import { laneFactors, laneLine, type MoneyPath } from "./money";
+import { clashesWithShock, renderShocks, shocksFor } from "./shocks";
 import { rng, shuffled, usd } from "./util";
 
 export interface YearMetric {
@@ -229,11 +230,14 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const last = years[years.length - 1]!;
   const ledger = ledgerFrom(past, env.world);
   const step = spec.coarse ? 5 : 1;
-  const cands = sampleCandidates(env.seed + spec.idPrefix, profile, past, years, env.world, ledger, env.span, step);
+  // Life shocks (shocks.ts): code-planned per life, at real odds, once each; nothing stacks on them.
+  const shocks = shocksFor(env.seed, spec.idPrefix, profile, env.world, past, spec.coarse ? first - 4 : first, last);
+  const cands = sampleCandidates(env.seed + spec.idPrefix, profile, past, years, env.world, ledger, env.span, step).filter((c) => !clashesWithShock(c, shocks));
   // quiet years never collide with a decision (and its aftermath) or a rolled setback
   const busy = new Set<number>([
     ...years.filter((y) => spec.decisionIdsFor(y).length > 0).flatMap((y) => [y, y + 1]),
     ...cands.filter((c) => REQUIRED_WHEN_ROLLED.has(c.category)).flatMap((c) => [c.year, c.year + 1]),
+    ...shocks.map((s) => s.year),
   ]);
   const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const worldInSpan = env.world.filter((w) => w.year <= last + 1);
@@ -306,7 +310,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     budget: budgetBlock(past, env.span, first, env.world),
     quiet: quiet.length ? quiet.join(", ") : "(none required in this stretch)",
     anchors: anchorsWithAges,
-    candidates: `${renderCandidates(cands)}${deathLine}`,
+    candidates: `${renderCandidates(cands)}${renderShocks(shocks, spec.coarse)}${deathLine}`,
     attention: attention || "(no strong worries; spread attention evenly)",
     baseRates: spec.coarse ? "(coarse mode: set st to null)" : BASE_RATES_TEXT,
     task,
@@ -409,7 +413,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     const back3 = [...past, ...lastEmitted].find((x) => x.year === year - 3) ?? null;
     const ctx = {
       profile, expectedYear: year, prev, ledger, world: env.world, span: env.span, idPrefix: spec.idPrefix,
-      coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year), netWorth3YearsAgo: back3?.money.netWorth ?? null,
+      coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year), netWorth3YearsAgo: back3?.money.netWorth ?? null, shocks,
     };
     // rule checks (validate.ts) + life checks against the ledger (people, ages, duplicates, date)
     const both = (d: YearDraft, r: unknown) => {
@@ -432,7 +436,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
             yearJson: JSON.stringify(compactOf(draft, { w: life.work, ch: life.ch })),
             errors: check.hard,
             quotes: quotesText,
-            context: `${spec.lifeLabel}\nPrevious year: ${prev ? `${prev.year} ${prev.summary}` : "(none)"}\n${nowBlock(curLife, { from: year, title: `PEOPLE AND STATE going into ${year}` })}`,
+            context: `${spec.lifeLabel}\nPrevious year: ${prev ? `${prev.year} ${prev.summary}` : "(none)"}\n${nowBlock(curLife, { from: year, title: `PEOPLE AND STATE going into ${year}` })}${renderShocks(shocks.filter((x) => x.year <= year && year - x.year <= (spec.coarse ? 5 : 1)), spec.coarse)}`,
           }),
           schema: OneYearLLM,
           maxOutputTokens: 2500,

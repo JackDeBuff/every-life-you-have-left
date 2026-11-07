@@ -14,6 +14,7 @@ import {
   type SceneSpec, type SimYear,
 } from "../../shared/sim";
 import { STATE_ORDER, YearC, type EventDraft, type YearDraft } from "./schemas";
+import { catastrophesIn, type Shock } from "./shocks";
 import { clamp, clampInt, truncateWords } from "./util";
 import { CATEGORY_RULES, flavorFor, PARENT_DEATH_RE, recordEvent, selfAgeBand, SHOCK_CATEGORIES, snowPlausible, type BudgetLedger } from "./world";
 
@@ -162,6 +163,12 @@ export interface YearCheckCtx {
   decisionIds: string[];
   /** Net worth three years before (chosen life), for the "2x in 3 years" check. */
   netWorth3YearsAgo?: number | null;
+  /**
+   * The life shocks code planned for this stretch (shocks.ts). When set, a catastrophe (disaster,
+   * break-in, scam, pandemic...) that code didn't roll is rejected, and a planned one is exempt from
+   * the category budgets (code already owned its odds).
+   */
+  shocks?: Shock[];
 }
 
 export interface YearCheck {
@@ -213,6 +220,7 @@ export function checkYear(draft: YearDraft, ctx: YearCheckCtx): YearCheck {
     shockYears: [...ctx.ledger.shockYears],
     worldIds: new Set(ctx.ledger.worldIds),
     parentDeaths: ctx.ledger.parentDeaths,
+    catastrophes: { ...ctx.ledger.catastrophes },
   };
   const outEvents: LifeEvent[] = [];
   events.forEach((e, i) => {
@@ -280,9 +288,27 @@ export function checkYear(draft: YearDraft, ctx: YearCheckCtx): YearCheck {
         e = { ...e, worldId: w.id };
       }
     }
+    // catastrophes: each at most once per life, and only the ones code rolled (playtest: "5 hurricanes")
+    const window = ctx.coarse ? 5 : 1;
+    const planned = (ctx.shocks ?? []).filter((x) => year - x.year >= 0 && year - x.year <= window);
+    for (const k of catastrophesIn(`${e.title}. ${e.narrative}`)) {
+      const before = ledger.catastrophes[k];
+      if (before !== undefined && before !== year) {
+        hard.push(`${where}: repeats a catastrophe (${k.replace("_", " ")} already hit this life in ${before}); at most one per life, write something else`);
+        badEvents.add(i);
+        break;
+      }
+      const rolled = k === "pandemic" ? ctx.world.some((w) => w.kind === "other" && year >= w.year && year <= w.year + 2) : planned.some((x) => x.type === k);
+      if (ctx.shocks && !rolled) {
+        hard.push(`${where}: a ${k.replace("_", " ")} that code didn't roll for this life; never invent disasters, crime or scams (write something ordinary instead)`);
+        badEvents.add(i);
+        break;
+      }
+    }
+    const isShock = planned.some((x) => x.cats.includes(e.category));
     // budgets and cooldowns (turning points only)
     const rule = CATEGORY_RULES[e.category];
-    if (rule && e.isTurningPoint && e.category !== "world_context" && !badEvents.has(i)) {
+    if (rule && e.isTurningPoint && e.category !== "world_context" && !badEvents.has(i) && !isShock) {
       const used = ledger.counts[e.category] ?? 0;
       if (used >= rule.max(ctx.span)) {
         hard.push(`${where}: ${e.category} budget used up (${used}/${rule.max(ctx.span)} in this life); write something else`);
@@ -295,7 +321,7 @@ export function checkYear(draft: YearDraft, ctx: YearCheckCtx): YearCheck {
       }
     }
     // negative-shock cap: at most 1 major negative turning point per 3 years
-    if (e.isTurningPoint && e.tone === "down" && SHOCK_CATEGORIES.has(e.category) && !badEvents.has(i)) {
+    if (e.isTurningPoint && e.tone === "down" && SHOCK_CATEGORIES.has(e.category) && !badEvents.has(i) && !isShock) {
       const recent = ledger.shockYears.filter((y) => year - y < (ctx.coarse ? 1 : 3));
       if (recent.length) {
         hard.push(`${where}: another major setback within 3 years of ${recent[0]}; life isn't a run of disasters`);
