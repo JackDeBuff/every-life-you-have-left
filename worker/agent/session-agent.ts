@@ -54,6 +54,15 @@ const BRANCH_STEP = 5; // hidden branches advance coarsely in 5-year steps
 const INTERLUDE_S = 30;
 const FLUSH_MS = 50; // patch coalescing
 const HEDGE_MS = 6500; // no year streamed after this long → the fast writer races the stretch
+// From a fork's answer to its "meanwhile" cuts. Past this the interlude is skipped (measured: a
+// 28 s stall once); life resumes and the branches land in the background.
+const FORK_DEADLINE_MS = 13_000;
+
+/** The promise's value if it settles before `deadline` (epoch ms), else null. Rejections propagate. */
+function before<T>(p: Promise<T>, deadline: number): Promise<T | null> {
+  let t: ReturnType<typeof setTimeout>;
+  return Promise.race([p, new Promise<null>((res) => (t = setTimeout(() => res(null), Math.max(0, deadline - Date.now()))))]).finally(() => clearTimeout(t));
+}
 const PERSIST_MS = 1000; // setState debounce
 const AGENT_LOG_KINDS = new Set(["decision", "nudge", "fork", "interlude", "slid"]);
 
@@ -787,20 +796,32 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   /** After a big decision: branches → interlude → settings → playing. */
   private async fork(engine: Engine, d: Decision, chosenOptionId: string): Promise<void> {
+    const deadline = Date.now() + FORK_DEADLINE_MS;
     try {
       const opt = d.options.find((o) => o.id === chosenOptionId);
       this.update((s) => ({ log: [...s.log, this.line(d.year, "fork", `Your life splits here: ${opt?.branchTitle ?? opt?.label ?? "your own way"}`, d.id, d.domains[0] ?? null)] }));
-      const returned = await engine.spawnBranches(this.s, d, chosenOptionId);
-      const ids = new Set(returned.map((b) => b.id));
-      this.update((s) => {
-        const kept = s.branches.filter((b) => !ids.has(b.id)).map((b) => (b.status === "active" ? { ...b, status: "retired" as const } : b));
-        return { branches: [...kept, ...returned] };
-      });
-      void this.mirror.branches(this.s.branches);
-      if (this.s.branches.some((b) => b.status === "active")) {
-        this.forking = false;
-        await this.runInterlude();
-        return;
+      const apply = (returned: Branch[]) => {
+        const ids = new Set(returned.map((b) => b.id));
+        this.update((s) => {
+          const kept = s.branches.filter((b) => !ids.has(b.id)).map((b) => (b.status === "active" ? { ...b, status: "retired" as const } : b));
+          return { branches: [...kept, ...returned] };
+        });
+        void this.mirror.branches(this.s.branches);
+      };
+      const spawn = engine.spawnBranches(this.s, d, chosenOptionId);
+      const returned = await before(spawn, deadline);
+      if (!returned) {
+        // A stalled model call must not hold the whole life: skip this "meanwhile", keep playing,
+        // and let the branches land when they're written.
+        console.error("fork: branches late, skipping this interlude");
+        void spawn.then(apply).catch(() => {});
+      } else {
+        apply(returned);
+        if (this.s.branches.some((b) => b.status === "active")) {
+          this.forking = false;
+          await this.runInterlude(deadline);
+          return;
+        }
       }
     } catch (e) {
       this.update({ error: `fork: ${errCode(e)}` });
@@ -809,7 +830,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.toPlaying();
   }
 
-  private async runInterlude(): Promise<void> {
+  private async runInterlude(deadline = Date.now() + FORK_DEADLINE_MS): Promise<void> {
     const engine = await this.eng();
     const seq = ++this.interludeSeq;
     this.update((s) => ({
@@ -822,7 +843,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.persistNow();
     try {
       const copy = this.branchCopy();
-      const cuts = await engine.interlude(copy);
+      const cuts = await before(engine.interlude(copy), Math.max(deadline, Date.now() + 4000));
+      if (!cuts) throw new Error("interlude_late");
       this.publishBranches(copy);
       if (this.s.phase !== "interlude") return; // skipped by the client meanwhile
       this.update({ interlude: cuts, thinking: false });
@@ -858,7 +880,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private precomputeEnding(): void {
     const s = this.s;
     if (this.ending || !s.profile || s.phase !== "playing") return;
-    if ((s.years.at(-1)?.year ?? 0) < this.endYear) return;
+    // The ending takes 10-15 s on the real engine; start once all but the last 3 years are written
+    // (verdicts don't hinge on them) so it's ready when the playhead reaches the end age.
+    if ((s.years.at(-1)?.year ?? 0) < this.endYear - 3) return;
     if (this.slots.some((sl) => sl.kind === "big" && sl.year > s.playhead.year) || s.decisions.some((d) => d.kind === "big" && d.status === "pending")) return;
     if (this.endingPre?.epoch === this.epoch) return;
     const epoch = this.epoch;

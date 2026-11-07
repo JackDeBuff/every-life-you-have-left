@@ -96,3 +96,6 @@
 .dcard[data-kind="small"] .tile-label { font-size: 13.5px; }
 .dcard[data-kind="small"] .say .say-field .textarea { min-height: 46px; }
 .dcard[data-kind="small"] .say-micro { font-size: 11.5px; }
+/* Narrow right pane (1280-1400 px): keep the key hint on one line. */
+.keys-hint { white-space: nowrap; }
+@media (max-width: 1400px) { .kh-nl { display: none; } }

@@ -73,6 +73,12 @@ export default function Start() {
   const endAge = ageOk ? endAgeFor(ageN) : 70;
   const hasLook = Object.values(look).some((v) => v !== null);
 
+  // Fetch the 3D world's chunk while the form is being filled, so the first year isn't a blank pane.
+  useEffect(() => {
+    const id = window.setTimeout(() => void import("../world/World").catch(() => {}), 1200);
+    return () => window.clearTimeout(id);
+  }, []);
+
   useEffect(() => {
     if (reducedMotion() || !rootRef.current) return;
     const ctx = gsap.context(() => {

@@ -221,7 +221,7 @@ export function DecisionCard({ d }: { d: Decision }) {
           </button>
         ) : (
           <span className="keys-hint faint meta">
-            <span className="kbd">1</span>–<span className="kbd">4</span> pick · <span className="kbd">↵</span> decide · <span className="kbd">⇧↵</span> new line
+            <span className="kbd">1</span>–<span className="kbd">4</span> pick · <span className="kbd">↵</span> decide<span className="kh-nl"> · <span className="kbd">⇧↵</span> new line</span>
           </span>
         )}
         <button className={`btn ${big ? "sun" : ""} decide`} disabled={!canSubmit} onClick={() => void submit()}>
