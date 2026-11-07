@@ -1,0 +1,349 @@
+/**
+ * Hand-curated US base rates (research/03 §3.3, checked the week of Nov 2 2026).
+ * `id` is a stable contract: Event.baseRate.statId must be one of BASE_RATE_IDS.
+ *
+ * - `display`: the human sentence shown on the "why" card next to the user's quote.
+ * - `howToUse`: how the planner / prompt turns the stat into odds or anchors.
+ * - `quality`: primary = government/official source read directly; secondary = reputable
+ *   outlet quoting a primary (verify before quoting on stage); derived = our own estimate.
+ * - Outside the US, show "US (applied as approximate)" next to the stat.
+ */
+import type { DomainKey } from "./domains";
+
+export interface BaseRate {
+  id: string;
+  domain: DomainKey;
+  /** Short machine-friendly statement of the number(s). */
+  stat: string;
+  /** Headline numeric value when there is one (fraction, years, USD, count). */
+  value: number | null;
+  unit: "fraction" | "years" | "usd" | "count" | "rate" | null;
+  display: string;
+  source: string;
+  url: string;
+  year: number;
+  quality: "primary" | "secondary" | "derived";
+  howToUse: string;
+}
+
+export const BASE_RATES = [
+  // ---- Career and work ----
+  {
+    id: "jobs_by_age", domain: "career",
+    stat: "12.7 jobs from 18-56: 5.6 at 18-24, 4.5 at 25-34, 2.9 at 35-44, 2.3 at 45-56",
+    value: 4.5, unit: "count",
+    display: "People aged 25 to 34 hold about 4.5 jobs on average.",
+    source: "BLS NLSY79 (Aug 2023)", url: "https://www.bls.gov/news.release/archives/nlsoy_08222023.htm",
+    year: 2023, quality: "primary",
+    howToUse: "One employer change every ~2.2 yrs at 25-34, ~3.4 yrs at 35-44, ~5 yrs at 45-56.",
+  },
+  {
+    id: "tenure", domain: "career",
+    stat: "Median tenure 3.9 yrs (Jan 2024): 2.7 at 25-34, 9.6 at 55-64; public 6.2 vs private 3.5",
+    value: 3.9, unit: "years",
+    display: "The typical US worker has been with their employer for about 4 years.",
+    source: "BLS, The Economics Daily (2024)",
+    url: "https://www.bls.gov/opub/ted/2024/median-tenure-with-current-employer-was-3-9-years-in-january-2024.htm",
+    year: 2024, quality: "primary",
+    howToUse: "Anchor how long a job lasts by age; public-sector jobs last ~2x longer.",
+  },
+  {
+    id: "occ_switch", domain: "career",
+    stat: "~6.4% of workers switch occupations each year (BLS projections 2016-26)",
+    value: 0.064, unit: "rate",
+    display: "About 1 in 16 workers changes occupation in a given year.",
+    source: "BLS occupational separations method",
+    url: "https://www.bls.gov/emp/documentation/separations-methods.htm",
+    year: 2018, quality: "primary",
+    howToUse: "A real career change every ~15 yrs, so ~2-3 in a remaining career.",
+  },
+  {
+    id: "layoffs_jolts", domain: "career",
+    stat: "Layoffs and discharges averaged 1.1% of employment per month in 2025 (21.2M)",
+    value: 0.011, unit: "rate",
+    display: "About 21 million layoffs and discharges happened in the US in 2025.",
+    source: "BLS JOLTS (Mar 2026)", url: "https://www.bls.gov/news.release/archives/jolts_03132026.htm",
+    year: 2026, quality: "primary",
+    howToUse: "Counts events, many in high-churn jobs. Do not use as a personal annual risk; use displacement.",
+  },
+  {
+    id: "displacement", domain: "career",
+    stat: "6.3M workers displaced 2021-23; 65.7% of long-tenured displaced re-employed by Jan 2024",
+    value: 0.013, unit: "rate",
+    display: "6.3 million Americans lost a job to layoffs or closures in 2021 to 2023.",
+    source: "BLS Displaced Worker Survey (Jan 2024)",
+    url: "https://www.bls.gov/opub/ted/2024/65-7-percent-of-long-tenured-displaced-workers-were-reemployed-in-january-2024.htm",
+    year: 2024, quality: "derived",
+    howToUse: "~1.3%/yr personal displacement risk (good economy), ~2%/yr weak; x2 in world downturn years. 40-55% chance of at least one over 40 yrs.",
+  },
+  {
+    id: "stress_work", domain: "mentalHealth",
+    stat: "50% of US employees felt a lot of stress 'yesterday' (2025); engagement 32%",
+    value: 0.5, unit: "fraction",
+    display: "Half of US employees say they felt a lot of stress yesterday.",
+    source: "Gallup State of the Global Workplace (2025)",
+    url: "https://www.gallup.com/workplace/704063/state-global-workplace-united-states-country-level-data.aspx",
+    year: 2025, quality: "primary",
+    howToUse: "Supports a burnout stretch (max 2 per life, 4-yr cooldown); not a diagnosis.",
+  },
+  {
+    id: "job_insecurity", domain: "mentalHealth",
+    stat: "54% of US workers say job insecurity significantly affects their stress (APA 2025)",
+    value: 0.54, unit: "fraction",
+    display: "More than half of US workers say job insecurity weighs on their stress.",
+    source: "APA Work in America 2025 (via Newswise)",
+    url: "https://www.newswise.com/articles/more-than-half-of-u-s-workers-say-job-insecurity-causing-stress",
+    year: 2025, quality: "secondary",
+    howToUse: "Lower mentalHealth in years with layoffs or restructuring nearby.",
+  },
+  {
+    id: "biz_survival", domain: "risk",
+    stat: "34.7% of establishments born in 2013 still operating in 2023; ~80% survive year 1",
+    value: 0.347, unit: "fraction",
+    display: "Only about 1 in 3 new businesses is still open 10 years later.",
+    source: "BLS, The Economics Daily (2024)",
+    url: "https://www.bls.gov/opub/ted/2024/34-7-percent-of-business-establishments-born-in-2013-were-still-operating-in-2023.htm",
+    year: 2024, quality: "primary",
+    howToUse: "Any business/studio a life starts has ~20% failure in year 1, ~65% by year 10.",
+  },
+  {
+    id: "retire_age", domain: "career",
+    stat: "Retirees retired at ~61-62 on average vs ~66 expected by non-retirees",
+    value: 62, unit: "years",
+    display: "Most people retire around 62, years earlier than they planned.",
+    source: "Gallup via AARP; EBRI Retirement Confidence Survey 2025",
+    url: "https://datastories.aarp.org/the-lived-experience-of-adults-50-plus/factors/retirement/index.html",
+    year: 2025, quality: "secondary",
+    howToUse: "Retirement often comes earlier than planned and not always by choice.",
+  },
+  // ---- Money ----
+  {
+    id: "earnings_growth", domain: "wealth",
+    stat: "Median lifetime-earnings worker: earnings +60% from 25 to 55; most growth before mid-40s",
+    value: 0.6, unit: "fraction",
+    display: "For a typical worker, pay rises about 60% between 25 and 55, mostly before 45.",
+    source: "Guvenen, Karahan, Ozkan & Song, Econometrica (2021)",
+    url: "https://www.econometricsociety.org/publications/econometrica/2021/09/01/what-do-data-millions-us-workers-reveal-about-lifecycle",
+    year: 2021, quality: "primary",
+    howToUse: "Real income path: steep to mid-40s, then flat. x4.8 only at the 95th percentile.",
+  },
+  {
+    id: "weekly_earnings", domain: "wealth",
+    stat: "Median full-time weekly earnings $1,204 in 2025 (~$62.6k/yr)",
+    value: 62600, unit: "usd",
+    display: "The typical full-time US worker earns about $63,000 a year.",
+    source: "BLS, The Economics Daily (2026)",
+    url: "https://www.bls.gov/opub/ted/2026/median-weekly-earnings-were-1204-in-2025.htm",
+    year: 2026, quality: "primary",
+    howToUse: "Default income anchor when the user gives none.",
+  },
+  {
+    id: "hh_income_edu", domain: "wealth",
+    stat: "Median household income 2024 $85,580; $132,700 bachelor's+ vs $58,410 high school",
+    value: 85580, unit: "usd",
+    display: "Households led by a college graduate earn about 2.3 times more than high-school-only ones.",
+    source: "US Census Bureau (Sep 2025)",
+    url: "https://www.census.gov/library/stories/2025/09/education-and-income.html",
+    year: 2025, quality: "primary",
+    howToUse: "Household income band by education; partner income shifts a life toward it.",
+  },
+  {
+    id: "net_worth_age", domain: "wealth",
+    stat: "Median household net worth (SCF 2022): <35 ~$39k, 35-44 ~$135k, 45-54 ~$247k, 55-64 ~$364k, 65-74 ~$410k",
+    value: 410000, unit: "usd",
+    display: "The typical US household aged 65 to 74 has a net worth of about $410,000.",
+    source: "Federal Reserve SCF 2022 (via secondary tables)",
+    url: "https://www.federalreserve.gov/publications/files/scf23.pdf",
+    year: 2023, quality: "secondary",
+    howToUse: "Anchor each life's netWorth band by age (p25-p75 around the median, shifted by education/field).",
+  },
+  {
+    id: "first_home", domain: "wealth",
+    stat: "Median first-time buyer age 40 (record); first-time buyers 21% of purchases; 10% down",
+    value: 40, unit: "years",
+    display: "The typical first-time US home buyer is now 40.",
+    source: "NAR Profile of Home Buyers and Sellers (Nov 2025)",
+    url: "https://www.nar.realtor/newsroom/first-time-home-buyer-share-falls-to-historic-low-of-21-median-age-rises-to-40",
+    year: 2025, quality: "primary",
+    howToUse: "Anchor age ~40 +/-7; tight money +3 yrs, bachelor's -2, careful life -4.",
+  },
+  {
+    id: "own_u35", domain: "wealth",
+    stat: "Homeownership under 35 ~37-38% (2025)",
+    value: 0.38, unit: "fraction",
+    display: "Only about 3 in 8 Americans under 35 own their home.",
+    source: "Census HVS (via NAHB, Dec 2025)",
+    url: "https://www.nahb.org/blog/2025/12/homeownership-rate-inches-up",
+    year: 2025, quality: "secondary",
+    howToUse: "Renting in the 20s and early 30s is the norm, not a failure.",
+  },
+  // ---- Love, marriage, children ----
+  {
+    id: "marriage_age", domain: "relationships",
+    stat: "Median age at first marriage 2024: ~30.2 men / 28.6 women (CPS)",
+    value: 30, unit: "years",
+    display: "Americans now marry for the first time at about 29 to 30.",
+    source: "BGSU NCFMR FP-26-01; Census MS-2",
+    url: "https://www.bgsu.edu/ncfmr/resources/data/family-profiles/fp-26-01.html",
+    year: 2026, quality: "primary",
+    howToUse: "Anchor for marriage timing; spread +/-5 yrs.",
+  },
+  {
+    id: "never_married_40", domain: "relationships",
+    stat: "25% of 40-year-olds had never married (2021); ~1 in 4 of them marry by 60",
+    value: 0.25, unit: "fraction",
+    display: "A quarter of 40-year-olds in the US have never been married.",
+    source: "Pew Research Center (2023)",
+    url: "https://www.pewresearch.org/short-reads/2023/06/28/a-record-high-share-of-40-year-olds-in-the-us-have-never-been-married/",
+    year: 2023, quality: "primary",
+    howToUse: "Staying unmarried is common; a single life is not a sad ending.",
+  },
+  {
+    id: "marriage_survival", domain: "relationships",
+    stat: "First marriage intact: 5y 80%, 10y 68%, 15y 60%, 20y 52% (women); bachelor's 90/85/79/78%",
+    value: 0.78, unit: "fraction",
+    display: "About 8 in 10 first marriages of college graduates reach 20 years.",
+    source: "CDC NCHS, NHSR No. 49, Table 5",
+    url: "https://www.cdc.gov/nchs/data/nhsr/nhsr049.pdf",
+    year: 2012, quality: "primary",
+    howToUse: "Divorce hazard for college-educated, married 25+: ~2%/yr in years 0-5, ~1-1.5%/yr after. Upper bounds.",
+  },
+  {
+    id: "marriage_age_risk", domain: "relationships",
+    stat: "Divorce risk lowest for marriages at ~28-32",
+    value: 30, unit: "years",
+    display: "Marriages that start around 28 to 32 are the least likely to end in divorce.",
+    source: "Wolfinger, Institute for Family Studies (NSFG)",
+    url: "https://ifstudies.org/blog/replicating-the-goldilocks-theory-of-marriage-and-divorce/",
+    year: 2015, quality: "secondary",
+    howToUse: "Before ~32 each extra year cuts divorce odds ~11%; after, odds rise ~5%/yr.",
+  },
+  {
+    id: "tfr", domain: "children",
+    stat: "Total fertility rate 1.60 in 2024",
+    value: 1.6, unit: "count",
+    display: "US women now have about 1.6 children on average.",
+    source: "CDC NVSR 75-2 (June 2026)",
+    url: "https://www.cdc.gov/nchs/data/nvsr/nvsr75/nvsr75-02.pdf",
+    year: 2026, quality: "primary",
+    howToUse: "0-2 children is typical; 3 is uncommon.",
+  },
+  {
+    id: "first_birth_age", domain: "children",
+    stat: "Mean age of mother at first birth 27.5 (2023); 28.5 in large metros",
+    value: 27.5, unit: "years",
+    display: "The average US mother is now 27.5 at her first birth.",
+    source: "NCHS (June 2025)",
+    url: "https://www.cdc.gov/nchs/blog/posts/2025/06/the-rising-age-of-motherhood-in-the-united-states.html",
+    year: 2025, quality: "primary",
+    howToUse: "Anchor first-child timing; later for degree holders and big cities.",
+  },
+  {
+    id: "childless_intent", domain: "children",
+    stat: "47% of childless adults under 50 say they are unlikely to ever have kids (2023)",
+    value: 0.47, unit: "fraction",
+    display: "Almost half of childless US adults under 50 say they probably won't have kids.",
+    source: "Pew Research Center (July 2024)",
+    url: "https://www.pewresearch.org/social-trends/2024/07/25/the-experiences-of-u-s-adults-who-dont-have-children/",
+    year: 2024, quality: "primary",
+    howToUse: "A life without children is common and can be a happy one.",
+  },
+  // ---- Family, care, belonging, wellbeing ----
+  {
+    id: "caregiving", domain: "family",
+    stat: "63M family caregivers, ~1 in 4 US adults (2025); 51M care for someone 50+",
+    value: 0.25, unit: "fraction",
+    display: "About 1 in 4 US adults is a family caregiver.",
+    source: "AARP / NAC, Caregiving in the US 2025",
+    url: "https://www.aarp.org/pri/topics/ltss/family-caregiving/caregiving-in-the-us-2025/",
+    year: 2025, quality: "primary",
+    howToUse: "Near-certain for at least one 2-6 yr period in a 45-yr life; most likely at ages 40-65.",
+  },
+  {
+    id: "sandwich", domain: "family",
+    stat: "54% of adults in their 40s have a parent 65+ and are raising or supporting a child",
+    value: 0.54, unit: "fraction",
+    display: "More than half of Americans in their 40s are caring for both a parent and a child.",
+    source: "Pew Research Center (via Pew Trusts, 2022)",
+    url: "https://www.pew.org/en/trust/archive/fall-2022/more-than-half-of-americans-in-their-40s-are-sandwiched",
+    year: 2022, quality: "primary",
+    howToUse: "The 40s squeeze: time and money pressure when kids and an aging parent overlap.",
+  },
+  {
+    id: "loneliness", domain: "relationships",
+    stat: "20% of US adults felt lonely a lot of yesterday (2024); 29% of 18-29-year-olds",
+    value: 0.2, unit: "fraction",
+    display: "1 in 5 US adults felt lonely for much of yesterday; more among under-30s.",
+    source: "Gallup (2024)",
+    url: "https://news.gallup.com/poll/651881/daily-loneliness-afflicts-one-five.aspx",
+    year: 2024, quality: "primary",
+    howToUse: "Lonely stretches after moves are common, especially in the 20s.",
+  },
+  {
+    id: "close_friends", domain: "relationships",
+    stat: "8% have no close friends; 5+ close friends: 32% <30, 34% 30-49, 40% 50-64, 49% 65+",
+    value: 0.08, unit: "fraction",
+    display: "Friendships tend to grow with age: half of over-65s have five or more close friends.",
+    source: "Pew Research Center (2023)",
+    url: "https://www.pewresearch.org/short-reads/2023/10/12/what-does-friendship-look-like-in-america/",
+    year: 2023, quality: "primary",
+    howToUse: "Do not write a fading-friendship arc into every life; reconnection is normal.",
+  },
+  {
+    id: "happiness_u", domain: "happiness",
+    stat: "Wellbeing U-shaped with age, lowest ~47-48 across 145 countries (contested in panel data)",
+    value: 48, unit: "years",
+    display: "Life satisfaction dips on average around age 48, then recovers.",
+    source: "Blanchflower, J. Population Economics (2021)",
+    url: "https://klausfzimmermann.de/happiness-is-u-shaped-in-145-countries",
+    year: 2021, quality: "primary",
+    howToUse: "Gentle dip (-5 to -8 happiness) mid-40s to early 50s. Not a forced crisis.",
+  },
+  {
+    id: "moving", domain: "lifeGoals",
+    stat: "~11% of Americans moved in 2024, lowest since 1948; ~19% of movers crossed state lines",
+    value: 0.11, unit: "fraction",
+    display: "Only about 1 in 9 Americans moved home last year, a record low.",
+    source: "Census CPS (via Point2)",
+    url: "https://www.point2homes.com/news/research/us-mobility-rates-reach-historical-low.html",
+    year: 2025, quality: "secondary",
+    howToUse: "Moves cluster in the 20s and early 30s; max 4 per life.",
+  },
+  {
+    id: "adaptation", domain: "happiness",
+    stat: "Happiness returns near baseline ~2 yrs after marriage; unemployment leaves a lasting dent",
+    value: 2, unit: "years",
+    display: "People adapt to most big changes within about two years; job loss leaves a longer mark.",
+    source: "Lucas et al. 2003 (JPSP) and 2004 (Psychological Science)",
+    url: "https://doi.org/10.1037/0022-3514.84.3.527",
+    year: 2004, quality: "secondary",
+    howToUse: "Event effects on happiness decay with ~2-yr half-life; job loss leaves -3 permanently.",
+  },
+  {
+    id: "recessions", domain: "wealth",
+    stat: "US recessions roughly every 6-7 years post-war (NBER dating)",
+    value: 6.5, unit: "years",
+    display: "Since the war, the US has had a recession roughly every six or seven years.",
+    source: "NBER business cycle dating",
+    url: "https://www.nber.org/research/business-cycle-dating",
+    year: 2023, quality: "primary",
+    howToUse: "The shared world timeline gets 1-2 downturns over 45 years, not more.",
+  },
+  {
+    id: "harvard_relationships", domain: "relationships",
+    stat: "Relationship satisfaction at 50 predicted health at 80 better than cholesterol (Harvard Study of Adult Development)",
+    value: null, unit: null,
+    display: "In an 85-year Harvard study, how happy people were in their relationships at 50 predicted their health at 80 better than cholesterol did.",
+    source: "Harvard Study of Adult Development (Waldinger & Schulz, The Good Life, 2023)",
+    url: "https://www.adultdevelopmentstudy.org/",
+    year: 2023, quality: "secondary",
+    howToUse: "Weight relationships heavily in the 50s; it is the domain that compounds.",
+  },
+] as const satisfies readonly BaseRate[];
+
+export type BaseRateId = (typeof BASE_RATES)[number]["id"];
+export const BASE_RATE_IDS = BASE_RATES.map((b) => b.id) as unknown as readonly [BaseRateId, ...BaseRateId[]];
+
+const byId = new Map<string, BaseRate>(BASE_RATES.map((b) => [b.id, b]));
+export const getBaseRate = (id: string): BaseRate | undefined => byId.get(id);
+export const isBaseRateId = (id: string): id is BaseRateId => byId.has(id);
