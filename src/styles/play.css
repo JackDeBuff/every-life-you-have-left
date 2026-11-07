@@ -96,7 +96,7 @@
 .portrait {
   position: relative; flex: none; overflow: hidden;
   border-radius: 999px 999px var(--r1) var(--r1);
-  background: linear-gradient(180deg, var(--sun-soft), color-mix(in oklab, var(--sun) 6%, var(--sunken)) 70%);
+  background: linear-gradient(180deg, var(--portrait-sky-top, var(--sun-soft)), var(--portrait-sky-bottom, color-mix(in oklab, var(--sun) 6%, var(--sunken))) 70%);
   --portrait-shirt: #2c4560;
   --portrait-shirt-line: rgb(255 255 255 / 0.25);
   --portrait-glasses: #1b2328;
@@ -107,7 +107,15 @@
 .portrait-layer.in { animation: pfade var(--t-slow) var(--e-tide) both; }
 .portrait-layer.out { animation: pfade var(--t-slow) var(--e-tide) reverse both; }
 @keyframes pfade { from { opacity: 0; } }
+/* /#look-lab (QA gallery) */
+.ll { padding: var(--s5); display: grid; gap: var(--s5); background: var(--canvas); color: var(--ink); min-height: 100vh; }
+.ll section { display: grid; gap: var(--s3); }
+.ll-grid { display: grid; gap: var(--s4) var(--s3); justify-content: start; }
+.ll-row { display: flex; gap: var(--s4); align-items: end; }
+.ll-cell { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.ll-cell figcaption { max-width: 120px; text-align: center; font-size: 10.5px; }
 .bio-name { font-size: 20px; font-weight: 650; font-stretch: var(--w-wide); letter-spacing: -0.01em; line-height: 1.1; }
+.bio-pron { margin-left: 8px; font-size: var(--fs-label); font-weight: 500; font-stretch: 100%; letter-spacing: 0.02em; color: var(--ink-3); vertical-align: 0.2em; }
 .bio-age { font-size: var(--fs-num); font-weight: 760; font-stretch: var(--w-wide); letter-spacing: -0.04em; line-height: 0.9; margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
 .roll { position: relative; display: inline-block; overflow: hidden; vertical-align: bottom; padding-right: 0.04em; }
 .roll > span { display: inline-block; }
@@ -123,6 +131,16 @@
 .person[data-rel="partner"], .person[data-rel="spouse"] { border-color: color-mix(in oklab, var(--fam-people) 40%, var(--hair-2)); }
 .money { font-size: 22px; font-weight: 700; font-stretch: var(--w-wide); letter-spacing: -0.02em; display: block; line-height: 1.1; }
 .money-note { display: block; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.money-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cur-pick {
+  appearance: none; border: 1px solid var(--hair); border-radius: var(--r1); background: transparent; color: var(--ink-3);
+  font: inherit; font-size: 10px; letter-spacing: 0.04em; padding: 1px 6px; cursor: pointer;
+}
+.cur-pick:hover, .cur-pick:focus-visible { color: var(--ink); border-color: var(--hair-2); }
+.cur-offer { display: inline-flex; align-items: center; gap: 2px; margin-top: 6px; border: 1px solid var(--sun); border-radius: var(--r1); background: var(--sun-soft); text-align: left; }
+.cur-offer button { border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; padding: 2px 6px; }
+.cur-offer-yes { padding-left: 10px !important; font-weight: 600; }
+.cur-offer-no { color: var(--ink-3) !important; display: inline-flex; }
 .so-far { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--hair); font-stretch: var(--w-data); }
 
 .status { display: grid; }

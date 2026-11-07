@@ -376,6 +376,7 @@ export function createMockEngine(opts: MockOptions = {}): Engine {
       const p = clone(DEMO.profile);
       const now = new Date();
       p.firstName = input.firstName;
+      p.gender = input.appearance?.gender ?? null;
       p.age = input.age;
       p.startYear = now.getUTCFullYear();
       p.birthYear = p.startYear - input.age;

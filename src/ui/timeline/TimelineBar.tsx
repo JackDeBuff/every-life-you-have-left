@@ -9,7 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Branch, Decision, SpeedMode } from "../../../shared/sim";
 import { clock } from "../clock";
-import { moneyShort, ROMAN } from "../format";
+import { moneyHint, moneyShort, ROMAN, useCurrency } from "../format";
 import { Icon } from "../icons";
 import { Portrait } from "../left/Portrait";
 import { MiniRose } from "../left/LifeRose";
@@ -211,6 +211,7 @@ function ForkPeek({ d, left, branches }: { d: Decision; left: number; branches: 
 
 export function BranchRow({ b, numeral }: { b: Branch; numeral: string }) {
   const appearance = useSim((s) => s.appearance);
+  const cur = useCurrency();
   const startAge = useSim((s) => s.profile?.age ?? 25);
   const endAge = useSim((s) => s.endAge);
   const y = b.years[b.years.length - 1];
@@ -225,7 +226,7 @@ export function BranchRow({ b, numeral }: { b: Branch; numeral: string }) {
         {y ? (
           <>
             <p className="small muted">
-              {y.age} · {y.place} · <span className="data">{moneyShort(y.money.netWorth)}</span>
+              {y.age} · {y.place} · <span className="data" title={moneyHint(y.money.netWorth, cur)}>{moneyShort(y.money.netWorth, cur)}</span>
               {people.length ? ` · ${people.length} at home` : ""}
             </p>
             <p className="small">{y.summary}</p>
