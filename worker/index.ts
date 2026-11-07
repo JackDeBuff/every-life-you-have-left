@@ -1,32 +1,32 @@
 /**
- * API Worker (Hono). Static assets (the SPA) are served by Workers Static Assets; only /api/*
- * reaches this code (wrangler.jsonc run_worker_first). Never log request bodies.
+ * Worker entry. Static assets (the SPA) are served by Workers Static Assets; only /api/*, /agents/*
+ * and /media/* reach this code (wrangler.jsonc run_worker_first). Never log request bodies.
  *
- * Routes (WP0):  GET /api/health · POST /api/smoke · GET /api/demo/life/:key (SSE envelope)
- *                GET /api/admin/ping (x-admin-passcode)
- * Planned routes: docs/PLAN.md §1.
+ *   /agents/session-agent/<sessionId>   SessionAgent Durable Object (WebSocket + RPC), Agents SDK
+ *   GET  /api/health · POST /api/smoke · GET /api/demo · GET /api/demo/life/:key (SSE envelope)
+ *   POST /api/transcribe · /api/portrait · /api/tts · /api/upload · GET /media/<key>   (worker/media.ts)
+ *   GET  /api/admin/sessions · /api/admin/session/:id · /api/admin/ping               (worker/admin.ts)
  */
-import { Hono, type MiddlewareHandler } from "hono";
+import { routeAgentRequest } from "agents";
+import { Hono } from "hono";
 import demo from "../shared/demo/alex.json";
 import { LIFE_KEYS, type LifeKey } from "../shared/lives";
 import { DemoBundle } from "../shared/schema";
+import { admin } from "./admin";
+import { wantsReal } from "./engine-select";
 import { GeminiError, GenerationDisabledError, generate, generationEnabled, stream, textDeltas } from "./gemini";
+import { bindLlm, type LlmEnv } from "./llm";
+import { media } from "./media";
 import { sseResponse } from "./sse";
+
+export { SessionAgent } from "./agent/session-agent";
+export { requireAdmin } from "./admin";
 
 type AppEnv = { Bindings: Env };
 const app = new Hono<AppEnv>();
 
 const DEMO = DemoBundle.parse(demo);
-
-/** Admin guard (D-033). Constant-time-ish compare; passcode is the ADMIN_PASSCODE secret. */
-export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const given = c.req.header("x-admin-passcode") ?? "";
-  const want = c.env.ADMIN_PASSCODE ?? "";
-  let diff = given.length ^ want.length;
-  for (let i = 0; i < Math.max(given.length, want.length); i++) diff |= (given.charCodeAt(i) || 0) ^ (want.charCodeAt(i) || 0);
-  if (!want || diff !== 0) return c.json({ ok: false, error: "unauthorized" }, 401);
-  await next();
-};
+const HAS_REAL_ENGINE = Object.keys(import.meta.glob("./engine/index.ts")).length > 0;
 
 app.get("/api/health", async (c) => {
   let db = false;
@@ -35,17 +35,23 @@ app.get("/api/health", async (c) => {
   } catch {
     db = false;
   }
+  const env = c.env as Env & { MODEL_IMAGE?: string; MODEL_TTS?: string; ENGINE?: string };
   return c.json({
     ok: true,
     service: "every-life-you-have-left",
     time: new Date().toISOString(),
     generation: generationEnabled(c.env),
+    engine: wantsReal(c.env) && HAS_REAL_ENGINE ? "real" : "mock",
+    engineVar: env.ENGINE ?? "real",
+    realEngineBuilt: HAS_REAL_ENGINE,
     db,
     models: {
       heavy: c.env.MODEL_HEAVY,
       fast: c.env.MODEL_FAST,
       quality: c.env.MODEL_QUALITY,
       fallback: c.env.MODEL_FALLBACK,
+      image: env.MODEL_IMAGE,
+      tts: env.MODEL_TTS,
     },
   });
 });
@@ -85,8 +91,8 @@ app.post("/api/smoke", async (c) => {
 });
 
 /**
- * Streams a pre-made demo life (Alex) through the same SSE envelope the real /api/life will use.
- * For UI development and the offline/kill-switch fallback. ?ms=25 sets the delay per chunk.
+ * Streams a pre-made demo life (Alex) through the SSE envelope. For UI development and the
+ * offline/kill-switch fallback. ?ms=25 sets the delay per chunk.
  */
 app.get("/api/demo/life/:key", (c) => {
   const key = c.req.param("key") as LifeKey;
@@ -110,7 +116,8 @@ app.get("/api/demo/life/:key", (c) => {
 /** The whole demo bundle (profile, plan, 4 lives, pause, re-tune). */
 app.get("/api/demo", (c) => c.json(DEMO));
 
-app.get("/api/admin/ping", requireAdmin, (c) => c.json({ ok: true }));
+app.route("/", media);
+app.route("/", admin);
 
 app.all("/api/*", (c) => c.json({ ok: false, error: "not_found" }, 404));
 
@@ -119,4 +126,14 @@ app.onError((e, c) => {
   return c.json({ ok: false, error: "internal" }, 500);
 });
 
-export default app;
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    bindLlm(env as unknown as LlmEnv);
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/agents/")) {
+      const res = await routeAgentRequest(request, env);
+      return res ?? new Response("Not found", { status: 404 });
+    }
+    return app.fetch(request, env, ctx);
+  },
+} satisfies ExportedHandler<Env>;
