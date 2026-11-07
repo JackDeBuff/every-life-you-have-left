@@ -201,3 +201,60 @@ Location: `src/ui/` (components), `src/screens/` (screens), `src/styles/` (token
 Plain, second person, warm, short. No exclamation marks. Never rank a life. Money always carries
 "a projection, not a prediction". The microcopy under every say-more box: *"Your own words steer
 this life more than a tap. We keep them, and later turning points will quote them back to you."*
+
+## 9. Run the mock demo
+
+```bash
+npm install
+npx vite --port 5291          # or npm run dev
+```
+
+- `http://127.0.0.1:5291/` is the real start screen. "Or try it as Alex, 25" fills the sample person.
+- `?demo=alex` pre-fills the form (and ticks 18+). `&autopilot=1` answers every decision after ~1.4 s,
+  through the real keyboard path, so Auto plays end to end hands-free (measured: ~2 min 40 s with
+  instant answers; ~3 min with human reading time).
+- QA only: `&jump=40` fast-forwards to age 40; `&stop=big` stops at the next open fork;
+  `&answer=3` then answers it through the card (plays the fork moment and the interlude);
+  `jump=end` lands on the ending. `&theme=dark|light` forces a theme. `&still=1` lands every CSS
+  animation on its end state (for headless screenshots).
+- Everything runs on the local mock (`src/ui/mock/`). The lead swaps `src/ui/session.ts` to the
+  real agent client; the UI only reads `ClientState` and calls `ClientCalls` (`src/ui/types.ts`).
+
+## 10. Review log (screenshots in `docs/ui-shots/`)
+
+Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-dark-1280.jpg`,
+`04-ending-dark-1440.png`, `05-phone-light-390.jpg`.
+
+**Pass 1 (first full Auto run), what was wrong and what changed**
+- The pause key carried the class `play`, which is also the screen grid: the timeline controls
+  blew up to 1000 px. Renamed.
+- Rose family labels were clipped by the 300 px pane. Moved to the four corners of their quadrants.
+- The interlude ran ~11 s, which pushed Auto past 3 minutes. Re-paced to ~8 s: the title shrinks
+  into a running header over the first cut instead of holding on its own.
+- "Keep the 3 most different" kept all three lives from the first fork, so later forks never
+  showed up. Added the variety-of-path rule: the newest fork always keeps its most different life.
+- The dialogue stayed scrolled to the top after a big decision, and settings ate half the chat.
+  Pinned the dialogue to the newest line on resize; settings became a compact 2-column instrument
+  with hints on hover.
+- The left pane needed a scrollbar at 900 px, and the start CTA fell below the fold at 1280×800.
+  Tightened the pane (three-up uploads, smaller rose on short screens) and made the CTA sticky.
+
+**Pass 2 (full-resolution stills, light + dark), what was wrong and what changed**
+- Why lines quoted sentences that didn't apply ("I'm a data analyst…" for the kids question). The
+  start line is now split into sentence quotes, and a fork only cites a quote that fits its domain;
+  otherwise it gives a plain reason. The why card no longer repeats the quote inside the reason.
+- The open fork ◆ hid under the sun. It now sits on top of the sun: you are standing at it.
+- The log unpinned itself during its own smooth scroll. Only wheel/touch/keys unpin it now.
+- Ending: columns were misaligned, two lives shared a verdict, an adopted child never appeared at
+  70, and every life still had a parent at 70. Fixed alignment, de-duplicated verdicts, queued
+  events now change the life, and caregiving ends once, gently, after many years.
+- Phone overflowed horizontally (implicit grid column). Now a single `minmax(0, 1fr)` column.
+- Thread labels on the start illustration collided with the threads. They get a panel-coloured halo.
+
+**Still rough, honestly**
+- The middle pane is a 2D stand-in for the 3D world; the hook lands at integration.
+- The portrait is placeholder art (a faceless illustrated bust in the arch). It ages and follows
+  the picked look, but it's the weakest visual on screen until real portraits arrive.
+- Mock content repeats at 1×/2× (later forks recycle the life-stage templates).
+- Mid-animation frames (fork flight, blink) were checked live in the browser pane, not captured
+  at full resolution.

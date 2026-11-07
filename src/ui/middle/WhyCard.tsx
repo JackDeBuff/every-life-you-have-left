@@ -1,6 +1,6 @@
 /** The "why" behind a turning point: your exact words + a real base rate with its source (D-013). */
 import * as Popover from "@radix-ui/react-popover";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { getBaseRate } from "../../../shared/baseRates";
 import { DOMAINS } from "../../../shared/domains";
 import type { LogLine } from "../../../shared/sim";
@@ -28,7 +28,7 @@ export function WhyBody({ line, onClose }: { line: LogLine; onClose?: () => void
           <figcaption className="small faint">You said this{quote.source === "answer" ? "" : ` (from your ${quote.source.replace("_", " ")})`}.</figcaption>
         </figure>
       )}
-      {line.why && <p className="small">{line.why.reason}</p>}
+      {line.why && <p className="small">{reasonWithoutQuote(line.why.reason, !!quote)}</p>}
       {rate && (
         <div className="why-rate">
           <p className="small">{rate.display}</p>
@@ -55,13 +55,21 @@ export function WhyBody({ line, onClose }: { line: LogLine; onClose?: () => void
   );
 }
 
+/** The quote is already shown large above; don't repeat it inside the reason. */
+function reasonWithoutQuote(reason: string, quoteShown: boolean): string {
+  if (!quoteShown) return reason;
+  const r = reason.replace(/^You (said|told me|wrote)\s*“[^”]*”[,.]?\s*(so|and so|which is why)?\s*/i, "").trim();
+  return r ? r[0]!.toUpperCase() + r.slice(1) : reason;
+}
+
 export function WhyPopover({ line, children }: { line: LogLine; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>{children}</Popover.Trigger>
       <Popover.Portal>
         <Popover.Content className="pop why-pop" side="top" align="start" sideOffset={6} collisionPadding={12}>
-          <WhyBody line={line} />
+          <WhyBody line={line} onClose={() => setOpen(false)} />
           <Popover.Close className="pop-x" aria-label="Close">
             <Icon name="x" size={14} />
           </Popover.Close>
