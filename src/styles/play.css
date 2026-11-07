@@ -96,7 +96,7 @@
 .portrait {
   position: relative; flex: none; overflow: hidden;
   border-radius: 999px 999px var(--r1) var(--r1);
-  background: linear-gradient(180deg, var(--sun-soft), color-mix(in oklab, var(--sun) 6%, var(--sunken)) 70%);
+  background: linear-gradient(180deg, var(--portrait-sky-top, var(--sun-soft)), var(--portrait-sky-bottom, color-mix(in oklab, var(--sun) 6%, var(--sunken))) 70%);
   --portrait-shirt: #2c4560;
   --portrait-shirt-line: rgb(255 255 255 / 0.25);
   --portrait-glasses: #1b2328;
@@ -107,6 +107,13 @@
 .portrait-layer.in { animation: pfade var(--t-slow) var(--e-tide) both; }
 .portrait-layer.out { animation: pfade var(--t-slow) var(--e-tide) reverse both; }
 @keyframes pfade { from { opacity: 0; } }
+/* /#look-lab (QA gallery) */
+.ll { padding: var(--s5); display: grid; gap: var(--s5); background: var(--canvas); color: var(--ink); min-height: 100vh; }
+.ll section { display: grid; gap: var(--s3); }
+.ll-grid { display: grid; gap: var(--s4) var(--s3); justify-content: start; }
+.ll-row { display: flex; gap: var(--s4); align-items: end; }
+.ll-cell { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.ll-cell figcaption { max-width: 120px; text-align: center; font-size: 10.5px; }
 .bio-name { font-size: 20px; font-weight: 650; font-stretch: var(--w-wide); letter-spacing: -0.01em; line-height: 1.1; }
 .bio-age { font-size: var(--fs-num); font-weight: 760; font-stretch: var(--w-wide); letter-spacing: -0.04em; line-height: 0.9; margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
 .roll { position: relative; display: inline-block; overflow: hidden; vertical-align: bottom; padding-right: 0.04em; }

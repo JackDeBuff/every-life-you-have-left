@@ -138,6 +138,9 @@
     --calm: #10283a;
     --calm-ink: #cfe3f2;
     --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+    /* the portrait's window stays lit at blue hour, so dark hair and the shirt still read */
+    --portrait-sky-top: color-mix(in oklab, var(--sun) 28%, #4b4a48);
+    --portrait-sky-bottom: color-mix(in oklab, var(--sun) 8%, #3c4246);
   }
 }
 :root[data-theme="dark"] {
@@ -163,6 +166,8 @@
   --calm: #10283a;
   --calm-ink: #cfe3f2;
   --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --portrait-sky-top: color-mix(in oklab, var(--sun) 28%, #4b4a48);
+  --portrait-sky-bottom: color-mix(in oklab, var(--sun) 8%, #3c4246);
 }
 
 @media (prefers-reduced-motion: reduce) {

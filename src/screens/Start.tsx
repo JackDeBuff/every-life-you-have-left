@@ -219,7 +219,7 @@ export default function Start() {
           </button>
           {open === "look" && (
             <div className="opt-body look">
-              <Portrait appearance={look} age={ageOk ? ageN : 25} progress={0.1} size={92} />
+              <Portrait appearance={look} age={ageOk ? ageN : 25} progress={0.1} size={116} />
               <div className="look-controls">
                 <div className="field">
                   <span className="label">Hair</span>
