@@ -6,8 +6,12 @@
  *
  *   npx tsx scripts/judge-run.ts [baseUrl] [--read 2] [--persona alex|maya|ploy|dev] [--pick random|cycle|0..3]
  *                                [--legacy] [--out file.json]
+ *                                [--speed 1x|2x|4x|auto] [--small-read 3] [--years N] [--timeout ms]
  *   baseUrl defaults to http://127.0.0.1:4173 (vite preview of a production build).
  *   --legacy   the client as of 29a2c96: 1.75 s cuts, every moment held 0.7 s.
+ *   --speed    1x/2x/4x also answer the small cards (after --small-read s; about half with a
+ *              sentence of their own, a few that open a new thread), so a deep-mode life's cost
+ *              and pacing can be measured. --years N stops after N years (a partial life).
  *
  * Prints the timeline (Start click = 0), per-fork waits, starved time, the money at the end of each
  * life, and the session's model spend (state.usage).
@@ -27,6 +31,11 @@ const legacy = args.includes("--legacy");
 const pick = flag("pick", "random");
 const out = flag("out", "");
 const TIMEOUT_MS = Number(flag("timeout", "420000"));
+const SPEED = flag("speed", "auto") as StartInput["speed"];
+const SMALL_READ_S = Number(flag("small-read", String(READ_S)));
+const STOP_YEARS = Number(flag("years", "0"));
+const SNAP_YEARS = Number(flag("snap", "10"));
+let snap: { usage: unknown; at: number; smalls: number } | null = null;
 
 const PERSONAS: Record<string, StartInput> = {
   alex: {
@@ -46,7 +55,31 @@ const PERSONAS: Record<string, StartInput> = {
     line: "I'm a software engineer up for a manager role. Part of me wants to quit and build furniture. My dad is getting older back in Ohio.",
   },
 };
-const input = PERSONAS[flag("persona", "alex")] ?? PERSONAS.alex!;
+const input = { ...(PERSONAS[flag("persona", "alex")] ?? PERSONAS.alex!), speed: SPEED };
+
+// Small-card answers (1x/2x/4x): a tap, often a sentence. Every 9th opens a new thread (a person
+// they never mentioned, a move, quitting), which drops the queue and asks for a follow-up.
+const SMALL_TEXTS = [
+  "Honestly I'd keep it to myself for a while.",
+  "I'd call my mom first, she always knows.",
+  "Money first, then everything else.",
+  "I think I'd surprise myself and say yes.",
+  "Probably the safe answer, but it would bug me.",
+  "It depends on whether I'm sleeping enough, honestly.",
+  "I'd write it down and decide on Sunday.",
+  "That one scares me more than I admit.",
+];
+const THREAD_TEXTS = [
+  "My friend Jonah keeps saying I should just go for it.",
+  "I'm moving to a smaller place across town next month.",
+  "My sister Nina is the one I'd tell, she gets it.",
+];
+let smallAnswered = 0;
+let smallWithText = 0;
+const smallGaps: number[] = [];
+let lastSmallAnswerAt: number | null = null;
+let lastSmallAnswerYear: number | null = null;
+const handledSmall = new Set<string>();
 
 const sessionId = `judge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 const ws = new WebSocket(`${base.replace(/^http/, "ws")}${agentPath(sessionId)}`);
@@ -125,7 +158,8 @@ let forkUntil = 0;
 let momentUntil = 0;
 let lastMomentKey: string | null = null;
 let ilEndCalled = false;
-const cut = legacy ? 1.75 : cutSecondsFor("auto");
+const cut = legacy ? 1.75 : cutSecondsFor(SPEED);
+let periodicIl: { start: number; ended: boolean } | null = null;
 
 function frame() {
   const s = state;
@@ -171,13 +205,43 @@ function frame() {
     }
   }
 
+  // A small card (1x/2x/4x): read it, then answer (a tap, often with a sentence).
+  const small = visibleDecisions.find((d) => d.kind === "small" && d.status === "pending");
+  if (small && s.phase === "playing" && !handledSmall.has(small.id)) {
+    handledSmall.add(small.id);
+    // Time to show: from the previous answer to this card, when it's due in the same year.
+    if (lastSmallAnswerAt !== null && lastSmallAnswerYear !== null && small.year <= lastSmallAnswerYear) smallGaps.push(T() - lastSmallAnswerAt);
+    lastSmallAnswerAt = null;
+    const k = smallAnswered;
+    setTimeout(() => {
+      const cur = state?.decisions.find((d) => d.id === small.id);
+      if (!cur || cur.status !== "pending") return;
+      const opt = small.options[Math.floor(Math.random() * 4)]!;
+      const text = k % 9 === 4 ? THREAD_TEXTS[(k / 9) % THREAD_TEXTS.length | 0]! : k % 2 === 0 ? SMALL_TEXTS[k % SMALL_TEXTS.length]! : null;
+      smallAnswered++;
+      if (text) smallWithText++;
+      lastSmallAnswerAt = T();
+      lastSmallAnswerYear = state?.playhead.year ?? small.year;
+      const a: AnswerInput = { decisionId: small.id, optionId: opt.id, text, via: text ? "text" : "tap" };
+      void call("answer", a).catch((e) => log("small answer failed", e));
+    }, SMALL_READ_S * 1000);
+  }
+  // A periodic "meanwhile" (1x/2x, every 10 years): the world plays the cuts, then resumes.
+  if (s.phase === "interlude" && s.interlude?.length && !(f && f.answered !== null && f.resumed === null)) {
+    if (!periodicIl) periodicIl = { start: T(), ended: false };
+    if (!periodicIl.ended && T() - periodicIl.start >= cut * s.interlude.length) {
+      periodicIl.ended = true;
+      void call("pause", false).catch(() => {});
+    }
+  } else if (s.phase !== "interlude") periodicIl = null;
+
   // Moments: the world holds the clock for a moment's cinematic (WorldView).
   const y = s.years.find((x) => x.year === year);
-  const playable = legacy ? null : playableMoments(s.years, "auto");
+  const playable = legacy ? null : playableMoments(s.years, SPEED);
   const mom = y?.scene.moment && (legacy || playable!.has(year)) ? y.scene.moment : null;
   const key = s.phase === "playing" && mom ? `${year}:${mom}` : null;
   if (key && key !== lastMomentKey) {
-    const hold = legacy ? 0.7 : MOMENT_RULES.auto.holdS;
+    const hold = legacy ? 0.7 : MOMENT_RULES[SPEED].holdS;
     momentUntil = now + hold * 1000;
     momentsPlayed++;
     momentHoldS += hold;
@@ -249,13 +313,15 @@ async function main() {
     }
     if (s.playhead.year !== lastYear && s.phase === "playing") {
       lastYear = s.playhead.year;
+      if (!snap && s.profile && s.playhead.year >= s.profile.startYear + SNAP_YEARS)
+        snap = { usage: JSON.parse(JSON.stringify(s.usage ?? null)), at: T(), smalls: s.decisions.filter((d) => d.kind === "small").length };
     }
   }, 16);
-  await until(() => ended !== null, TIMEOUT_MS);
+  await until(() => ended !== null || (STOP_YEARS > 0 && !!state?.profile && state.playhead.year >= state.profile.startYear + STOP_YEARS), TIMEOUT_MS);
   clearInterval(loop);
   await new Promise((r) => setTimeout(r, 2500)); // let the last usage patch land
   const s = state!;
-  console.log("\n— Auto judge run —");
+  console.log(`\n— ${SPEED === "auto" ? "Auto judge" : SPEED} run${ended === null ? ` (stopped at ${s.playhead.year}, age ${s.playhead.age})` : ""} —`);
   console.log(`total (Start → ending): ${fmt(ended)} s   first card: ${fmt(firstCard)} s   starved: ${starvedS.toFixed(1)} s   moments: ${momentsPlayed} (${momentHoldS.toFixed(1)} s held)`);
   console.log("fork  age  shown  answer  cuts   il.start il.end resumed  answer→cuts  answer→resume  firstYear");
   for (const [i, f] of forks.entries()) {
@@ -278,14 +344,34 @@ async function main() {
     console.log(`verdict (you): ${s.ending.verdict}`);
     for (const b of s.branches.filter((x) => x.status === "active")) console.log(`verdict (${b.title}): ${s.ending.branchVerdicts[b.id] ?? "-"}`);
   }
-  console.log(`usage: $${s.usage?.usd.toFixed(3) ?? "?"} over ${s.usage?.calls ?? "?"} calls ${JSON.stringify(s.usage?.byPurpose ?? {})}`);
+  console.log(`usage: $${s.usage?.usd.toFixed(3) ?? "?"} (list price $${s.usage?.listUsd?.toFixed(3) ?? "?"}) over ${s.usage?.calls ?? "?"} calls ${JSON.stringify(s.usage?.byPurpose ?? {})}`);
+  const det = s.usage?.detail ?? {};
+  let inT = 0;
+  let cT = 0;
+  console.log("purpose                 calls      $      in tok   cached  hit%");
+  for (const [k, v] of Object.entries(det).sort((a, b) => b[1].usd - a[1].usd)) {
+    inT += v.inTok;
+    cT += v.cachedTok;
+    console.log(`${k.padEnd(22)} ${String(v.calls).padStart(6)} ${v.usd.toFixed(3).padStart(7)} ${String(v.inTok).padStart(10)} ${String(v.cachedTok).padStart(8)} ${(v.inTok ? (100 * v.cachedTok) / v.inTok : 0).toFixed(0).padStart(5)}`);
+  }
+  console.log(`cache: ${cT} of ${inT} input tokens (${inT ? ((100 * cT) / inT).toFixed(1) : 0}%)`);
+  const sm = s.usage?.smalls;
+  const smallsShown = s.decisions.filter((d) => d.kind === "small").length;
+  const gaps = smallGaps.slice().sort((a, b) => a - b);
+  console.log(`small cards: ${smallsShown} shown, ${smallAnswered} answered (${smallWithText} with text); same-year answer → next card: median ${gaps.length ? gaps[gaps.length >> 1]!.toFixed(2) : "-"} s, max ${gaps.length ? gaps.at(-1)!.toFixed(2) : "-"} s over ${gaps.length}`);
+  if (sm) console.log(`agent: served ${sm.served} (${sm.fromQueue} straight from the queue, waits ${sm.waitMs} ms total, max ${sm.maxWaitMs} ms), batches ${sm.batches}, discarded ${sm.discarded}, follow-ups ${sm.followUps}, folds ${sm.folds} (${sm.folded} answers)`);
+  console.log(`big decisions: ${s.decisions.filter((d) => d.kind === "big").length}; years ${s.years.length}; wall ${fmt(T())} s`);
+  if (snap) {
+    const u = snap.usage as { usd?: number; calls?: number; detail?: Record<string, { calls: number }> } | null;
+    console.log(`after ${SNAP_YEARS} years (${fmt(snap.at)} s): $${u?.usd?.toFixed(3) ?? "?"} over ${u?.calls ?? "?"} calls, ${snap.smalls} small cards; calls ${JSON.stringify(Object.fromEntries(Object.entries(u?.detail ?? {}).map(([k, v]) => [k, v.calls])))}`);
+  }
   console.log(`engine ${s.engine}, error ${s.error ?? "none"}`);
   if (out) {
     const fs = await import("node:fs");
-    fs.writeFileSync(out, JSON.stringify({ sessionId, legacy, readS: READ_S, total: ended, firstCard, starvedS, momentsPlayed, forks, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage }, null, 2));
+    fs.writeFileSync(out, JSON.stringify({ sessionId, speed: SPEED, legacy, readS: READ_S, smallReadS: SMALL_READ_S, total: ended, wall: T(), firstCard, starvedS, momentsPlayed, forks, smallAnswered, smallWithText, smallGaps, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage, snap, decisions: s.decisions.map((d) => ({ id: d.id, kind: d.kind, year: d.year, status: d.status, prompt: d.prompt })), answers: s.answers }, null, 2));
   }
   ws.close();
-  process.exit(ended !== null ? 0 : 1);
+  process.exit(ended !== null || STOP_YEARS > 0 ? 0 : 1);
 }
 
 main().catch((e) => {
