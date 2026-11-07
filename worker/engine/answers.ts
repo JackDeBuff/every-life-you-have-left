@@ -40,22 +40,30 @@ const SMALL = new Set(["the", "a", "an", "to", "of", "for", "with", "in", "on", 
 /** Leading words of a condition clause that carry no content ("only if they let me ..."). */
 const CONNECT = new Set(["only", "if", "when", "as", "long", "they", "he", "she", "we", "you", "let", "lets", "me", "i", "i'd", "can", "could", "would", "will", "it", "is", "be", "get", "gets", "to", "so", "that", "and", "but"]);
 
-/** First sentence, without fillers and the subject: "Honestly I'd keep the UK job, and..." -> "keep the UK job, and...". */
+/**
+ * The first sentence that says something, without fillers and the subject: "Honestly I'd keep the UK
+ * job, and..." -> "keep the UK job, and..."; "No, none of these. I'd teach kids to code." -> "teach kids to code".
+ */
 function core(text: string): string {
-  let t = (text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+|\n/)[0] ?? "").replace(/[.!?…]+$/, "").trim();
-  for (let i = 0; i < 3; i++) {
-    const before = t;
-    t = t.replace(LEAD, "").replace(SUBJ, "").trim();
-    if (t === before) break;
+  for (const sentence of text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+|\n/)) {
+    let t = sentence.replace(/[.!?…]+$/, "").trim();
+    for (let i = 0; i < 3; i++) {
+      const before = t;
+      t = `${t} `.replace(LEAD, "").replace(SUBJ, "").trim();
+      if (t === before) break;
+    }
+    t = t.replace(/^["'“‘]+|["'”’]+$/g, "").trim();
+    if (t && !/^(?:no|nope|nah|neither|none|none of (?:these|them|those)|not really|nothing)$/i.test(t)) return t;
   }
-  return t.replace(/^["'“‘]+|["'”’]+$/g, "").trim();
+  return "";
 }
 
 const cap = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
 
 /** A 2-4 word fork name in their own words ("I keep the UK job and build the fintech on weekends" -> "Keep the UK job"). */
 export function ownTitle(text: string): string {
-  const c = core(text);
+  // "take a year to teach kids to code" names the teaching, not the year
+  const c = core(text).replace(/^(?:take|spend|use|give it)\s+(?:a|one|two|three|six|the next)\s+(?:years?|months?|summers?)\s+(?:off\s+)?to\s+(?=\w)/i, "");
   if (!c) return "My own way";
   const clauses = c.split(CLAUSE).map((x) => x.trim()).filter(Boolean);
   let ws = (clauses[0] ?? c).split(/\s+/);

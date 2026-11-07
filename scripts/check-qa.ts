@@ -12,7 +12,7 @@
  */
 import { resolveBig, chosenOf } from "../worker/engine/answers";
 import { bigCardIssues } from "../worker/engine/decisions";
-import { ANSWER_CASES, FORK_CASES, TODAY } from "./qa/fixtures";
+import { ANSWER_CASES, CLEAN_CASES, FORK_CASES, TODAY } from "./qa/fixtures";
 import { PEOPLE_CASES, HISTORY_CASES, MONEY_CASES, COPY_CASES } from "./qa/code-cases";
 
 let failed = 0;
@@ -30,6 +30,11 @@ for (const c of FORK_CASES) {
   const goodState = { ...c.state, decisions: c.state.decisions.map((d) => (d.id === c.bad.id ? c.good : d)) };
   const good = bigCardIssues(goodState, c.good, TODAY);
   ok(`${c.name}: a sound card passes`, !good.length, good.map((i) => `${i.kind}: ${i.msg}`).join(" | "));
+}
+
+for (const c of CLEAN_CASES) {
+  const got = bigCardIssues(c.state, c.card, TODAY);
+  ok(`${c.name}: passes clean`, !got.length, got.map((i) => `${i.kind}: ${i.msg}`).join(" | "));
 }
 
 console.log("\n2. Answers in their own words");

@@ -16,6 +16,7 @@ import type { SimYear } from "../../shared/sim";
 import type { AgentState } from "../../worker/agent/protocol";
 import { ownShort } from "../../worker/engine/answers";
 import { bigCardIssues } from "../../worker/engine/decisions";
+import { moneyUnit } from "../../worker/engine/warmup";
 import { TODAY } from "./fixtures";
 
 interface Dump {
@@ -134,7 +135,8 @@ export function analyze(d: Dump): { counts: Counts; findings: Finding[]; spend: 
     const inc = s.years[0]?.money.income ?? 0;
     if (Math.abs(inc - want) > want * 0.1) add("money:stated_income", `${s.years[0]?.year}`, `first-year income $${inc}, stated ₦600k a month = $${Math.round(want)}`);
   }
-  if (p.currency && p.currency !== "USD")
+  // pre-written copy in another currency's unit ("every dollar" to a naira user; a CAD user's unit is the dollar)
+  if (p.currency && moneyUnit(p.currency) !== "dollar")
     for (const q of s.warmup?.questions ?? []) for (const o of q.options) if (/dollar/i.test(o.label)) add("copy:dollar", `warm-up ${q.key}`, `"${o.label}" for a ${p.currency} user`);
 
   const counts: Counts = {};

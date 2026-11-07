@@ -540,10 +540,12 @@ export function forkIssues(
     }
   }
 
-  // 6. a work question that ignores what they do now and the latest fork
+  // 6. a work question that ignores what they do now and the latest fork. Not the first fork (it is
+  // about the crossroads they named), and "between jobs" or "a student" is no work to build on.
   const last = forks.at(-1);
-  if (card.domains[0] === "career" || WORK_TALK.test(card.prompt)) {
-    const anchors = new Set([...curObjects, ...(last && now.year - last.year <= 5 ? objectsOf(`${last.title}. ${last.label}. ${last.said ?? ""}`, exclude) : [])]);
+  if (forks.length && (card.domains[0] === "career" || WORK_TALK.test(card.prompt))) {
+    const settledWork = !NOT_ESTABLISHED.test(now.work) && now.work !== "(not stated)";
+    const anchors = new Set([...(settledWork ? curObjects : []), ...(last && now.year - last.year <= 5 ? objectsOf(`${last.title}. ${last.label}. ${last.said ?? ""}`, exclude) : [])]);
     const cardObjects = objectsOf(all, new Set());
     if (anchors.size && !shared(cardObjects, anchors).length && !now.retired)
       push({

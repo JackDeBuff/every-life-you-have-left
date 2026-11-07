@@ -250,6 +250,14 @@ export const FORK_CASES: ForkCase[] = [
   { name: "Margo at 43: the sabbatical abroad again, one fork later", state: stateOf(margo, margoYears, [margoFork1], [margoFork2Bad]), bad: margoFork2Bad, expect: ["repeat_option"], good: margoFork2Good },
 ];
 
+/** Sound cards that must pass clean (false positives cost a repair and a regeneration each). */
+export const CLEAN_CASES: { name: string; state: SessionState; card: Decision }[] = [
+  // the first fork is about the crossroads they named; "Between jobs" is no work to build on
+  { name: "Sam's first fork, between jobs", state: stateOf(sam, [], [], [samFork1]), card: samFork1 },
+  { name: "Chidi's first fork", state: stateOf(chidi, [], [], [chidiFork1Good]), card: chidiFork1Good },
+  { name: "Margo's first fork", state: stateOf(margo, [], [], [margoFork1.d]), card: { ...margoFork1.d, status: "pending" } },
+];
+
 /** Item 2: answers in their own words. */
 export const ANSWER_CASES: { name: string; d: Decision; optionId: string | null; text: string | null; own: boolean; title?: string; log?: string }[] = [
   { name: "typed without a tap (Chidi)", d: chidiFork2Typed.d, optionId: null, text: "I keep the UK job and build the fintech on weekends", own: true, title: "Keep the UK job", log: "Keep the UK job and build the fintech on weekends" },
@@ -257,6 +265,8 @@ export const ANSWER_CASES: { name: string; d: Decision; optionId: string | null;
   { name: "tapped and refined ('only if...')", d: chidiFork1, optionId: "d", text: "I'd stay, but only if they give me Fridays at home", own: false },
   { name: "tapped and said yes, and more", d: chidiFork1, optionId: "b", text: "Yes, and I'd keep building the fintech on weekends", own: false },
   { name: "tapped, then 'actually no'", d: chidiFork1, optionId: "a", text: "Actually no, I'd stay at the bank another year", own: true },
+  // live run: the title came out "None of these"
+  { name: "tapped, then 'none of these' and their own plan", d: chidiFork1, optionId: "a", text: "No, none of these. I'd take a year to teach kids to code in Lagos.", own: true, title: "Teach kids to code", log: "Take a year to teach kids to code in Lagos" },
   { name: "a bare tap", d: chidiFork1, optionId: "c", text: null, own: false },
 ];
 
