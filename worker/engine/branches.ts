@@ -10,6 +10,7 @@ import { decisionsBlock, yearLine } from "./context";
 import type { Caller } from "./models";
 import { INTERLUDE_SYSTEM, interludePrompt } from "./prompts/extras";
 import { InterludeLLM } from "./schemas";
+import { branchPath } from "./money";
 import { clamp, norm, truncateWords } from "./util";
 import { writeYears, type WriterEnv } from "./years";
 
@@ -59,7 +60,10 @@ export function selectDiverse(branches: Branch[], chosen: SimYear[], k = 3): { k
     pool.forEach((c, i) => {
       const sep = keep.length ? Math.min(...keep.map((x) => lifeDistance(c.b.years, x.b.years))) : 1;
       const newFork = keep.length && !keep.some((x) => x.b.forkDecisionId === c.b.forkDecisionId) ? 0.1 : 0;
-      const v = 0.6 * c.d + 0.4 * sep + newFork;
+      // Two lives with the same name side by side at the end read as a bug ("Move to Singapore"
+      // from two different forks): a repeated title only wins if nothing else is left.
+      const sameTitle = keep.some((x) => norm(x.b.title) === norm(c.b.title)) ? 1 : 0;
+      const v = 0.6 * c.d + 0.4 * sep + newFork - sameTitle;
       if (v > bestV) (bestV = v), (bestI = i);
     });
     keep.push(pool.splice(bestI, 1)[0]!);
@@ -125,6 +129,7 @@ export async function stepBranchTo(env: BranchEnv, state: SessionState, branch: 
       coarse: !fine,
       tier: fine ? "heavy" : "branch",
       decisionIdsFor: (y) => (y === branch.forkYear ? [branch.forkDecisionId] : []),
+      money: branchPath(state.decisions, state.answers, env.writer.seed, branch.forkDecisionId, branch.optionId),
     },
     years,
   );

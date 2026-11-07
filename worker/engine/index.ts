@@ -51,6 +51,7 @@ import type { Profile } from "../../shared/schema";
 import { planSlotsFor } from "./slots";
 import { nowIso } from "./util";
 import { worldTimeline } from "./world";
+import { chosenPath } from "./money";
 import { decisionIdsIn, writeYears, type WriterEnv, type YearMetric } from "./years";
 
 export type { EngineModels, UsageEvent, YearMetric };
@@ -206,6 +207,7 @@ export function createEngine(deps: EngineDeps): Engine {
           ? { count: models.forkLeadYears, model: models.heavy }
           : undefined,
         decisionIdsFor: decisionIdsIn(state.decisions),
+        money: chosenPath(state.decisions, state.answers, p.sessionId),
       };
       return writeYears(writerEnv(state), spec, years, onYear);
     },

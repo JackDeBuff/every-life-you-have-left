@@ -15,6 +15,7 @@ import { OneYearLLM, YearsLLM } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
 import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
+import { laneFactors, laneLine, type MoneyPath } from "./money";
 import { rng, shuffled, usd } from "./util";
 
 export interface YearMetric {
@@ -64,6 +65,8 @@ export interface LifeSpec {
   lead?: { count: number; model: string };
   /** decisionIds per year (engine-owned). */
   decisionIdsFor: (year: number) => string[];
+  /** This life's money lane (worker/engine/money.ts): code moves its anchors off the typical path. */
+  money?: MoneyPath;
 }
 
 const BASE_RATES_TEXT = baseRatesBlock();
@@ -212,13 +215,16 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const anchors = (spec.coarse ? years : years.filter((_, i) => i % 2 === 0 || i === years.length - 1))
     .map((y) => {
       const a = moneyAnchor(profile, y - profile.birthYear);
-      return `${y} (${y - profile.birthYear}): income ~${usd(a.income)}, median net worth ~${usd(a.netWorthMedian)}`;
+      const f = laneFactors(spec.money, y);
+      const nw = Math.round((a.netWorthMedian * f.wealth) / 1000) * 1000;
+      return `${y} (${y - profile.birthYear}): income ~${usd(Math.round((a.income * f.income) / 500) * 500)}, net worth ~${usd(nw)}`;
     })
     .join("\n");
+  const lane = laneLine(spec.money);
   // Biology: parents are ~30 years older unless known; past ~88 a parent is frail or gone (the
   // judge caught a mother "still on the veranda" at 98 in a branch).
   const pa = (y: number) => y - profile.birthYear + 30;
-  const anchorsWithAges = `${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.`;
+  const anchorsWithAges = `${lane ? `${lane}\n` : ""}${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.`;
   const focus = spec.focusQuoteIds
     .map((id) => profile.quotes.find((q) => q.id === id))
     .filter(Boolean)
