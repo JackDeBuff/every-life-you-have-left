@@ -217,8 +217,34 @@ npx vite --port 5291          # or npm run dev
   `&answer=3` then answers it through the card (plays the fork moment and the interlude);
   `jump=end` lands on the ending. `&theme=dark|light` forces a theme. `&still=1` lands every CSS
   animation on its end state (for headless screenshots).
-- Everything runs on the local mock (`src/ui/mock/`). The lead swaps `src/ui/session.ts` to the
-  real agent client; the UI only reads `ClientState` and calls `ClientCalls` (`src/ui/types.ts`).
+- `?demo=alex` (or `?offline`) runs on the local mock (`src/ui/mock/`): the offline demo for bad
+  Wi-Fi. `jump`/`stop`/`answer` work only there.
+
+## 9b. Integration (Sat Nov 7, live agent + real engine + 3D world)
+
+- **Live by default.** `src/ui/session.ts` picks the backend: the SessionAgent over a WebSocket
+  (`src/ui/live.ts`) unless `?demo=alex`/`?offline`. Both fill one type, `ClientState` = protocol
+  `AgentState` + `dialogue` (the right pane, derived from start quotes, decisions, answers and the
+  agent's chat) + `connection` + `backend`. The live store shows a decision only once the playhead
+  reaches its year (the agent writes them ahead).
+- **Session id** is made client-side and kept in localStorage (`elyl.sessionId`): a refresh resumes.
+  `?new=1` or "Start a new life" starts fresh. If the socket can't connect within 6 s, a notice
+  offers "Play the offline demo" (switches to the mock without a reload).
+- **Clock** (`src/ui/clock.ts`): real elapsed time × the speed's secondsPerYear; stops in "deciding"
+  and "interlude"; 0.25× while a small card is up (it slides after smallTimeoutSec; the countdown
+  pauses outside play; unseen small cards from past years slide quietly); never passes
+  `bufferedTo` (shows "Life is thinking…"); re-sends a tick the agent didn't confirm.
+- **World** (`src/ui/middle/WorldView.tsx`): lazy `<World>` with `<WorldSlot>` as the fallback;
+  `spec = years[playhead].scene` (sticky while a fork rewrites its year, a "today" scene before
+  the first year); the world drives the interlude (`onCut` → captions, `onInterludeDone` →
+  `pause(false)`); a moment holds the clock (0.7 s in Auto); `paused` while a big card dims it.
+  "Meanwhile…" holds its title from the end of the fork moment until the cuts arrive.
+- **Media**: portraits (`/api/portrait`, only if a selfie or a look was given; aged 35/50/70 in the
+  background; the Portrait shows the band for the age), hold-to-talk (`/api/transcribe`; live never
+  invents words), TTS (five-year card + letters, warmed on arrival), uploads (`/api/upload`).
+- **QA handles**: `window.__sim()` (also in production) returns the active state; in dev
+  `window.__ui` is the UI flag store.
+- Screenshots of the integrated build: `docs/integration-shots/`.
 
 ## 10. Review log (screenshots in `docs/ui-shots/`)
 
