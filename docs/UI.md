@@ -186,7 +186,7 @@ Location: `src/ui/` (components), `src/screens/` (screens), `src/styles/` (token
 | World slot | `ui/middle/WorldSlot.tsx` | `<WorldSlot spec>`; placeholder sky until `<World>` is plugged in |
 | Life log | `ui/middle/LifeLog.tsx` | Auto-scroll, domain ticks, fork rows, why popover |
 | Why card | `ui/middle/WhyCard.tsx` | Quote (serif italic) + base rate + source + "show in chat" |
-| Live settings | `ui/right/LiveSettings.tsx` | Radix select / slider / chips / switch, "applies from next year" tag |
+| Live settings | `ui/right/LiveSettings.tsx` | Radix select / slider / chips / switch, "applies from next year" tag; folds to a summary bar while a card is open |
 | Dialogue | `ui/right/Dialogue.tsx` | DE-style column, not bubbles; your words in serif italic |
 | Decision card | `ui/right/DecisionCard.tsx` | Question, why, 4 tiles with keycaps, say-more, submit, countdown |
 | Hold to talk | `ui/right/HoldToTalk.tsx` | MediaRecorder → `/api/transcribe` (mocked) → editable text |
@@ -284,3 +284,19 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
 - Mock content repeats at 1×/2× (later forks recycle the life-stage templates).
 - Mid-animation frames (fork flight, blink) were checked live in the browser pane, not captured
   at full resolution.
+
+**Pass 3 (Sat Nov 7, owner's live run: right pane), shots in `docs/fix-shots/right-pane-*`**
+- With real-engine settings (long labels, long select values) the 2-column settings grid ran off
+  the pane, hover hints floated over other controls, and the dialogue (flex-basis auto) out-shrank
+  the card until only its footer showed. Now `.right` is one flex column: settings (≤40%), the
+  dialogue (flex-basis 0, its own scroll, shrinks to 0), the card at its natural height. Nothing
+  overlaps the card.
+- Settings fold to a one-line bar ("Life settings · 4 · nudges apply from 32") while a card is up,
+  open again ~1.4 s after it resolves (or on click), and fold away for a big decision. One column
+  unless the panel has ≥640 px of content; labels/values wrap; chips wrap into rows; hints are a
+  muted line under the label. Slider key steps and chip bursts settle into one nudge.
+- Card budget at 1280×720 with the engine's longest copy: inline keycaps (answers get the full tile
+  width), say-more starts at one line and grows, and on ≤860 px tall screens answer hints clamp to
+  one line (full hint as the tooltip) and the say-more microcopy keeps its first sentence.
+- Layout QA: `window.__mock` (dev only) is the mock store; inject long copy with
+  `__mock.setState(...)` to check layouts.
