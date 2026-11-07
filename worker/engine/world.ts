@@ -38,8 +38,8 @@ export function worldTimeline(seed: string, startYear: number, endYear: number):
       out.push({ id: `w${out.length + 1}`, year: yt, kind: "tech_shift", title: "AI reshapes office work" });
     }
   }
-  // The one world-scale shock (playtest feedback, Sat Nov 7): a pandemic-style disruption at its
-  // real annual odds (~2%, Marani et al. 2021, `pandemic_odds`), at most once per session, never
+  // The one world-scale shock (playtest feedback, Sat Nov 7): a pandemic-style disruption, kept
+  // rarer than its real annual odds (owner: catastrophes must feel rare), at most once per session, never
   // within 3 years of a downturn. Its own dice, so the years above stay stable for old sessions.
   // A life shows at most 2 world events, so with a pandemic the world keeps only the first downturn.
   const rp = rng(`pandemic:${seed}`);
@@ -54,8 +54,12 @@ export function worldTimeline(seed: string, startYear: number, endYear: number):
   return out.sort((a, b) => a.year - b.year);
 }
 
-/** Annual odds of a COVID-scale pandemic (Marani et al., PNAS 2021). */
-export const PANDEMIC_ODDS = 0.02;
+/**
+ * Annual odds of a pandemic in the sim. The real figure for a COVID-scale pandemic is ~2% a year
+ * (Marani et al., PNAS 2021, `pandemic_odds`), which put one in ~47% of 45-year sessions. The owner
+ * wants world catastrophes to be rare (Sat Nov 7), so the sim uses ~0.6% (about 1 session in 4).
+ */
+export const PANDEMIC_ODDS = 0.006;
 
 export const downturnYears = (world: WorldEvent[]) =>
   new Set(world.filter((w) => w.kind === "downturn").flatMap((w) => [w.year, w.year + 1]));
