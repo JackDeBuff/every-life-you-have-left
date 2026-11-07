@@ -97,6 +97,7 @@ export function Atmosphere({ center, shadowSize = 2048 }: { center: [number, num
   const tmp = useMemo(() => new Color(), []);
   const dir = useMemo(() => new Vector3(), []);
   const lastSun = useMemo(() => new Vector3(0, -1, 0), []);
+  const sunTick = useRef(0);
   useFrame(() => {
     const L = look.current;
     const u = skyMat.uniforms;
@@ -113,10 +114,13 @@ export function Atmosphere({ center, shadowSize = 2048 }: { center: [number, num
     if (sun.current) {
       sun.current.position.set(center[0] + dir.x * 20, dir.y * 20, center[2] + dir.z * 20);
       // the shadow map only re-renders when the sun (or the island under it) has moved a visible
-      // step (~0.15 deg), not on every frame of a slow look blend
-      if (sun.current.position.distanceToSquared(lastSun) > 0.0025) {
+      // step (~0.15 deg), and while the sun glides through a look blend only every 4th frame
+      // (a 60 ms lag nobody sees); a jump (new island) updates at once
+      const moved = sun.current.position.distanceToSquared(lastSun);
+      sunTick.current++;
+      if (moved > 1 || (moved > 0.0025 && sunTick.current % 4 === 0)) {
         lastSun.copy(sun.current.position);
-        markShadows();
+        markShadows(1);
       }
       target.position.set(center[0], 0, center[2]);
       sun.current.target = target;
