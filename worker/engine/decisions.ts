@@ -20,7 +20,7 @@ export function decisionId(state: SessionState, age: number): string {
   return `d-${age}-${n}`;
 }
 
-function finalize(state: SessionState, slot: DecisionSlot, draft: DecisionDraft, kind: "big" | "small", domain: DomainKey): Decision {
+export function finalize(state: SessionState, slot: DecisionSlot, draft: DecisionDraft, kind: "big" | "small", domain: DomainKey, seed = ""): Decision {
   const profile = state.profile!;
   const quoteIds = new Set(profile.quotes.map((q) => q.id));
   const leans = new Set<string>();
@@ -30,7 +30,7 @@ function finalize(state: SessionState, slot: DecisionSlot, draft: DecisionDraft,
     leans.add(lean);
     return { ...o, lean, i };
   });
-  const order = shuffled(opts, rng(`opts:${profile.sessionId}:${slot.year}:${kind}`));
+  const order = shuffled(opts, rng(`opts:${profile.sessionId}:${slot.year}:${kind}${seed}`));
   const options: DecisionOption[] = order.map((o, i) => ({
     id: IDS[i]!,
     label: truncateClean(o.label, 11),
@@ -249,7 +249,7 @@ export function raceAfter<T>(a: () => Promise<T>, b: () => Promise<T>, ms: numbe
 }
 
 /** Best-effort repair of a near-valid card: needs a prompt and 4 labelled options. */
-function coerceDecision(raw: unknown): DecisionDraft | null {
+export function coerceDecision(raw: unknown): DecisionDraft | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const opts = Array.isArray(o.options) ? (o.options as Record<string, unknown>[]) : [];

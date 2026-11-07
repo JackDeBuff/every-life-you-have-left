@@ -96,6 +96,20 @@ export const AnswerDeltaLLM = z.object({
 });
 export type AnswerDeltaLLM = z.infer<typeof AnswerDeltaLLM>;
 
+/** D-089: several answers folded with one fast call (quotes already exist; ids given). */
+export const AnswersDeltaLLM = z.object({
+  shortForms: z.array(z.object({ quoteId: z.string(), shortForm: z.string().describe("<= 12 words, verbatim excerpt of that answer") })),
+  worries: DomainWeights,
+  facts: z.array(FactDraft).describe("New or corrected facts only"),
+  people: z.array(PersonDraft).describe("New people, or existing people (same label) with updated expectation/closeness"),
+  fears: z.array(FearDraft),
+  values: z.array(ValueDraft),
+  constraints: z.array(ConstraintDraft),
+  money: MoneyDraft.nullable().describe("Only if an answer changes what we know about money"),
+  plans: z.array(PlanDraft).describe("New dated plans these answers state; [] if none"),
+});
+export type AnswersDeltaLLM = z.infer<typeof AnswersDeltaLLM>;
+
 // ---------------------------------------------------------------------------------------------
 // Decisions
 // ---------------------------------------------------------------------------------------------
@@ -120,6 +134,10 @@ export const DecisionLLM = z.object({
   placeholder: z.string(),
 });
 export type DecisionLLM = z.infer<typeof DecisionLLM>;
+
+/** D-089: 3-5 small cards in one fast call. */
+export const SmallBatchLLM = z.object({ cards: z.array(DecisionLLM) });
+export type SmallBatchLLM = z.infer<typeof SmallBatchLLM>;
 
 // ---------------------------------------------------------------------------------------------
 // Years

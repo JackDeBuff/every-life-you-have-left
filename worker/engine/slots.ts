@@ -16,6 +16,8 @@ import { SPEED_CONFIG, type SessionState } from "../../shared/sim";
 import { lifeFacts } from "./world";
 
 const REFERENCE_SPAN = 45;
+/** 1x: at most this many small cards planned in one year (a year plays 6-12 s). */
+export const MAX_SMALL_PER_YEAR = 7;
 
 /** 0..1: how much we already know about each domain. */
 export function coverage(profile: Profile, state?: SessionState): Record<DomainKey, number> {
@@ -207,16 +209,28 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
     const cov = coverage(profile, state);
     const weights = Object.fromEntries(DOMAIN_KEYS.map((d) => [d, (1 + 1.5 * profile.worries[d]) * (1.15 - cov[d])])) as Record<DomainKey, number>;
     const credit = Object.fromEntries(DOMAIN_KEYS.map((d) => [d, 0])) as Record<DomainKey, number>;
-    // One small decision per year at most, never in a fork's year or the year right after it
-    // (the consequence plays), and never "today" (the first fork is today).
+    // Never "today" (the first fork is today) and never in a fork's year (its consequence plays).
+    // 2x/4x: one a year at most and never the year right after a fork either. 1x (deep mode,
+    // D-081 amended): a fork comes every ~2 years, so blocking the year after left 5 free years
+    // for a 25-year-old (the 45-card plan placed 5); one year at 1x is already 6-12 s of clean
+    // consequence. 1x holds several cards a year instead (a conversation; the agent serves them
+    // one at a time from a written-ahead queue and drops the ones the playhead passes).
     const bigYears = new Set([...takenBigYears, ...slots.filter((x) => x.kind === "big").map((x) => x.year)]);
-    const blocked = (y: number) => y === nowYear || bigYears.has(y) || bigYears.has(y - 1);
+    const deep = state.speed === "1x";
+    const blocked = (y: number) => y === nowYear || bigYears.has(y) || (!deep && bigYears.has(y - 1));
+    let free = 0;
+    for (let y = nowYear; y < endYear; y++) if (!blocked(y)) free++;
+    const perYear = deep ? Math.min(MAX_SMALL_PER_YEAR, Math.max(1, Math.ceil(smallTotal / Math.max(1, free)))) : 1;
+    const used = new Map<number, number>();
     const smallYears: number[] = [];
     for (const y0 of spreadYears(nowYear, endYear, smallTotal)) {
       let y = y0;
-      while (y < endYear && (blocked(y) || smallYears.includes(y))) y++;
-      if (y < endYear) smallYears.push(y);
+      while (y < endYear && (blocked(y) || (used.get(y) ?? 0) >= perYear)) y++;
+      if (y >= endYear) continue;
+      used.set(y, (used.get(y) ?? 0) + 1);
+      smallYears.push(y);
     }
+    smallYears.sort((a, b) => a - b);
     let last: DomainKey | null = null;
     for (const year of smallYears) {
       const age = year - profile.birthYear;

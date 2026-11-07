@@ -26,6 +26,8 @@ export interface LlmUsage {
   inputTokens: number;
   outputTokens: number;
   thoughtTokens: number;
+  /** Prompt tokens served from Gemini's implicit context cache (usageMetadata.cachedContentTokenCount); part of inputTokens. */
+  cachedTokens?: number;
   /** Wall time of the whole call. */
   ms: number;
   /** Streaming only: time to the first non-thought text. */
@@ -132,6 +134,7 @@ interface GeminiResponse {
     candidatesTokenCount?: number;
     thoughtsTokenCount?: number;
     totalTokenCount?: number;
+    cachedContentTokenCount?: number;
   };
   promptFeedback?: { blockReason?: string };
 }
@@ -221,6 +224,7 @@ export function createFetchLlm(cfg: FetchLlmConfig): LlmPort {
     inputTokens: u?.promptTokenCount ?? 0,
     outputTokens: u?.candidatesTokenCount ?? 0,
     thoughtTokens: u?.thoughtsTokenCount ?? 0,
+    ...(u?.cachedContentTokenCount ? { cachedTokens: u.cachedContentTokenCount } : {}),
     ms,
     ...(firstTokenMs !== undefined ? { firstTokenMs } : {}),
   });
