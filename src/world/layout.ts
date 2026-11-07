@@ -10,6 +10,7 @@ import { modelHeight, type AnimalModel, type PersonModel, type StaticKit } from 
 import { CLOTHES, FLAVOR, HAIR, NEUTRAL_SKIN, SKIN, TEMPERATE, snowCoverFor, type FlavorStyle } from "./palette";
 import { hashString, rng, type Rng } from "./rng";
 import type { Appearance } from "../../shared/sim";
+import { placeLandmark, type LandmarkMark, type LandmarkSpec } from "./landmarks";
 
 export type V3 = [number, number, number];
 export const HALF = 5;
@@ -136,6 +137,8 @@ export interface Layout {
   kits: StaticKit[];
   snowCover: number;
   temperate: boolean;
+  /** Interlude only: this branch's signature landmark (src/world/landmarks.ts). */
+  landmark: LandmarkSpec | null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -885,8 +888,9 @@ export function placeKeyOf(spec: Pick<SceneSpec, "setting" | "flavor" | "placeLa
   return `${spec.setting}|${spec.flavor}|${spec.placeLabel}`;
 }
 
-export function compose(spec: SceneSpec, appearance: Appearance | null): Layout {
-  const placeKey = placeKeyOf(spec);
+/** `mark` (interlude cuts): a branch's landmark + accent; it also re-seeds the neighbourhood. */
+export function compose(spec: SceneSpec, appearance: Appearance | null, mark?: LandmarkMark | null): Layout {
+  const placeKey = placeKeyOf(spec) + (mark ? `|v${mark.variant}` : "");
   const style = FLAVOR[spec.flavor];
   const temperate = TEMPERATE[spec.flavor];
   const snow = snowCoverFor(spec);
@@ -987,8 +991,24 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
     if (!city) b.scatter(5, snow > 0.5 ? ["Bush_Snow_1"] : ["Bush_1", "BushBerries_1", "Flowers"], 0.28, "gb", 3.6);
   }
 
-  const pieces = [...b.pieces, ...stage.pieces.filter(() => !indoor)];
-  const procs = [...b.procs, ...(indoor ? [] : stage.procs)];
+  let pieces = [...b.pieces, ...stage.pieces.filter(() => !indoor)];
+  let procs = [...b.procs, ...(indoor ? [] : stage.procs)];
+  let hillsOut = hills;
+  const landmark = mark ? placeLandmark(mark, spec) : null;
+  if (landmark) {
+    // clear the landmark's lot (buildings, trees, props); ground stays (roads run under a canal bridge)
+    const FLAT = new Set(["road", "roadZ", "sidewalk", "crosswalk", "path", "plaza", "lawn", "field"]);
+    const inLot = (x: number, z: number, pad: number) =>
+      landmark.clear.some((c) => Math.hypot(c.x - x, c.z - z) < c.r + pad) || (!!landmark.band && Math.abs(z - landmark.band.z) < landmark.band.half + pad);
+    pieces = pieces.filter((p) => !inLot(p.pos[0], p.pos[2], 0.25));
+    // in a city the landmark must be the skyline: towers step down to mid-rises around it
+    if (spec.setting === "city_dense" || spec.setting === "city_midrise")
+      pieces = pieces.map((p, i) => (TOWERS.includes(p.id) ? { ...p, id: MIDRISE[i % MIDRISE.length]!, scale: 1.35, key: `${p.key}-lm` } : p));
+    procs = procs.filter((p) => FLAT.has(p.type) || !inLot(p.pos[0], p.pos[2], 0.2));
+    hillsOut = hills.filter((h) => !inLot(h.pos[0], h.pos[2], h.r * 0.5));
+    // the branch's accent on the front door too, so the home itself says which life this is
+    hero.door = mark!.accent;
+  }
   const focus: V3 = indoor ? [HERO_POS[0], 0.35, HERO_POS[2]] : spec.activity === "exercising" || spec.activity === "commuting" ? [0.7, 0.3, 0.7] : [STAGE[0] * 0.62, 0.3, STAGE[2] * 0.62];
 
   return {
@@ -997,7 +1017,7 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
     flavor: spec.flavor,
     style,
     coast: spec.setting === "coastal",
-    hills,
+    hills: hillsOut,
     pieces,
     procs,
     hero,
@@ -1009,6 +1029,7 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
     kits: [...b.kits],
     snowCover: snow,
     temperate,
+    landmark,
   };
 }
 

@@ -1,13 +1,22 @@
 /**
  * The postcard from 70 (D-031): composed on a canvas so it downloads as a PNG.
  * Left: the long day ending (sun at the horizon, your line and the threads). Right: the message,
- * a rose for a stamp, and a postmark.
+ * a rose for a stamp, and a postmark. Once shared (opt-in), a QR code to the share link sits in the
+ * address column, on the PNG and beside it on screen, so the person can scan it and take it home.
  */
 import { useEffect, useRef, useState } from "react";
 import { DOMAINS, FAMILIES, type DomainKey } from "../../../shared/domains";
 import type { DomainStates } from "../../../shared/schema";
 import { Icon } from "../icons";
 import { sunAt } from "../motion";
+import { attachPostcard, createShare, drawQr, qrModules, qrPath, savedShare, type SavedShare, type ShareInput } from "./share";
+
+interface DrawOpts {
+  /** Share URL to encode as a QR code in the address column. */
+  qr: string | null;
+  /** Public copy for the share page: no quote (their own words), no age or city of today. The download keeps them. */
+  forShare: boolean;
+}
 
 interface Props {
   name: string;
@@ -21,7 +30,11 @@ interface Props {
   quote: string | null;
   states: DomainStates | null;
   from: { age: number; city: string; year: number };
+  /** Opt-in share (D-031): builds exactly what the shared page shows. Omit to hide sharing. */
+  share?: { sessionId: string; build: () => ShareInput; hasPortrait: boolean };
 }
+
+type ShareState = { kind: "idle" } | { kind: "asking" } | { kind: "making" } | { kind: "shared"; link: SavedShare } | { kind: "error" };
 
 const W = 1500;
 const H = 1000;
@@ -61,18 +74,43 @@ function drawLines(ctx: CanvasRenderingContext2D, ls: string[], x: number, y: nu
 export function Postcard(p: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
+  const sid = p.share?.sessionId ?? "";
+  const [sh, setSh] = useState<ShareState>(() => {
+    const saved = sid ? savedShare(sid) : null;
+    return saved ? { kind: "shared", link: saved } : { kind: "idle" };
+  });
+  const link = sh.kind === "shared" ? sh.link : null;
 
   useEffect(() => {
     let alive = true;
     void document.fonts.ready.then(() => {
       if (!alive || !ref.current) return;
-      draw(ref.current, p);
+      draw(ref.current, p, { qr: link?.url ?? null, forShare: false });
       setReady(true);
     });
     return () => {
       alive = false;
     };
-  }, [p]);
+  }, [p, link?.url]);
+
+  const makeLink = async () => {
+    if (!p.share) return;
+    setSh({ kind: "making" });
+    try {
+      const made = await createShare(p.share.build());
+      setSh({ kind: "shared", link: { id: made.id, url: made.url } });
+      // The page's picture and link preview: the same card with its QR, without the quote.
+      const off = document.createElement("canvas");
+      off.width = W;
+      off.height = H;
+      draw(off, p, { qr: made.url, forShare: true });
+      off.toBlob((b) => {
+        if (b) void attachPostcard(made.id, made.token, b).catch(() => {});
+      }, "image/png");
+    } catch {
+      setSh({ kind: "error" });
+    }
+  };
 
   const download = () => {
     ref.current?.toBlob((b) => {
@@ -92,13 +130,73 @@ export function Postcard(p: Props) {
         <button className="btn" onClick={download} disabled={!ready}>
           <Icon name="download" size={15} /> Download the postcard
         </button>
-        <span className="small faint">PNG, 1500 × 1000. Nothing private on it unless you shared it here.</span>
+        {p.share && !link && (
+          <button className="btn ghost" onClick={() => setSh({ kind: "asking" })} disabled={!ready || sh.kind === "making"} aria-expanded={sh.kind !== "idle"}>
+            <Icon name="share" size={15} /> Share this postcard
+          </button>
+        )}
+        <span className="small faint">PNG, 1500 × 1000.{link ? " Its QR code opens your shared postcard." : " Nothing private on it unless you shared it here."}</span>
+      </div>
+      {p.share && (sh.kind === "asking" || sh.kind === "making" || sh.kind === "error") && (
+        <div className="share-consent" role="group" aria-label="Share this postcard">
+          <p className="share-c-title">Make a link to this postcard?</p>
+          <p className="small muted">
+            Anyone with the link can see this postcard; your answers stay private. The page shows your first name, the four lives and their verdicts at {p.endAge}
+            , and your five-year answer{p.share.hasPortrait ? ", with your portrait" : ""}. Nothing else you typed, said or uploaded.
+          </p>
+          <div className="share-c-actions">
+            <button className="btn sun" onClick={() => void makeLink()} disabled={sh.kind === "making"}>
+              <Icon name="link" size={15} /> {sh.kind === "making" ? "Making the link…" : "Make the link"}
+            </button>
+            <button className="btn quiet" onClick={() => setSh({ kind: "idle" })} disabled={sh.kind === "making"}>
+              Not now
+            </button>
+            {sh.kind === "error" && <span className="small share-err">Couldn't make the link. Check the connection and try again.</span>}
+          </div>
+        </div>
+      )}
+      {link && <SharedLink link={link} />}
+    </div>
+  );
+}
+
+/** After sharing: a QR big enough to scan from across the table, the link, copy and open. */
+function SharedLink({ link }: { link: SavedShare }) {
+  const [copied, setCopied] = useState(false);
+  const m = qrModules(link.url);
+  const n = m.length;
+  const short = link.url.replace(/^https?:\/\//, "");
+  return (
+    <div className="share-done">
+      <svg className="share-qr" viewBox={`-3 -3 ${n + 6} ${n + 6}`} role="img" aria-label={`QR code for ${short}`} shapeRendering="crispEdges">
+        <rect x={-3} y={-3} width={n + 6} height={n + 6} fill="#FFFFFF" />
+        <path d={qrPath(m)} fill="#0D1A1F" />
+      </svg>
+      <div className="share-done-text">
+        <p className="label">Scan to take this life home</p>
+        <p className="share-url data">{short}</p>
+        <div className="share-c-actions">
+          <button
+            className="btn ghost sm"
+            onClick={() => {
+              void navigator.clipboard?.writeText(link.url);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+          >
+            <Icon name={copied ? "check" : "copy"} size={14} /> {copied ? "Copied" : "Copy the link"}
+          </button>
+          <a className="btn ghost sm" href={link.url} target="_blank" rel="noreferrer">
+            Open <Icon name="arrowUpRight" size={13} />
+          </a>
+        </div>
+        <p className="small faint">Anyone with the link can see this postcard; your answers stay private.</p>
       </div>
     </div>
   );
 }
 
-function draw(c: HTMLCanvasElement, p: Props) {
+function draw(c: HTMLCanvasElement, p: Props, o: DrawOpts) {
   const ctx = c.getContext("2d")!;
   const paper = "#F3F5F6";
   const ink = "#14202A";
@@ -261,7 +359,7 @@ function draw(c: HTMLCanvasElement, p: Props) {
   const MW = 360;
   const DEAR = 340;
   const SIGN_MAX = H - 70;
-  const quoteText = p.quote ? `You once said “${p.quote}”` : null;
+  const quoteText = p.quote && !o.forShare ? `You once said “${p.quote}”` : null;
   let fit: { fs: number; lh: number; m: string[]; qs: number; qlh: number; q: string[] } | null = null;
   for (const fs of [28, 26, 24, 22, 20, 18]) {
     const lh = Math.round(fs * 1.43);
@@ -303,7 +401,7 @@ function draw(c: HTMLCanvasElement, p: Props) {
   ctx.fillText("TO", X + 440, 420);
   ctx.fillStyle = ink;
   ctx.font = `560 30px ${sans}`;
-  const lines = [p.name, `aged ${p.from.age}`, p.from.city, `${p.from.year}`];
+  const lines = o.forShare ? [p.name, `${p.from.year}`] : [p.name, `aged ${p.from.age}`, p.from.city, `${p.from.year}`];
   lines.forEach((l, i) => {
     ctx.fillText(l, X + 440, 470 + i * 64);
     ctx.strokeStyle = "rgba(20,32,42,0.25)";
@@ -313,6 +411,13 @@ function draw(c: HTMLCanvasElement, p: Props) {
     ctx.lineTo(W - 70, 484 + i * 64);
     ctx.stroke();
   });
+  // The share QR (once shared): under the address, above the small print.
+  if (o.qr) {
+    const size = drawQr(ctx, o.qr, X + 440, 706, 168, ink, "#FFFFFF");
+    ctx.fillStyle = ink2;
+    ctx.font = `650 13px ${sans}`;
+    ctx.fillText("SCAN TO KEEP THIS POSTCARD", X + 440, 706 + size + 20);
+  }
   // The small print wraps inside the address column (it used to run off the card's right edge).
   ctx.fillStyle = ink2;
   ctx.font = `500 15px ${sans}`;
