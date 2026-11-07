@@ -29,9 +29,9 @@
 .ph-body .log-body { padding: 0 var(--s4) var(--s4); }
 .ph-body .log-head { padding: var(--s2) var(--s4); }
 .ph-bio, .ph-settings { padding: var(--s4); display: grid; gap: var(--s5); align-content: start; overflow-y: auto; }
-.ph-settings .settings-body { grid-template-columns: 1fr; }
+.ph-settings .settings { max-height: none; border-bottom: 0; }
 .ph-settings .settings-head { padding-left: 0; padding-right: 0; }
-.ph-settings .settings-body { padding: 0; }
+.ph-settings .settings-grid { padding-left: 0; padding-right: 0; }
 
 .phone[data-dim="true"] .ph-world, .phone[data-dim="true"] .ph-body { opacity: 0.35; filter: saturate(0.4); transition: opacity var(--t-slow), filter var(--t-slow); }
 

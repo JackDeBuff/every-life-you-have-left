@@ -4,7 +4,7 @@
  * can slide; big ones dim the world and end in the fork moment.
  * Keys: 1–4 select · Enter submits · Shift+Enter new line.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SPEED_CONFIG, type Decision } from "../../../shared/sim";
 import { clock } from "../clock";
 import { HoldToTalk } from "../HoldToTalk";
@@ -21,6 +21,7 @@ export function DecisionCard({ d }: { d: Decision }) {
   const [sel, setSel] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [via, setVia] = useState<"text" | "voice">("text");
+  const [micNote, setMicNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [engaged, setEngaged] = useState(false);
   const [left, setLeft] = useState<number | null>(null);
@@ -101,6 +102,16 @@ export function DecisionCard({ d }: { d: Decision }) {
     }
   }
 
+  // Say more starts at one line and grows with the words (CSS caps it, then it scrolls inside), so
+  // an empty box doesn't cost the answers their room on a 720 px screen.
+  useLayoutEffect(() => {
+    const el = ta.current;
+    if (!el) return;
+    el.style.height = "auto";
+    if (text) el.style.height = `${el.scrollHeight + 2}px`;
+    else el.style.height = "";
+  }, [text]);
+
   // Keyboard: 1–4 select (when not typing), Enter submits, Shift+Enter is a newline.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -112,7 +123,22 @@ export function DecisionCard({ d }: { d: Decision }) {
         setSel(d.options[Number(e.key) - 1]!.id);
         setEngaged(true);
       } else if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
-        if (!typing && (document.activeElement as HTMLElement | null)?.tagName === "BUTTON") return;
+        const ae = document.activeElement as HTMLElement | null;
+        const tile = !typing ? ae?.closest<HTMLElement>("[data-option]") : null;
+        if (tile && card.current?.contains(tile)) {
+          // A mouse pick leaves focus on the tile, and the browser would "click" it again on Enter
+          // (un-picking it). Enter decides with the pick; on a tile that isn't picked yet, it picks.
+          e.preventDefault();
+          const id = tile.dataset.option!;
+          if (sel !== id) {
+            setSel(id);
+            setEngaged(true);
+            return;
+          }
+          void submit();
+          return;
+        }
+        if (!typing && ae?.tagName === "BUTTON") return;
         e.preventDefault();
         void submit();
       }
@@ -162,6 +188,7 @@ export function DecisionCard({ d }: { d: Decision }) {
             className="tile"
             data-option={o.id}
             data-on={sel === o.id}
+            title={o.hint ?? undefined}
             disabled={busy}
             onClick={() => {
               setSel(sel === o.id ? null : o.id);
@@ -187,7 +214,7 @@ export function DecisionCard({ d }: { d: Decision }) {
             id={`say-${d.id}`}
             ref={ta}
             className="textarea voice-input"
-            rows={big ? 3 : 2}
+            rows={1}
             value={text}
             placeholder={sel ? `“I'd ${d.options.find((o) => o.id === sel)?.label.toLowerCase().replace(/^i'?d?\s/, "") ?? "do that"}, but only if…”` : d.placeholder}
             disabled={busy}
@@ -207,10 +234,22 @@ export function DecisionCard({ d }: { d: Decision }) {
               setEngaged(true);
               ta.current?.focus();
             }}
+            onNotice={(n) => {
+              setMicNote(n);
+              if (n) setEngaged(true);
+            }}
           />
         </div>
+        {micNote && (
+          <p className="say-note" role="status">
+            <Icon name="info" size={12} /> {micNote}
+          </p>
+        )}
         <p className="say-micro">
-          <Icon name="quotes" size={12} /> Your own words steer this life more than a tap. I keep them, and later turning points will quote them back to you.
+          <Icon name="quotes" size={12} />
+          <span>
+            Your own words steer this life more than a tap.<span className="say-micro-more"> I keep them, and later turning points will quote them back to you.</span>
+          </span>
         </p>
       </div>
 
