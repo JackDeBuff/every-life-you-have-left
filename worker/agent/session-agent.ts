@@ -285,7 +285,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private smallQ: { card: Decision; ctx: number; at: number }[] = [];
   /** Bumped when the context changes (a fork, a nudge, a new thread, a speed change, new documents): the queue goes. */
   private smallCtx = 0;
-  private batching = false;
+  /** The context the batch in flight was written for (null = none). A stale one doesn't block a fresh one. */
+  private batchingCtx: number | null = null;
   private batchMisses = 0;
   /** A follow-up card being written: it is served before the queue. */
   private followUp: Promise<void> | null = null;
@@ -1561,7 +1562,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const kit = this.kit;
     const s = this.s;
     // (Not during the warm-up: its first fork comes before any small card.)
-    if (!kit || this.batching || !s.profile || s.phase === "ended" || s.phase === "start" || this.forking || (this.warm && !this.warm.placed)) return;
+    if (!kit || this.batchingCtx === this.smallCtx || !s.profile || s.phase === "ended" || s.phase === "start" || this.forking || (this.warm && !this.warm.placed)) return;
     // 1x keeps one more card written ahead: ~3-4 cards a year are answered back to back.
     if (this.smallQ.length >= (s.speed === "1x" ? REFILL_AT + 1 : REFILL_AT)) return;
     const ph = s.playhead.year;
@@ -1579,7 +1580,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const lastGen = s.years.at(-1)?.year ?? this.startYear - 1;
     if (lastGen < Math.max(ph, want[0]!.year)) return;
     const ctx = this.smallCtx;
-    this.batching = true;
+    this.batchingCtx = ctx;
     this.bg("smallBatch", async () => {
       let got = 0;
       try {
@@ -1595,7 +1596,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.spend.smalls.batches++;
         this.publishSpend();
       } finally {
-        this.batching = false;
+        if (this.batchingCtx === ctx) this.batchingCtx = null;
         // Two empty batches in a row: single cards (queueDecision) for 30 s.
         this.batchMisses = got ? 0 : this.batchMisses + 1;
         console.log(`[small] batch for ${want.map((w) => w.year).join(",")}: ${got} cards${ctx !== this.smallCtx ? " (context changed: dropped)" : ""}`);
@@ -1676,7 +1677,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.update((s) => (s.profile ? { profile: this.withId(res.apply(s.profile)) } : {}));
         void this.mirror.session(this.s);
         // The delta can show a thread the words alone didn't (a new person, job, home or plan).
-        if (res.thread && items.every((i) => i.decision.kind === "small")) this.newContext("the fold found a thread");
+        // Only a move or new work makes the written-ahead cards wrong; a new person or plan doesn't
+        // (bindSmall re-checks people at serve time), and dropping the queue there left 1x waiting.
+        if (res.thread && (res.thread.kind === "move" || res.thread.kind === "work") && items.every((i) => i.decision.kind === "small")) this.newContext("the fold found a move or new work");
       })
       .catch((e: unknown) => console.error("fold failed", e instanceof Error ? e.name : "error"));
     return this.foldChain;
@@ -2126,6 +2129,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       log: [...s.log, this.line(s.playhead.year, "interlude", "Meanwhile, in your other lives…", null, null)],
     }));
     this.persistNow();
+    // The next small cards are written while the cuts play (the fork's context is in by now), so
+    // the fork's year has its cards when life resumes.
+    this.refillSmalls();
     try {
       let job = written;
       if (!job) {
