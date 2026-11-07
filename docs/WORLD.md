@@ -268,7 +268,7 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
   frame, 63 → 36 shader programs, worst year-turn frame 77 → 23 ms. The lab's "Alex's life"
   autoplay (40 s, 4× CPU throttle, quality pinned high, two runs each): JS per frame 7.7 / 12.5 →
   4.0 / 5.6 ms, frames over 33 ms 9 / 25 → 4 / 3, frames over 100 ms 2 / 2 → 0 / 0, shader links
-  16 → 8. Scripts: `measure.mjs`, `labbench.mjs`, `labauto.mjs` (Playwright + CDP throttling).
+  16 → 8. Scripts: `measure.mjs`, `labbench.mjs`, `labauto.mjs` (Playwright + CDP throttling; not committed to the repo).
 - `frameloop="demand"` when the world is hidden, off-screen or in reduced motion; `always` while it
   is visible and animating.
 - Kits are lazy-loaded per setting (`manifest.json` lists URLs and sizes): the current spec's kits
