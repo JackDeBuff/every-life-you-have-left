@@ -383,7 +383,10 @@ flowchart LR
       <h2 id="pitch-h">How we hook the judge</h2>
     </div>
     <div class="pitch">
-      <blockquote><span class="label">30-second version</span>Your brain thinks about your future self the way it thinks about a stranger, and people don't plan for strangers. Every Life You Have Left plays out four lives you could still live, year by year, from what you tell it. Every turning point is traced to your own words and a real-world statistic, so it's not a horoscope. Students use it free; career centers license it. Give me 90 seconds and I'll show you yours.</blockquote>
+      <div style="display:grid;gap:var(--s4);min-width:0">
+      <blockquote><span class="label">The opening line · Supawich's hook</span>"Every interview asks where you see yourself in five years. Nobody can answer it. Give me 90 seconds and you'll have four answers, and you'll know which one is yours."</blockquote>
+      <blockquote><span class="label">30-second version</span>Your brain thinks about your future self the way it thinks about a stranger, and people don't plan for strangers. Every Life You Have Left plays out four lives you could still live, year by year, from what you tell it. Every turning point is traced to your own words and a real-world statistic, so it's not a horoscope. At the end you walk away with a real answer to "where do you see yourself in five years". Students use it free; career centers license it as interview prep. Give me 90 seconds and I'll show you yours.</blockquote>
+      </div>
       <div class="qa">
         <div><b>"Isn't this just ChatGPT?"</b><span>ChatGPT tells one flattering story. We hold four lives consistent for 45 years, and each turn links to what you said. Saturday's ChatGPT control group turns this answer into data.</span></div>
         <div><b>"Isn't this a horoscope?"</b><span>Every turn shows your sentence and a cited base rate. We claim vividness, not prediction.</span></div>
@@ -457,7 +460,9 @@ const DECISIONS = [
     ["D-033","default","<strong>/admin page</strong> so you and Paul can read real sessions and tune from them."],
     ["D-040","locked","<strong>Supawich's life is the first test life,</strong> for the two of you only. The showcase life gets picked from testers later."],
     ["D-041","locked","<strong>Paul owns testing and tuning</strong> once the first version works. The pitch owner is decided later."],
-    ["D-044","default","<strong>Saturday study:</strong> about 15 hackers do the before/after, plus a small ChatGPT control group."]
+    ["D-044","default","<strong>Saturday study:</strong> about 15 hackers do the before/after, plus a small ChatGPT control group."],
+    ["D-045","locked","<strong>Hook: \"Where do you see yourself in five years?\"</strong> The interview question everyone dreads. We open with it, and it ties us straight to what career centers sell: interview prep."],
+    ["D-046","default","<strong>Your five-year answer card.</strong> After the lives play, a 30-second answer to that question, written from your own words and the real milestones of the life you lean toward. Copy it, hear it read aloud, put it on your postcard, or switch lives for another answer."]
   ]},
   {g:"Visual", items:[
     ["D-050","locked","<strong>Nothing from 1 in 8 Billion's look:</strong> no bar meters, no year grid, no charcoal with pink and mint."],
