@@ -8,7 +8,7 @@ Read this first, then `CLAUDE.md`, `DECISIONS.md` (the v2 section at the top), a
 |---|---|
 | Live V1 | https://every-life-you-have-left.supawich.workers.dev (Cloudflare Worker `every-life-you-have-left`, Workers Paid) |
 | Repo | https://github.com/JackDeBuff/every-life-you-have-left (public; Paul = `Puminunp`, write access). `main` is the truth |
-| Production version | `7e72e43a` (main with the admin page). Check: `npx wrangler deployments list \| tail -8` |
+| Production version | `23ad6f96` (Sat Nov 7 ~3:25pm: playtest fixes round 1). Check: `npx wrangler deployments list \| tail -8` |
 | Deadlines | Devpost submission **Sun Nov 8, 9:30am**. Expo judging Sun 10:00–12:15 (in person, Wilkinson). Track: Social Impact & Education |
 | Team | Supawich (owner, "broski"), Paul (testing + maybe pitch). Most code is written by Claude agents |
 
@@ -106,6 +106,21 @@ Notes:
 - **API:** `GET /api/admin/sessions`, `/api/admin/session/:id` (D1 mirror + the Durable Object's full state via the passcode-checked `adminSnapshot` RPC), `/api/admin/session/:id/checks`.
 - **Migration** `0004_admin.sql` is applied remotely.
 - Production version at the end of the session: `7e72e43a`.
+
+## Playtest fixes round 1: DONE (Sat Nov 7 afternoon, production `23ad6f96`)
+From the owner's and Paul's own lives. Six agents in worktrees, merged into main:
+- **Pacing (1×):** small cards are held in their own year (no more dropped slots); 4/yr in the 20s–30s, 2–3 later, a fork every ~2 years (147 small / 20 big planned). Live check: 28 cards over ages 28–34, 4 each. `worker/engine/small-pace.ts`, `scripts/qa/pace-sim.ts`.
+- **Stale cards:** every small card is re-checked against the year it's served in (place/work/people); old-city cards are dropped.
+- **Money:** year 1 anchored to stated savings minus debt; code guard keeps income/net worth continuous unless an event explains a jump (`money.ts`).
+- **Kids:** a life is closed to children until a fact/answer/fork opens it (`kids.ts`); a children card is planted before ~35.
+- **People:** names typed in answers join the ledger; friends drift with distance/time (`closeness`, status `drifted`), never offered again except as a framed reunion; seeded culture-aware name pools (`names.ts`; no more "Lin" twice).
+- **Content:** code-owned rare shocks (`shocks.ts`: once per type, ≤1 natural disaster, 0–3 per life, some positive); pandemic at 0.6%/yr (owner wants catastrophes rare, real rate is ~2%); life axes + card focus rotation (`focus.ts`, no work-fork streaks); charitable reading of their words; Google Search grounding at profile build (`profile.grounded`, flash-lite, ≤6 s, user facts win).
+- **UI:** no page overflow; draggable column dividers; readable decision card; "Decisions | Steer this life" tabs; compact currency picker.
+- **Timeline:** "Road not taken" fork popover (your choice + each other answer at today's age, plain status tags), "N other lives still running" badge, Key legend.
+- **3D:** perf pass (N8AO transparency off, shadow map on demand, light pool, frozen matrices, quality tiers; draw calls 414→232) and per-year story beats with name tags (`src/world/story.ts`).
+
+Open follow-ups: branches only snapshot every 5 years (popover shows the nearest age); grounding only at start, not after warm-up; many small cards are reflective rather than situations; DECISIONS.md needs entries for shocks/pandemic (overrides D-005) and D-081 (1× no longer drops slots).
+Gotcha: a stale `vite preview` from an old worktree can hold 127.0.0.1:4173 — check `lsof -iTCP:4173` before live tests.
 
 ## Next up (owner's plan, Sat Nov 7)
 1. **Supawich and Paul playtest their own lives** and report anything weird or unrealistic, using `/admin`'s "Copy bug report for Claude". Fix fast (agents in worktrees), deploy, repeat.
