@@ -6,12 +6,12 @@
  * contract (contiguous years) always holds.
  */
 import { DOMAINS, DOMAIN_KEYS } from "../../shared/domains";
-import type { Profile, WorldEvent } from "../../shared/schema";
+import type { LifeEvent, Profile, WorldEvent } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { baseRatesBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, topWorries, worldBlock } from "./context";
 import { pastTimeIssues } from "./calendar";
 import { fixPeopleNumbers, peopleIssues, similarity } from "./consistency";
-import { advance, ageMentions, inferChanges, lifeAt, normChange, nowBlock, scenePeopleFrom, yearLife, type LifeNow, type SimYearL } from "./ledger";
+import { advance, ageMentions, inferChanges, lifeAt, normChange, nowBlock, parentDeathPlan, roleWord, scenePeopleFrom, yearLife, type LedgerPerson, type LifeNow, type SimYearL } from "./ledger";
 
 /** The model's work line and people-change tags for one year (compact keys w, ch). */
 function lifeDraftOf(raw: unknown, year: number): { w: string; ch: string[] } {
@@ -25,7 +25,7 @@ import { COARSE_ADDENDUM, REPAIR_SYSTEM, repairPrompt, YEARS_SYSTEM, yearsPrompt
 import { OneYearLLM, YearsLLM, type YearDraft } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
-import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
+import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, PARENT_DEATH_RE, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
 import { laneFactors, laneLine, type MoneyPath } from "./money";
 import { rng, shuffled, usd } from "./util";
 
@@ -280,6 +280,17 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     ? `Write ${years.length} snapshots for these years, in order: ${yearsList}. Each covers the five years up to it.`
     : `Write exactly ${years.length} years, in order: ${yearsList}. Continue from the life so far.`;
 
+  // ---- the life ledger for this chunk: replayed from the past, advanced year by year
+  let curLife: LifeNow = lifeAt(profile, past, first - 1, spec.path);
+  // A parent's old-age death is code-owned (once, late, gently) and must reach the log.
+  const death = parentDeathPlan(profile, profile.birthYear + profile.endAge);
+  const deathWho = death && ledger.parentDeaths === 0 ? curLife.people.find((p) => p.role === "parent" && p.status === "here" && p.name === death.name) ?? null : null;
+  const deathYear = death && deathWho && death.year <= last ? Math.max(death.year, first) : null;
+  const deathLine =
+    deathYear !== null && deathWho
+      ? `\nWILL HAPPEN (code-owned, once in this life): ${deathYear} (${deathYear - profile.birthYear}): ${deathWho.generic ? deathWho.name : `${deathWho.name} (${deathWho.relation})`} dies of old age, at about ${death!.age + (deathYear - death!.year)}. One gentle sentence in that ${spec.coarse ? "snapshot" : "year"}, offscreen (the call, the trip home, a small thing kept), tone mixed, not a turning point, never a twist. Tag ch "-parent:${deathWho.name}".`
+      : "";
+
   const prompt = yearsPrompt({
     lifeLabel: spec.lifeLabel,
     person: personBlock(profile),
@@ -295,7 +306,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     budget: budgetBlock(past, env.span, first, env.world),
     quiet: quiet.length ? quiet.join(", ") : "(none required in this stretch)",
     anchors: anchorsWithAges,
-    candidates: renderCandidates(cands),
+    candidates: `${renderCandidates(cands)}${deathLine}`,
     attention: attention || "(no strong worries; spread attention evenly)",
     baseRates: spec.coarse ? "(coarse mode: set st to null)" : BASE_RATES_TEXT,
     task,
@@ -306,9 +317,6 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   let emitted = 0;
   const quotesText = quotesBlock(profile);
   const lastEmitted: SimYear[] = [];
-
-  // ---- the life ledger for this chunk: replayed from the past, advanced year by year
-  let curLife: LifeNow = lifeAt(profile, past, first - 1, spec.path);
   const recent = () => [...past, ...lastEmitted].slice(-3);
 
   /** People, ages, duplicate lines and the date, checked against the ledger. */
@@ -363,7 +371,11 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   };
 
   /** Ages/counts fixed in place, scene people from the ledger, `life` attached; advances the ledger. */
-  const finishYear = (y0: SimYear, life: { ch: string[]; work: string }): SimYear => {
+  const finishYear = (y00: SimYear, life0: { ch: string[]; work: string }): SimYear => {
+    // the planned parent death (and only one) reaches the ledger AND the log
+    const pd = withParentDeath(y00, life0.ch, curLife, deathYear !== null && y00.year >= deathYear ? deathWho : null, ledger.parentDeaths, spec.idPrefix);
+    const y0 = { ...y00, events: pd.events };
+    const life = { ...life0, ch: pd.ch };
     const probe: SimYearL = { ...y0, life: { work: life.work, ch: life.ch, people: [] } };
     const { now, changes } = advance(curLife, probe);
     const fix = (s: string) => fixPeopleNumbers(s, now).text;
@@ -470,6 +482,61 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     // stream failed mid-way: keep what we have; the caller retries the rest once
   }
   return emitted;
+}
+
+/**
+ * A parent's death in a year: the "-parent" tag (the ledger) and a gentle line (the log) always go
+ * together, and at most once in a life. `planned` = the parent whose code-owned death falls in or
+ * before this year (ledger.parentDeathPlan). The model may write it itself (tagged or not); a tag
+ * without a line gets one, a line without a tag gets one, a second death is dropped.
+ */
+export function withParentDeath(y: SimYear, ch: string[], now: LifeNow, planned: LedgerPerson | null, deathsSoFar: number, idPrefix: string): { events: LifeEvent[]; ch: string[] } {
+  const text = (e: LifeEvent) => `${e.title}. ${e.narrative}`;
+  const deathEv = y.events.find((e) => PARENT_DEATH_RE.test(text(e)));
+  const tagged = ch.filter((c) => c.startsWith("-parent:"));
+  if (deathsSoFar >= 1) return { events: y.events, ch: ch.filter((c) => !c.startsWith("-parent:")) };
+  if (!deathEv && !tagged.length && !planned) return { events: y.events, ch };
+  const parents = now.people.filter((p) => p.role === "parent" && p.status === "here" && p.since <= y.year);
+  const byWord = (w: string) => {
+    const t = w.toLowerCase().replace(/^your\s+/, "");
+    return parents.find((p) => p.name.toLowerCase().replace(/^your\s+/, "") === t) ?? parents.find((p) => roleWord(p.relation) === roleWord(t));
+  };
+  let who: LedgerPerson | undefined;
+  for (const t of tagged) who ??= byWord(t.slice("-parent:".length));
+  if (!who && deathEv) {
+    const t = text(deathEv).toLowerCase();
+    who = parents.find((p) => !p.generic && t.includes(p.name.toLowerCase())) ?? parents.find((p) => t.includes(roleWord(p.relation)));
+  }
+  if (!who && planned) who = parents.find((p) => p.name === planned.name);
+  if (!who) return { events: y.events, ch: ch.filter((c) => !c.startsWith("-parent:")) }; // nobody here to lose
+  const tags = [...ch.filter((c) => !c.startsWith("-parent:")), `-parent:${who.name}`];
+  if (deathEv) return { events: y.events, ch: tags };
+  // a code line, gentle and offscreen; it takes the place of a texture line if the year is full
+  let events = y.events;
+  if (events.length >= 3) {
+    const drop = events.findLastIndex((e) => !e.isTurningPoint);
+    events = events.filter((_, i) => i !== (drop >= 0 ? drop : events.length - 1)).slice(0, 2);
+  }
+  return { events: [...events, parentDeathEvent(who, y.year, idPrefix)], ch: tags };
+}
+
+function parentDeathEvent(who: LedgerPerson, year: number, idPrefix: string): LifeEvent {
+  const w = roleWord(who.relation);
+  const rel = w === "mother" || w === "father" ? w : "parent";
+  const [sub, obj, pos] = rel === "mother" ? ["She", "her", "hers"] : rel === "father" ? ["He", "him", "his"] : ["They", "them", "theirs"];
+  const age = who.born !== null ? year - who.born : null;
+  const when = age === null ? "" : who.ageKnown ? `, at ${age}` : age >= 90 ? `, in ${rel === "mother" ? "her" : rel === "father" ? "his" : "their"} nineties` : `, in ${rel === "mother" ? "her" : rel === "father" ? "his" : "their"} late eighties`;
+  return {
+    id: `${idPrefix}-${year}-9`,
+    domain: "family",
+    category: "texture",
+    title: `${who.generic ? `Your ${rel}` : `${who.name}, your ${rel},`} dies${when}`,
+    narrative: `${sub} goes quietly, after a long life. You go home, sit with the family, and keep one small thing of ${pos}; for a while you still reach for the phone to call ${obj}.`,
+    isTurningPoint: false,
+    cause: null,
+    baseRate: null,
+    tone: "mixed",
+  };
 }
 
 /** Ids of decisions in a year (for the chosen life). */

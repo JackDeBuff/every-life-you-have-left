@@ -254,7 +254,7 @@ const BIG: BigTpl[] = [
     options: [
       ["Move them in and retire early", "Close, crowded, warm", "Bring them home"],
       ["Keep working, hire help", "Money buys time", "Keep working"],
-      ["Downsize and save for both of us", "Careful with every dollar", "Downsize"],
+      ["Downsize and save for both of us", "Careful with every expense", "Downsize"],
       ["Retire and finally make the thing", "The work you always meant to do", "Make the thing"],
     ],
   },

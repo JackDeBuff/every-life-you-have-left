@@ -139,12 +139,15 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
     setBusy(true);
     const answer = { decisionId: d.id, optionId: sel, text: text.trim() || null, via: text.trim() ? via : ("tap" as const) };
     if (big) {
-      const chosen = sel ?? bestGuess(d, text);
+      // Typed without a tap = their own path: never guess an option from shared words (QA: "I keep the
+      // UK job..." was filed as "Quit the bank..."). The engine names the path from their words; all
+      // four tiles fade as lives not chosen.
+      const chosen = sel ?? "own";
       const titles = Object.fromEntries(d.options.map((o) => [o.id, o.branchTitle ?? o.label]));
       setForking({ decisionId: d.id, optionId: chosen });
       clock.hold("fork", true);
       const anim = playForkMoment(card.current, d.id, chosen, titles);
-      await sim().answer({ ...answer, optionId: answer.optionId ?? chosen });
+      await sim().answer(answer);
       await anim;
       clock.hold("fork", false);
       setForking(null);
@@ -371,15 +374,4 @@ function WhyWithQuote({ text, quote }: { text: string; quote: string }) {
       {m[3]}
     </>
   );
-}
-
-function bestGuess(d: Decision, text: string): string {
-  const words = new Set(text.toLowerCase().match(/[a-z']{3,}/g) ?? []);
-  let best = d.options[0]!.id;
-  let score = -1;
-  for (const o of d.options) {
-    const sc = (`${o.label} ${o.branchTitle ?? ""}`.toLowerCase().match(/[a-z']{3,}/g) ?? []).filter((w) => words.has(w)).length;
-    if (sc > score) (score = sc), (best = o.id);
-  }
-  return best;
 }

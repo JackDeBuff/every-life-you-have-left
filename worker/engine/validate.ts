@@ -343,6 +343,12 @@ export function checkYear(draft: YearDraft, ctx: YearCheckCtx): YearCheck {
   // --- money: smooth unless an event explains it
   let income = Math.max(0, Math.round(draft.money.income));
   let netWorth = Math.round(draft.money.netWorth);
+  // The first year starts from what they said they earn (code-anchored in the profile): within 10%.
+  const said = ctx.profile.money.incomeUsd;
+  if (!prev && said && said > 0 && Math.abs(income - said) > said * 0.1) {
+    soft.push("first-year income anchored to their stated income");
+    income = said;
+  }
   if (prev) {
     const moneyEvent = outEvents.some((e) =>
       ["career_move", "career_change", "job_loss", "money_up", "money_down", "home", "divorce", "marriage", "move", "caregiving", "child"].includes(e.category),

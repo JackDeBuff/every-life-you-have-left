@@ -8,6 +8,7 @@ import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SessionState, SimYear } from "../../shared/sim";
 import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, yearLine } from "./context";
 import { branchForks, forksTaken, profileAsOf, type LifeNow } from "./ledger";
+import { chosenOf } from "./answers";
 import type { Caller } from "./models";
 import { futureSelfSystem, INTERVIEWER_SYSTEM } from "./prompts/chat";
 import { BREAK_CHARACTER } from "./prompts/extras";
@@ -49,8 +50,8 @@ function lifeYearsUpTo(state: SessionState, life: string, age: number): { years:
     const years = state.years.filter((y) => y.year <= year);
     const forks = state.decisions.filter((d) => d.kind === "big" && d.status === "answered" && d.year <= year);
     const last = forks.at(-1);
-    const opt = last ? last.options.find((o) => o.id === state.answers.find((a) => a.decisionId === last.id)?.optionId) : undefined;
-    return { years, title: "Your Path", forkLine: opt?.branchTitle ? `the life where you chose "${opt.branchTitle}"` : "the life you chose", path: forksTaken(state, year) };
+    const c = last ? chosenOf(last, state.answers.find((a) => a.decisionId === last.id)) : null;
+    return { years, title: "Your Path", forkLine: c && (c.option?.branchTitle || c.own) ? `the life where you chose "${c.title}"${c.own ? " (in your own words)" : ""}` : "the life you chose", path: forksTaken(state, year) };
   }
   const b = state.branches.find((x) => x.id === life);
   if (!b) return null;

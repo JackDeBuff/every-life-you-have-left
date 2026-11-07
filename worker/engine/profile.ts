@@ -58,8 +58,41 @@ function defaultWorries(): DomainWeights {
  */
 export function guardMoney(m: Profile["money"], text: string, prefer: CurrencyCode): Profile["money"] {
   const stated = statedAmounts(text, prefer);
-  if (!stated.some((s) => s.code !== "USD")) return m;
-  return { ...m, incomeUsd: fixUnconverted(m.incomeUsd, stated), debtUsd: fixUnconverted(m.debtUsd, stated), savingsUsd: fixUnconverted(m.savingsUsd, stated) };
+  const fixed = stated.some((s) => s.code !== "USD")
+    ? { ...m, incomeUsd: fixUnconverted(m.incomeUsd, stated), debtUsd: fixUnconverted(m.debtUsd, stated), savingsUsd: fixUnconverted(m.savingsUsd, stated) }
+    : m;
+  return { ...fixed, incomeUsd: anchorIncome(fixed.incomeUsd, text, prefer) };
+}
+
+const INCOME_CUE = /\b(salary|earn\w*|make|making|made|paid|pay(?:s|ing)?|income|take[- ]home|gross|net|wage\w*|per (?:month|year|annum|week)|a (?:month|year|week)|monthly|annual\w*|yearly|\/mo|\/yr|\/month|\/year|pm\b|p\.a\.)/i;
+const NOT_INCOME = /\b(rent|loan\w*|debt\w*|owe\w*|saving\w*|saved|tfsa|isa|401k|pension pot|mortgage|cost\w*|bills?|tuition|fees?|spend\w*|budget\w*|price\w*|bought|buy|sell\w*|offer\w*|recruit\w*|would|could|someday|one day|dream\w*|hope\w*|wish\w*|goal|target|if i|want to|wants to|need to|deposit|down payment|send\w* home|send\w* (?:my|our)|allowance)\b/i;
+const PER_MONTH = /\b(?:a|per|each|every) month\b|\bmonthly\b|\/mo(?:nth)?\b|\bpm\b|\bp\/m\b/i;
+const PER_WEEK = /\b(?:a|per|each|every) week\b|\bweekly\b|\/w(?:ee)?k\b/i;
+
+/**
+ * Stated income is an anchor (QA: Chidi said "₦600k a month" and the life paid ₦930k): an amount
+ * they stated as what they earn, per month/week/year, converted by code. The model's incomeUsd
+ * stands when it is within 10% of it; otherwise the stated amount wins. Offers, rent, savings,
+ * loans and hopes are not income.
+ */
+export function anchorIncome(incomeUsd: number | null, text: string, prefer: CurrencyCode): number | null {
+  for (const s of sentences(text)) {
+    if (!INCOME_CUE.test(s) || NOT_INCOME.test(s)) continue;
+    const amt = statedAmounts(s, prefer)[0];
+    if (!amt) continue;
+    const after = s.slice(s.indexOf(amt.text) + amt.text.length, s.indexOf(amt.text) + amt.text.length + 24);
+    const per = PER_MONTH.test(after) || PER_MONTH.test(s) ? 12 : PER_WEEK.test(after) || PER_WEEK.test(s) ? 52 : 1;
+    const usd = Math.round(amt.usd * per);
+    if (usd < 500) continue;
+    if (incomeUsd === null || Math.abs(incomeUsd - usd) > usd * 0.1) return usd;
+    return incomeUsd;
+  }
+  return incomeUsd;
+}
+
+/** A stated age, as a birth year (the age counts from the year it was said). null when not stated or absurd. */
+export function bornFrom(age: number | null | undefined, saidIn: number): number | null {
+  return typeof age === "number" && Number.isFinite(age) && age >= 0 && age <= 110 ? Math.round(saidIn - age) : null;
 }
 
 /** Turn the model's draft into Profile fields; ids assigned here; citations filtered to real quotes. */
@@ -77,6 +110,8 @@ function applyDraft(base: Profile, draft: ProfileLLM, quotes: Quote[]): Profile 
       influence: clamp(p.influence, 0, 1),
       expectation: p.expectation,
       quoteIds: cite(p.quoteIds),
+      // an age stated in their words or uploads ("Theo, who is 9"): the ledger's ages count from it
+      born: existing?.born ?? bornFrom(p.age, base.startYear),
     };
   });
   // make person ids unique
@@ -317,8 +352,9 @@ export async function foldAnswer(
       const people = [...profile.people];
       for (const p of d.people) {
         const i = people.findIndex((x) => norm(x.label) === norm(p.label));
-        if (i >= 0) people[i] = { ...people[i]!, expectation: p.expectation ?? people[i]!.expectation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), quoteIds: [...new Set([...people[i]!.quoteIds, ...cite(p.quoteIds)])] };
-        else people.push({ id: `p${people.length + 1}`, label: p.label, relation: p.relation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), expectation: p.expectation, quoteIds: cite(p.quoteIds) });
+        const born = bornFrom(p.age, decision.year);
+        if (i >= 0) people[i] = { ...people[i]!, expectation: p.expectation ?? people[i]!.expectation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), quoteIds: [...new Set([...people[i]!.quoteIds, ...cite(p.quoteIds)])], born: people[i]!.born ?? born };
+        else people.push({ id: `p${people.length + 1}`, label: p.label, relation: p.relation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), expectation: p.expectation, quoteIds: cite(p.quoteIds), born });
       }
       const facts = [...profile.facts];
       for (const f of d.facts) {

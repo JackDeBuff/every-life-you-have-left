@@ -9,6 +9,7 @@ import type { Profile, WorldEvent } from "../../shared/schema";
 import type { Decision, DecisionAnswer, LiveSetting, SessionState, SettingNudge, SimYear } from "../../shared/sim";
 import { usd } from "./util";
 import { statedTimelines, todayLine } from "./calendar";
+import { chosenOf } from "./answers";
 import { lifeAt, nowBlock, type LifeNow } from "./ledger";
 
 /**
@@ -139,12 +140,15 @@ export function answerFor(state: SessionState, d: Decision): DecisionAnswer | un
 
 export function decisionLine(state: SessionState, d: Decision): string {
   const a = answerFor(state, d);
-  const opt = a?.optionId ? d.options.find((o) => o.id === a.optionId) : undefined;
   const head = `${d.year} (${d.age}) ${d.kind.toUpperCase()}: "${d.prompt}"`;
   if (d.status === "slid") return `${head} -> let it slide (no answer; life follows its inertia)`;
   if (!a) return `${head} -> (not answered yet)`;
-  const said = a.text ? ` and said "${a.text.slice(0, 400)}"${a.quoteId ? ` [${a.quoteId}]` : ""}` : "";
-  return `${head} -> chose "${opt?.label ?? "their own answer"}"${opt?.branchTitle ? ` (${opt.branchTitle})` : ""}${said}`;
+  const c = chosenOf(d, a);
+  const ref = a.quoteId ? ` [${a.quoteId}]` : "";
+  // Their own words, none of the options: the path IS what they wrote (never one of the four).
+  if (c.own) return `${head} -> none of the options: their own way, "${c.title}". In their words: "${c.said!.slice(0, 400)}"${ref}`;
+  const said = a.text ? ` and said "${a.text.slice(0, 400)}"${ref}` : "";
+  return `${head} -> chose "${c.label}"${c.option?.branchTitle ? ` (${c.option.branchTitle})` : ""}${said}`;
 }
 
 /** Every big decision, and the most recent small ones (1x answers ~150 small cards: what the

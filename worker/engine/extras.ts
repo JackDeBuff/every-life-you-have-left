@@ -4,6 +4,7 @@ import type { Branch, LiveSetting, LogLine, SessionState, SimYear } from "../../
 import { fixPeopleNumbers, peopleIssues, similarity } from "./consistency";
 import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, settingValueLabel, yearLine } from "./context";
 import { branchForks, forksTaken, lifeAt, nowBlock, peopleNowLine, peopleSummary, profileAsOf, type LifeNow } from "./ledger";
+import { chosenOf } from "./answers";
 import type { Caller } from "./models";
 import { ENDING_SYSTEM, endingPrompt, SAFETY_SYSTEM, SETTINGS_SYSTEM, settingsPrompt } from "./prompts/extras";
 import { EndingLLM, SafetyLLM, SettingsLLM } from "./schemas";
@@ -263,10 +264,11 @@ export function logLines(state: SessionState, year: SimYear): LogLine[] {
     if (d.status === "slid") {
       out.push({ ...base, id: id("slid"), kind: "slid", text: truncateWords(`You let it slide: ${d.prompt}`, 24), domain: d.domains[0] ?? null, tone: null, why: null, baseRate: null, refId: d.id });
     } else if (d.status === "answered" && d.kind === "big") {
+      const c = chosenOf(d, a);
       const others = d.options.filter((o) => o.id !== opt?.id && o.branchTitle).map((o) => o.branchTitle).join(", ");
       out.push({
         ...base, id: id("fork"), kind: "fork",
-        text: truncateWords(`You chose ${opt?.branchTitle ?? opt?.label ?? "your own way"}. ${others ? `The lives where you chose ${others} keep running.` : ""}`, 24),
+        text: truncateWords(`You chose ${c.own ? `your own way: ${c.label}` : c.title}. ${others ? `The lives where you chose ${others} keep running.` : ""}`, 24),
         domain: d.domains[0] ?? null, tone: null, why, baseRate: null, refId: d.id,
       });
     } else if (d.status === "answered") {

@@ -44,6 +44,7 @@ import { reply } from "./chat";
 import { decisionsBlock, settingsBlock } from "./context";
 import { makeDecisionFor } from "./decisions";
 import { forksTaken } from "./ledger";
+import { chosenOf } from "./answers";
 import { endingFor, logLines, safetyCheck, settingsForState } from "./extras";
 import type { LlmPort } from "./llm-port";
 import { createCaller, DEFAULT_MODELS, type EngineModels, type UsageEvent } from "./models";
@@ -137,8 +138,14 @@ export function createEngine(deps: EngineDeps): EngineWithSmalls {
       if (d.status === "slid") {
         lines.push(`${d.year}: they let "${d.prompt}" slide. Life follows its inertia there; no dramatic consequence.`);
       } else if (d.kind === "big") {
+        const c = chosenOf(d, a);
+        // The decision's own year is history once it has played (a fork never rewrites it): the
+        // consequence starts in the first year being written.
+        const when = d.year < from ? `${from}-${from + 1} (${d.year} is already written: don't redo it)` : `${d.year}-${d.year + 1}`;
         lines.push(
-          `${d.year} (${d.age}): they chose "${opt?.label ?? "their own answer"}"${opt?.branchTitle ? ` (${opt.branchTitle})` : ""}${a?.text ? ` and said, in their words: "${a.text}"` : ""}. Show the consequence in ${d.year}-${d.year + 1} as a turning point with cause.quoteId ${qid}. If they added conditions in their own words, honour them: their words count more than the tap.`,
+          c.own
+            ? `${d.year} (${d.age}): they chose none of the offered options; they wrote their own way: "${c.said}" ("${c.title}"). That IS the path now: live exactly what they said, not any of the options (${d.options.map((o) => `"${o.branchTitle ?? o.label}"`).join(", ")} are the lives they didn't choose). Show the consequence in ${when} as a turning point with cause.quoteId ${qid}.`
+            : `${d.year} (${d.age}): they chose "${c.label}"${c.option?.branchTitle ? ` (${c.option.branchTitle})` : ""}${a?.text ? ` and said, in their words: "${a.text}"` : ""}. Show the consequence in ${when} as a turning point with cause.quoteId ${qid}. If they added conditions in their own words, honour them: their words count more than the tap.`,
         );
       } else {
         lines.push(
@@ -213,10 +220,10 @@ export function createEngine(deps: EngineDeps): EngineWithSmalls {
       const past = state.years.filter((y) => y.year < years[0]!);
       const { text: mustShow, focus } = mustShowFor(state, years[0]!, last);
       const latestFork = state.decisions.filter((d) => d.kind === "big" && d.status === "answered" && d.year <= last).at(-1);
-      const forkOpt = latestFork?.options.find((o) => o.id === state.answers.find((a) => a.decisionId === latestFork.id)?.optionId);
+      const forkPath = latestFork ? chosenOf(latestFork, state.answers.find((a) => a.decisionId === latestFork.id)) : null;
       const spec = {
         idPrefix: "you",
-        lifeLabel: `Their chosen life ("Your Path"): the one they steer with their own decisions and settings.${forkOpt?.branchTitle ? ` Latest fork: "${forkOpt.branchTitle}" at ${latestFork!.age}.` : ""}`,
+        lifeLabel: `Their chosen life ("Your Path"): the one they steer with their own decisions and settings.${forkPath && (forkPath.option?.branchTitle || forkPath.own) ? ` Latest fork: "${forkPath.title}"${forkPath.own ? " (their own words)" : ""} at ${latestFork!.age}.` : ""}`,
         past,
         decisions: decisionsBlock(state, last),
         mustShow,
@@ -225,8 +232,9 @@ export function createEngine(deps: EngineDeps): EngineWithSmalls {
         coarse: false,
         tier: "heavy" as const,
         model: models.yearsBySpeed[state.speed],
-        // hybrid: right after a fork the heavy model writes the consequence years, the speed model the rest
-        lead: models.yearsBySpeed[state.speed] && state.decisions.some((d) => d.kind === "big" && d.status === "answered" && d.year === years[0])
+        // hybrid: right after a fork the heavy model writes the consequence years, the speed model the
+        // rest (a fork's own year is kept, so its consequence starts the year after; the first fork rewrites "today")
+        lead: models.yearsBySpeed[state.speed] && state.decisions.some((d) => d.kind === "big" && d.status === "answered" && (d.year === years[0] || d.year === years[0]! - 1))
           ? { count: models.forkLeadYears, model: models.heavy }
           : undefined,
         decisionIdsFor: decisionIdsIn(state.decisions),

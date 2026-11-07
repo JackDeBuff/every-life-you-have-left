@@ -9,11 +9,16 @@
  *   - near-duplicate lines (normalised similarity)
  * Used by the generators (repair / regenerate) and by scripts/eval (violation counts).
  */
-import type { Decision } from "../../shared/sim";
+import type { Decision, SessionState } from "../../shared/sim";
+import { chosenOf } from "./answers";
 import { ageMentions, ageOf, cityOf, here, NUM, numFrom, numLike, type LifeNow } from "./ledger";
+import { laneOf } from "./money";
 import { sentences } from "./util";
 
-export type IssueKind = "age" | "count" | "partner" | "child" | "pet" | "place" | "employer" | "retired" | "repeat_topic" | "framing" | "duplicate" | "past_time";
+export type IssueKind =
+  | "age" | "count" | "partner" | "child" | "pet" | "place" | "employer" | "retired" | "repeat_topic" | "framing" | "duplicate" | "past_time"
+  // big decisions against the forks already taken (forkIssues)
+  | "work_stage" | "repeat_chosen" | "left_behind" | "repeat_option" | "ignores_now" | "same_options";
 export interface Issue {
   kind: IssueKind;
   msg: string;
@@ -236,15 +241,28 @@ function distinctiveNames(s: string, exclude: Set<string>): { mid: Set<string>; 
     const first = w.split(/\s+/)[0]!;
     if (CAP_STOP.has(first) || exclude.has(w.toLowerCase()) || exclude.has(first.toLowerCase())) continue;
     all.add(w.toLowerCase());
-    if (m[1] === " " ) mid.add(w.toLowerCase());
+    // (the text is matched with a leading space: the first word is sentence-initial, not mid-sentence)
+    if (m[1] === " " && m.index > 0) mid.add(w.toLowerCase());
+  }
+  // Acronyms are names too ("the UK job", "a UX contract"): two letters were skipped above.
+  for (const m of s.matchAll(/\b([A-Z]{2,5})s?\b/g)) {
+    const w = m[1]!.toLowerCase();
+    if (ACRONYM_STOP.has(m[1]!) || exclude.has(w)) continue;
+    all.add(w);
+    mid.add(w);
   }
   return { mid, all };
 }
+const ACRONYM_STOP = new Set(["I", "OK", "TV", "AM", "PM", "ID"]);
 
-const REVISIT = /\b(again|back|still|second time|once more|years? (?:after|later|since)|revisit\w*|return\w*|another (?:offer|chance)|this time|comes? back|reopen\w*|years ago)\b/i;
+/**
+ * Framed as the subject coming back on purpose. Narrow on purpose: "still" and "this time" used to
+ * excuse any repeat ("You're still at the bank..."), and the QA run re-offered the UK job that way.
+ */
+const REVISIT = /\b(again|once more|second time|another (?:offer|chance)|comes? back|came back|resurfac\w*|\d+ years (?:on|later|after)|(?:two|three|four|five|six|seven|eight|nine|ten|years) (?:years )?(?:on|later)|years ago|revisit\w*|reopen\w*|return\w* to the|back to the (?:idea|offer|question))\b/i;
 
 /** A big card whose subject repeats an earlier fork's, without being framed as a revisit. */
-export function repeatTopicIssues(card: Pick<Decision, "prompt" | "options">, earlier: Decision[], now: LifeNow, firstName = ""): Issue[] {
+export function repeatTopicIssues(card: Pick<Decision, "prompt">, earlier: Pick<Decision, "kind" | "prompt" | "age">[], now: LifeNow, firstName = ""): Issue[] {
   const exclude = new Set<string>([
     firstName.toLowerCase(),
     ...now.place.toLowerCase().split(/,\s*/),
@@ -302,3 +320,257 @@ export function framingIssues(prompt: string, recent: Pick<Decision, "prompt">[]
 
 /** First sentence with a number of `${NUM}` kids, exported for tests. */
 export const NUM_PATTERN = NUM;
+
+// ---------------------------------------------------------------------------------------------
+// Big decisions against the life as it stands AND every fork already taken (final QA, Sat Nov 7)
+//
+// The QA run's forks forgot earlier choices: Sam (5 years a product designer) was offered "a junior
+// UX contract"; Sam's card at 32 said "in Chicago" with the bio in San Francisco; Chidi was offered
+// "take the UK contract / stay at the bank" three years after taking the UK job; Chidi's card at 49
+// ignored the academy he founded at 47; Margo's first three forks all had the same sabbatical.
+// ---------------------------------------------------------------------------------------------
+
+/** A fork already taken in this life: what was asked, what they chose, their own words. */
+export interface ForkTaken {
+  id: string;
+  year: number;
+  age: number;
+  prompt: string;
+  /** Chosen path: branch title / label (or their own words). */
+  title: string;
+  label: string;
+  said: string | null;
+  own: boolean;
+  options: { id: string; label: string; title: string }[];
+  chosenId: string | null;
+}
+
+/** Every answered fork before (or in) `uptoYear`, oldest first. */
+export function forksFrom(state: Pick<SessionState, "decisions" | "answers">, uptoYear = 9999, exceptId?: string): ForkTaken[] {
+  return state.decisions
+    .filter((d) => d.kind === "big" && d.status === "answered" && d.year <= uptoYear && d.id !== exceptId)
+    .sort((a, b) => a.year - b.year)
+    .map((d) => {
+      const a = state.answers.find((x) => x.decisionId === d.id);
+      const c = chosenOf(d, a);
+      return {
+        id: d.id, year: d.year, age: d.age, prompt: d.prompt, title: c.title, label: c.label, said: c.said, own: c.own,
+        options: d.options.map((o) => ({ id: o.id, label: o.label, title: o.branchTitle ?? o.label })),
+        chosenId: c.option?.id ?? null,
+      };
+    });
+}
+
+/** Words that name no particular thing (every option of every fork has them). */
+const FORK_GENERIC = new Set(
+  (
+    "job jobs role roles offer offers work works working career careers position post time life year years month months week weeks day days money family people thing things way plan plans new now today next current " +
+    "full-time part-time full part own take takes taking taken stay stays staying keep keeps keeping leave leaves leaving left quit quits quitting move moves moving moved go goes going start starts starting " +
+    "build builds building make makes making get gets let say ask try tries trying find finds give gives put turn turns accept accepts join joins launch launches found founds code codes run runs open opens " +
+    "steady safe safer bigger big small little more less first last real really whole every each other another better best good great " +
+    "startup company business firm side weekends weekend evenings instead rather still back home here there " +
+    "lead leads leading senior track team teams head promotion raise pay hand hands step steps off down out set sets"
+  ).split(/\s+/),
+);
+/** Light stemmer, two passes: "engineering"/"engineer" -> "engine", "teaching"/"teacher" -> "teach", "nursing"/"nurse" -> "nurs". */
+function stemW(w0: string): string {
+  let w = w0.replace(/'s$/, "");
+  for (let i = 0; i < 2 && w.length > 4; i++) {
+    const next = w.replace(/(?:ments?|ings?|ers?|ors?|ants?|ions?|ed|es|s|e)$/, "");
+    if (next.length < 3 || next === w) break;
+    w = next;
+  }
+  return w;
+}
+
+/** The things a phrase is about: content words + acronyms, minus generic words and the given exclusions. */
+function objectsOf(s: string, exclude: Set<string>): Set<string> {
+  const out = new Set<string>();
+  for (const m of s.matchAll(/\b([A-Z]{2,5})s?\b/g)) if (!ACRONYM_STOP.has(m[1]!) && !exclude.has(m[1]!.toLowerCase())) out.add(m[1]!.toLowerCase());
+  for (const w of contentWords(s)) {
+    const st = stemW(w);
+    if (!FORK_GENERIC.has(w) && !exclude.has(w) && !exclude.has(st)) out.add(st);
+  }
+  return out;
+}
+
+/** Clauses of an option ("Take the agency contract and keep freelancing" -> two). */
+const clausesOf = (s: string) => s.split(/\s*(?:[,;.]|\band\b|\bbut\b|\bwhile\b|\bthen\b)\s*/i).filter((x) => x.trim().length > 2);
+
+/** The kind of life an option points to (money lanes), when it is a distinctive one. */
+function themeOf(s: string): string | null {
+  const l = laneOf(s, "theme");
+  return l === "venture_hit" || l === "venture_miss" ? "venture" : l && l !== "climb" && l !== "careful" ? l : null;
+}
+const jaccard = (a: Set<string>, b: Set<string>) => {
+  if (!a.size || !b.size) return 0;
+  let n = 0;
+  for (const x of a) if (b.has(x)) n++;
+  return n / (a.size + b.size - n);
+};
+const shared = (a: Set<string>, b: Set<string>) => [...a].filter((x) => b.has(x));
+
+/** Proper names and acronyms in a phrase (the distinctive subject of an option): mid-sentence only, since options start with a verb ("Take ..."). */
+function namesOf(s: string, exclude: Set<string>): Set<string> {
+  const { mid } = distinctiveNames(s, exclude);
+  return new Set([...mid].flatMap((n) => n.split(/\s+/)).filter((n) => !exclude.has(n)));
+}
+
+const ADOPT = /\b(take|taking|accept\w*|join\w*|sign\w*|start\w*|found\w*|launch\w*|open\w*|build\w*|move to|moving to|relocat\w*|go (?:to|for)|apply\w*|enrol\w*|say yes)\b/i;
+/** The next step inside a path already taken is not "choosing it again" ("Take the UK lead role"). */
+const STEP_UP = /\b(lead|senior|promot\w*|director|head of|principal|partner(?:ship)?|manag\w*|expand\w*|grow\w*|scal(?:e|ing)\w*|second|bigger|raise|equity|co-?found\w*|sell\w*|exit|hire\w*|full[- ]time|permanent)\b/i;
+const STAY_AT = /\b(stay\w*|keep\w*|remain\w*|stick\w*|hold on to)\b/i;
+const SIDE = /\b(on (?:the )?weekends?|on the side|side project|evenings|nights|part[- ]time|after work|spare time|as a hobby)\b/i;
+const FULL = /\b(full[- ]time|all in|all-in|quit\w*)\b/i;
+const WORK_TALK = /\b(job|career|role|compan\w*|firm|business|startup|promot\w*|boss|salary|contract|client\w*|hiring|quit\w*|resign\w*|employer|position|venture|founder|consult\w*|freelanc\w*|recruit\w*|job offer|offers? you (?:a|the) (?:job|role|post|position|contract))\b/i;
+const JUNIOR = /\b(junior|entry[- ]level|intern(?:ship)?s?|trainee\w*|graduate (?:scheme|program\w*|role|job)|first (?:real |proper |full[- ]time )?job|land (?:a|your first) job|job[- ]hunt\w*|apply(?:ing)? for (?:jobs|roles|positions)|applied for (?:the|a|that) (?:job|role|position))\b/i;
+const JUNIOR_OK = /\b(mentor\w*|hir(?:e|es|ing)|manag\w*|lead\w*|train(?:s|ing)? (?:a|the|your)|coach\w*|onboard\w*|supervis\w*|your interns?|their interns?)\s+(?:\w+\s+){0,2}$/i;
+const CHANGE_CAREER = /\b(pivot\w*|switch(?:ing)? (?:careers?|fields?)|change careers?|career change|start(?:ing)? over|retrain\w*|back to school|from scratch|new field|step(?:ping)? down|step(?:ping)? back|downshift\w*|a different field)\b/i;
+const NOT_ESTABLISHED = /\b(student|studying|between jobs|unemployed|looking for|job[- ]hunt\w*|not stated|graduat\w*|intern\w*|seeking|job search\w*|out of work|laid off|gap year|freshly)\b/i;
+
+/**
+ * What's wrong with a big card given the life as it stands (`now`, the ledger at the fork's year)
+ * and every fork already taken (`forks`, with what they chose and what they said):
+ *   - place / employer / retirement, in the question AND each option (stateIssues)
+ *   - a stage they've passed: an entry-level / junior step after years in their work
+ *   - an option that offers what they already chose ("Take the UK contract" after "Take UK remote role")
+ *   - an option to stay with what they left ("Stay at the bank" after leaving it)
+ *   - the subject or an option of an earlier fork again (repeatTopicIssues + option overlap,
+ *     strictest for the last two forks)
+ *   - a work question that ignores what they do now and the latest fork ("the academy at 47")
+ *   - two options that are the same choice in other words
+ */
+export function forkIssues(
+  card: Pick<Decision, "prompt" | "whyAsking" | "options" | "domains">,
+  now: LifeNow,
+  forks: ForkTaken[],
+  opts: { firstName?: string; earlier?: Decision[] } = {},
+): Issue[] {
+  const issues: Issue[] = [];
+  const push = (i: Issue) => {
+    if (!issues.some((x) => x.kind === i.kind && x.msg === i.msg)) issues.push(i);
+  };
+  const optText = (o: Decision["options"][number]) => `${o.label}. ${o.branchTitle ?? ""}. ${o.hint ?? ""}`;
+  const all = [card.prompt, card.whyAsking, ...card.options.map(optText)].join(" ");
+  const placeWords = new Set([...now.place.toLowerCase().split(/[,\s]+/), ...now.pastPlaces.flatMap((p) => p.place.toLowerCase().split(/[,\s]+/))].filter((w) => w.length > 1));
+  const peopleWords = new Set(now.people.flatMap((p) => p.name.toLowerCase().replace(/^your\s+/, "").split(/\s+/)));
+  const firstName = (opts.firstName ?? "").toLowerCase();
+  const exclude = new Set([...placeWords, ...peopleWords, firstName].filter(Boolean));
+  const revisit = REVISIT.test(card.prompt);
+
+  // 1. place, employer, retirement: the question and every option
+  for (const i of stateIssues(`${card.prompt} ${card.whyAsking}`, now)) push(i);
+  for (const o of card.options) for (const i of stateIssues(o.label, now).filter((x) => x.kind !== "place" || !MOVE_CUE.test(o.label))) push({ ...i, msg: `option "${o.label}": ${i.msg}` });
+
+  // 2. a stage they've passed
+  const established = !NOT_ESTABLISHED.test(now.work) && !now.retired && (now.year - now.workSince >= 2 || now.pastWork.length > 0 || now.age >= 30);
+  if (established) {
+    for (const s of [card.prompt, ...card.options.map((o) => `${o.label}. ${o.hint ?? ""}`)]) {
+      const m = JUNIOR.exec(s);
+      if (m && !JUNIOR_OK.test(s.slice(0, m.index)) && !CHANGE_CAREER.test(s)) {
+        push({ kind: "work_stage", msg: `offers an entry-level step ("${m[0]}") but they are ${now.work} (since ${now.workSince}); fork on the next real step from where they are, or frame it explicitly as a career change` });
+        break;
+      }
+    }
+  }
+
+  // 3. what they already chose, offered again; 4. what they left, offered as "stay"
+  const leftWork = now.pastWork.map((w) => w.work).filter((w) => !now.work.toLowerCase().includes(w.toLowerCase()));
+  const curObjects = objectsOf(now.work, exclude);
+  for (const o of card.options) {
+    const label = `${o.label}. ${o.branchTitle ?? ""}`;
+    const mine = objectsOf(label, exclude);
+    const myNames = namesOf(label, exclude);
+    if (!revisit && ADOPT.test(label)) {
+      for (const f of forks) {
+        const theirs = `${f.title}. ${f.label}. ${f.said ?? ""}`;
+        if (STEP_UP.test(label) && !STEP_UP.test(theirs)) continue;
+        const names = shared(myNames, namesOf(theirs, exclude));
+        const objs = objectsOf(theirs, exclude);
+        if (names.length || (mine.size && jaccard(mine, objs) >= 0.5)) {
+          push({ kind: "repeat_chosen", msg: `option "${o.label}" offers what they already chose at ${f.age} ("${f.title}"${f.said ? `; in their words: "${f.said.slice(0, 120)}"` : ""}). They live that now: fork on what comes next inside it, not on choosing it again` });
+          break;
+        }
+      }
+    }
+    // only the clause that stays ("Take the agency contract and keep freelancing": "keep freelancing")
+    for (const cl of clausesOf(o.label).filter((x) => STAY_AT.test(x))) {
+      const objs = objectsOf(cl, exclude);
+      const w = leftWork.find((x) => shared(objs, objectsOf(x, new Set([...exclude, ...curObjects]))).length);
+      if (w) {
+        push({ kind: "left_behind", msg: `option "${o.label}" stays with ${shared(objs, objectsOf(w, new Set([...exclude, ...curObjects]))).join(", ")}, but they left that (${w}); now: ${now.work}` });
+        break;
+      }
+    }
+  }
+
+  // 5. an earlier fork's subject or option again (the last two forks most strictly)
+  for (const i of repeatTopicIssues(card, opts.earlier ?? forks.map((f) => ({ kind: "big" as const, prompt: f.prompt, age: f.age })), now, opts.firstName ?? "")) push(i);
+  if (!revisit) {
+    const recent = forks.slice(-2);
+    // What they chose is their life now, and the places and jobs of their life are settings, not
+    // subjects ("Partner with a bank" after "Quit the bank" is a new choice).
+    const lived = new Set(forks.flatMap((f) => [...objectsOf(`${f.title}. ${f.label}. ${f.said ?? ""}`, exclude)]));
+    const settings = new Set(now.pastWork.flatMap((w) => [...objectsOf(w.work, exclude)]));
+    const skip = new Set([...exclude, ...curObjects, ...lived, ...settings]);
+    outer: for (const o of card.options) {
+      const label = `${o.label}. ${o.branchTitle ?? ""}`;
+      const mine = objectsOf(label, skip);
+      if (!mine.size) continue;
+      const myNames = namesOf(label, skip);
+      const theme = themeOf(label);
+      for (const f of forks) {
+        const close = recent.includes(f);
+        for (const e of f.options) {
+          if (e.id === f.chosenId) continue;
+          const theirLabel = `${e.label}. ${e.title}`;
+          const theirs = objectsOf(theirLabel, skip);
+          const j = jaccard(mine, theirs);
+          const both = shared(mine, theirs);
+          // The last two forks: the same named place or thing, or the same kind of life sharing a
+          // subject (a sabbatical to travel, again); older forks: near-identical options only.
+          const named = shared(myNames, namesOf(theirLabel, skip)).length > 0;
+          const sameTheme = !!theme && theme === themeOf(theirLabel) && both.length > 0;
+          if ((close && (named || sameTheme || j >= 0.34)) || j >= 0.5) {
+            push({ kind: "repeat_option", msg: `option "${o.label}" repeats "${e.label}" from the fork at ${f.age} (${both.join(", ")}); every fork brings new choices, unless the card says this is that idea coming back years later` });
+            continue outer;
+          }
+        }
+      }
+    }
+  }
+
+  // 6. a work question that ignores what they do now and the latest fork. Not the first fork (it is
+  // about the crossroads they named), and "between jobs" or "a student" is no work to build on.
+  const last = forks.at(-1);
+  if (forks.length && (card.domains[0] === "career" || WORK_TALK.test(card.prompt))) {
+    const settledWork = !NOT_ESTABLISHED.test(now.work) && now.work !== "(not stated)";
+    const anchors = new Set([...(settledWork ? curObjects : []), ...(last && now.year - last.year <= 5 ? objectsOf(`${last.title}. ${last.label}. ${last.said ?? ""}`, exclude) : [])]);
+    const cardObjects = objectsOf(all, new Set());
+    if (anchors.size && !shared(cardObjects, anchors).length && !now.retired)
+      push({
+        kind: "ignores_now",
+        msg: `a work question that ignores what they do now (${now.work}, since ${now.workSince})${last ? ` and their latest fork ("${last.title}" at ${last.age})` : ""}: build this fork on that life`,
+      });
+  }
+
+  // 7. two options that are one choice in other words
+  // (what they do now is in every option: "fintech now" vs "fintech full-time" differ in nothing else)
+  const dupSkip = new Set([...exclude, ...curObjects]);
+  const os = card.options.map((o) => ({ o, t: `${o.label}. ${o.branchTitle ?? ""}`, objs: objectsOf(`${o.label}. ${o.branchTitle ?? ""}`, dupSkip) }));
+  for (let i = 0; i < os.length; i++)
+    for (let k = i + 1; k < os.length; k++) {
+      const a = os[i]!;
+      const b = os[k]!;
+      const sameTitle = norm(a.o.branchTitle ?? "") !== "" && norm(a.o.branchTitle ?? "") === norm(b.o.branchTitle ?? "");
+      const contrast = SIDE.test(a.t) !== SIDE.test(b.t) && (FULL.test(a.t) || FULL.test(b.t) || SIDE.test(a.t) || SIDE.test(b.t));
+      const both = shared(a.objs, b.objs).length;
+      const sameThing = jaccard(a.objs, b.objs) >= 0.5 && (both >= 2 || (a.objs.size === 1 && b.objs.size === 1));
+      if (sameTitle || similarity(a.o.label, b.o.label) >= 0.5 || (!contrast && sameThing)) {
+        push({ kind: "same_options", msg: `options "${a.o.label}" and "${b.o.label}" are the same choice in other words; make each of the four a genuinely different life` });
+      }
+    }
+  return issues;
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
