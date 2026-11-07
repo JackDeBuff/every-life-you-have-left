@@ -3,7 +3,9 @@
  * an always-visible "say more" box with hold-to-talk, and submit. Small ones slow the clock and
  * can slide; big ones dim the world and end in the fork moment.
  * The warm-up (D-090) uses the same card (`warm`): no clock, a step count, Skip, and Next.
- * Keys: 1–4 select · Enter submits · Shift+Enter new line.
+ * Keys: 1–4 select · Enter submits · Shift+Enter new line. Enter is the card's only while the card
+ * has focus (or nothing does): on a timeline ◆ or a setting it belongs to that control. The card
+ * takes focus when it opens, and peeks hand it back when they close (TimelineBar).
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SPEED_CONFIG, type Decision } from "../../../shared/sim";
@@ -42,8 +44,19 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
   const drain = useRef<HTMLDivElement>(null);
   const big = d.kind === "big";
   const timeout = !big && !warm ? SPEED_CONFIG[speed].smallTimeoutSec : null;
+  // 1× has no countdown, but a card can still be let go (the year waits for an open one).
+  const slideAnyTime = !big && !warm && timeout === null;
   const canSubmit = (!!sel || text.trim().length > 1) && !busy;
   const lastWarm = !!warm && warm.total !== null && warm.step >= warm.total;
+
+  // Take focus when the card opens, unless they're typing somewhere else (a setting, the composer).
+  useEffect(() => {
+    const el = card.current;
+    if (!el) return;
+    const ae = document.activeElement as HTMLElement | null;
+    const elsewhere = !!ae && ae !== document.body && !el.contains(ae) && !!ae.closest("input, textarea, select, [contenteditable=true], [role=slider], [role=combobox]");
+    if (!elsewhere) el.focus({ preventScroll: true });
+  }, []);
 
   // Arrive: small ones rise from the bottom of the dialogue; big ones settle into the whole pane.
   useEffect(() => {
@@ -163,6 +176,8 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
         setEngaged(true);
       } else if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
         const ae = document.activeElement as HTMLElement | null;
+        // Another control has focus (a timeline ◆ after a peek, a speed key): Enter is its own.
+        if (ae && ae !== document.body && !card.current?.contains(ae)) return;
         const tile = !typing ? ae?.closest<HTMLElement>("[data-option]") : null;
         if (tile && card.current?.contains(tile)) {
           // A mouse pick leaves focus on the tile, and the browser would "click" it again on Enter
@@ -190,6 +205,7 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
     <article
       className="dcard"
       ref={card}
+      tabIndex={-1}
       data-kind={warm ? "warmup" : d.kind}
       aria-label={warm ? `Getting to know you, question ${warm.step}${warm.total ? ` of ${warm.total}` : ""}` : big ? "A big decision" : "A small decision"}
     >
@@ -325,6 +341,10 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
         ) : timeout && !engaged && left !== null ? (
           <button className="btn quiet sm slide" onClick={() => void slide()}>
             Let it slide · {left}s
+          </button>
+        ) : slideAnyTime && !engaged ? (
+          <button className="btn quiet sm slide" onClick={() => void slide()}>
+            Let it slide
           </button>
         ) : (
           <span className="keys-hint faint meta">

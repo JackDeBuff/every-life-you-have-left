@@ -13,6 +13,8 @@
   border-top: 2px solid var(--sun);
   overflow-y: auto; overscroll-behavior: contain;
 }
+/* The card itself takes focus when it opens (so Enter decides); its controls show the ring. */
+.dcard:focus { outline: none; }
 .dcard[data-kind="big"] {
   flex: 1 1 auto;
   padding: var(--s5) var(--s5) 0;
