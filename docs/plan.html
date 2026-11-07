@@ -200,7 +200,7 @@ footer{padding-block:var(--s7);color:var(--muted);font-size:var(--t-sm)}
   <div class="hero">
     <p class="label">Build plan · Triangle AI Hackathon · Social Impact &amp; Education</p>
     <h1>Four lives you could still live, played to 70.</h1>
-    <p class="sub">This page is the plan Supawich and Paul sign off on before the agents start building tonight. Play the two prototypes, pick the look, flag any default you disagree with, then save. Claude reads your picks and starts.</p>
+    <p class="sub">Final design locked Sat 2am: three panes, decisions that fork your life, and a 3D world of the life you chose. Four agents are building it overnight. The ledger below has every decision; the full spec is on GitHub.</p>
     <div class="inks" aria-label="The four lives">
       <span class="ink"><i style="background:var(--path)"></i>Your Path</span>
       <span class="ink"><i style="background:var(--leap)"></i>The Leap</span>
@@ -219,7 +219,7 @@ footer{padding-block:var(--s7);color:var(--muted);font-size:var(--t-sm)}
     <div class="sechead">
       <p class="label">Open decision · D-051, D-052</p>
       <h2 id="look-h">Pick the look</h2>
-      <p class="lede">Round two, chat-centric, after Supawich rejected Four Horizons as too close to 1 in 8 Billion. In both, the conversation is the product and your four futures sharpen around it as you talk. Same sample person, Alex (25, Durham, data analyst who paints at night). No AI runs here. Press Play, or type your own answers. At the pause, write any answer and watch all four lives change.</p>
+      <p class="lede"><strong>Superseded at 2am:</strong> you and Paul chose the three-pane design (see the ledger and <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/docs/SPEC.md" target="_blank" rel="noopener">SPEC.md</a>). These chat prototypes stay here for reference. Four agents are building the final version overnight.</p>
     </div>
     <div class="look">
       <div style="min-width:0">
@@ -430,6 +430,16 @@ flowchart LR
 
 <script>
 const DECISIONS = [
+  {g:"Final design v2 (Sat 2am)", items:[
+    ["D-080","locked","<strong>Three panes plus a timeline, inspired by 1 in 8 Billion with our own look.</strong> Left: bio with your illustrated face, plus status. Middle: a 3D world of the life you chose, plus the life log. Right: live settings, plus the chat."],
+    ["D-081","locked","<strong>Speed sets how many decisions you get.</strong> 1×: about 200 small and 20 big. 2×: 100 and 10. 4×: 50 and 5. Auto, for judges: 5 big only, under 3 minutes."],
+    ["D-082","locked","<strong>The decision card:</strong> the question, a one-line reason it's asked, 4 answers, and an always-open box to type or say more. Your own words count most."],
+    ["D-083","locked","<strong>Every big decision is a fork.</strong> The lives you didn't choose keep running hidden. You see them after each big decision (\"Meanwhile, in your other lives…\") and can peek anytime."],
+    ["D-084","locked","<strong>Live life settings</strong> generated from your answers, like focus, investing and work-life balance. Changing one shapes the years ahead."],
+    ["D-085","locked","<strong>The middle pane is a 3D world</strong> built from many ready-made scenes with free CC0 assets, with heavy effort on 3D, animation and the interface."],
+    ["D-086","locked","<strong>Your face:</strong> an optional selfie turned into an illustrated portrait that ages with you. Never photoreal. Race is never guessed."],
+    ["D-087","default","<strong>Stack:</strong> React, React Three Fiber for 3D, GSAP for motion, Cloudflare Agents (one session per person) with Gemini."]
+  ]},
   {g:"Product", items:[
     ["D-001","locked","<strong>Name: Every Life You Have Left.</strong> The full name is the brand."],
     ["D-002","locked","<strong>Track: Social Impact &amp; Education.</strong>"],
