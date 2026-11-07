@@ -14,7 +14,7 @@ import { COARSE_ADDENDUM, REPAIR_SYSTEM, repairPrompt, YEARS_SYSTEM, yearsPrompt
 import { OneYearLLM, YearsLLM } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
-import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
+import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
 import { laneFactors, laneLine, type MoneyPath } from "./money";
 import { rng, shuffled, usd } from "./util";
 
@@ -212,15 +212,25 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   ]);
   const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const worldInSpan = env.world.filter((w) => w.year <= last + 1);
+  // Money re-anchors to where the life is now (the latest written year's place).
+  const here = countryOf(past.at(-1)?.place ?? "") ?? profile.country;
   const anchors = (spec.coarse ? years : years.filter((_, i) => i % 2 === 0 || i === years.length - 1))
     .map((y) => {
-      const a = moneyAnchor(profile, y - profile.birthYear);
+      const a = moneyAnchor(profile, y - profile.birthYear, here);
       const f = laneFactors(spec.money, y);
       const nw = Math.round((a.netWorthMedian * f.wealth) / 1000) * 1000;
       return `${y} (${y - profile.birthYear}): income ~${usd(Math.round((a.income * f.income) / 500) * 500)}, net worth ~${usd(nw)}`;
     })
     .join("\n");
-  const lane = laneLine(spec.money);
+  const k = moneyAnchor(profile, first - profile.birthYear, here).placeScale;
+  const lane = [
+    laneLine(spec.money),
+    k !== 1
+      ? `They live in ${past.at(-1)?.place ?? here} now: the same work pays about ${Math.round(k * 100)}% of what it paid at home (in USD), and costs follow. The anchors below are local; savings grow only from what they earn and save here.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   // Biology: parents are ~30 years older unless known; past ~88 a parent is frail or gone (the
   // judge caught a mother "still on the veranda" at 98 in a branch).
   const pa = (y: number) => y - profile.birthYear + 30;
@@ -274,9 +284,10 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
       raw = {};
     }
     const { draft, schemaOk } = coerceYear(raw, prev);
+    const back3 = [...past, ...lastEmitted].find((x) => x.year === year - 3) ?? null;
     const ctx = {
       profile, expectedYear: year, prev, ledger, world: env.world, span: env.span, idPrefix: spec.idPrefix,
-      coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year),
+      coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year), netWorth3YearsAgo: back3?.money.netWorth ?? null,
     };
     let check = checkYear(draft, ctx);
     const hardErrors = check.hard.length;
