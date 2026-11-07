@@ -111,7 +111,7 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
   const [heavyModel, autoYears] = heavy.split("+auto:") as [string, string | undefined];
   const engine = createEngine({
     llm,
-    models: { heavy: heavyModel, fallback: "", ...(autoYears ? { yearsBySpeed: { auto: autoYears } } : {}) },
+    models: { heavy: heavyModel, fallback: "", yearsBySpeed: autoYears ? { auto: autoYears } : {} },
     onUsage,
     onMetric: (m) => metrics.push(m),
   });

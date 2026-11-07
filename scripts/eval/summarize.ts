@@ -30,7 +30,8 @@ export function summarize(rows: Row[]) {
     const v = rs.map((r) => r.verdict).filter((x): x is Verdict => Boolean(x));
     const years = rs.reduce((s, r) => s + r.result.validity.years, 0);
     const crit = (k: keyof Verdict) => mean(v.map((x) => x[k] as number));
-    const firstYears = rs.map((r) => r.result.timings.firstYearMs[0] ?? NaN).filter((x) => Number.isFinite(x) && x > 0);
+    // every fork (each generateYears call right after an answer), not just the first one
+    const firstYears = rs.flatMap((r) => r.result.timings.firstYearMs).filter((x) => Number.isFinite(x) && x > 0);
     return {
       group: g,
       model: m,
@@ -77,7 +78,7 @@ export function summarize(rows: Row[]) {
 
 export function table(summary: ReturnType<typeof summarize>): string {
   const lines = [
-    `| Heavy model | Sessions | Overall | Personal | Believable | No melodrama | Forks | Specific | Ending | Safety | Schema-valid | Rule-valid (1st pass) | First year after fork (median) | Per year | $/session |`,
+    `| Heavy model | Sessions | Overall | Personal | Believable | No melodrama | Forks | Specific | Ending | Safety | Schema-valid | Rule-valid (1st pass) | First year after a fork (median, all forks) | Per year | $/session |`,
     `|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|`,
   ];
   for (const s of summary)

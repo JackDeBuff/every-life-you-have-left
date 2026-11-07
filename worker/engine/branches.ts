@@ -172,7 +172,7 @@ export async function interludeCuts(env: BranchEnv, state: SessionState, stepped
           branchId: b.id,
           title: b.title,
           forkLine: `forked at ${b.forkAge}`,
-          snapshot: `${yearLine(snap)}${snap.year < year ? ` (snapshot from ${snap.year}; now it's ${year})` : ""}`,
+          snapshot: `${yearLine(snap)} | people now: ${snap.scene.people.filter((p) => p.role !== "self").map((p) => `${p.role} (${p.ageBand.replace("_", " ")})`).join(", ") || "none"}${snap.year < year ? ` (snapshot from ${snap.year}; now it's ${year}: everyone is ${year - snap.year} years older)` : ""}`,
         })),
         age,
       ),

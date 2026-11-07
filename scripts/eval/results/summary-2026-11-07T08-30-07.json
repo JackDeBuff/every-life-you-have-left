@@ -1,0 +1,103 @@
+{
+ "stamp": "2026-11-07T08-30-07",
+ "budget": 1.7,
+ "spent": 0.7804768000000001,
+ "summary": [
+  {
+   "group": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "personas": "kenji, lucia, tom",
+   "sessions": 3,
+   "ok": 3,
+   "judged": 3,
+   "overall": 5,
+   "personal": 5,
+   "believable": 4,
+   "no_melodrama": 5,
+   "forks": 5,
+   "specificity": 5,
+   "ending": 5,
+   "safety": 5,
+   "schemaValidPct": 100,
+   "ruleValidPct": 98.75,
+   "repaired": 1,
+   "fallback": 0,
+   "filler": 0,
+   "years": 80,
+   "contractErrors": 0,
+   "tpPerLife": 10.666666666666666,
+   "tpCitedPct": 100,
+   "quietPct": 60,
+   "firstYearMsMean": 6334.666666666667,
+   "firstYearMsMedian": 4921,
+   "perYearMs": 2694.3333333333335,
+   "decisionMs": 6400.916666666667,
+   "profileMs": 9246.666666666666,
+   "firstCardMs": 5646.333333333333,
+   "sessionMin": 3.2045166666666667,
+   "costPerSession": 0.2408365,
+   "heavyCostPerSession": 0,
+   "branchCostPerSession": 0.09422613333333334,
+   "tokensPerSession": 318055.3333333333,
+   "judgeCost": 0.06913499999999995,
+   "hedges": 10,
+   "cliches": 0
+  }
+ ],
+ "notes": [
+  {
+   "persona": "kenji-42-osaka",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": {
+    "personal": 5,
+    "believable": 4,
+    "no_melodrama": 5,
+    "forks": 5,
+    "specificity": 5,
+    "ending": 5,
+    "safety": 5,
+    "overall": 5,
+    "best": "You carried everyone across their bridges before you claimed your own quiet, and the wood waiting on your balcony never held a grudge.",
+    "worst": "More than half of Americans in their 40s are caring for both a parent and a child.",
+    "fix": "Ensure demographic and labor statistics match the user's country (or use global/OECD framing) rather than citing US-specific stats for a person living in Japan, and keep parent ages mortal (a father with failing health when the user is 42 should not still be alive in the spare room when the user is 70)."
+   },
+   "error": null
+  },
+  {
+   "persona": "lucia-36-valencia",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": {
+    "personal": 5,
+    "believable": 4,
+    "no_melodrama": 5,
+    "forks": 5,
+    "specificity": 5,
+    "ending": 5,
+    "safety": 5,
+    "overall": 5,
+    "best": "Leo makes the morning espresso before his algebra test, carefully measuring the grounds without spilling.",
+    "worst": "In Valencia at 54: senior consulting pays the bills. The teenager needs shoes.",
+    "fix": "Ensure base-rate statistics match the user's country rather than defaulting to US statistics (e.g., US recessions, US employee stress, US household net worth) for a user living in Spain, and verify child age math in 'Meanwhile' captions (Leo is 26 when Lucía is 54, not a teenager)."
+   },
+   "error": null
+  },
+  {
+   "persona": "tom-58-leeds",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": {
+    "personal": 5,
+    "believable": 4,
+    "no_melodrama": 5,
+    "forks": 5,
+    "specificity": 5,
+    "ending": 5,
+    "safety": 5,
+    "overall": 5,
+    "best": "You clear out your locker at Clarence Dock, leaving a set of Whitworth spanners for the young apprentice mechanic.",
+    "worst": "The typical first-time US home buyer is now 40.",
+    "fix": "Ensure the stat generator matches the user's country and life stage—feeding a 70-year-old British retiree US-centric stats about 25-to-34-year-old job hoppers and 40-year-old first-time home buyers breaks the otherwise flawless Yorkshire immersion."
+   },
+   "error": null
+  }
+ ]
+}

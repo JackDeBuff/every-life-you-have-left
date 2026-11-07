@@ -81,7 +81,8 @@ export function createEngine(deps: EngineDeps): Engine {
     ...DEFAULT_MODELS,
     ...deps.models,
     repair: deps.models?.repair ?? deps.models?.heavy ?? DEFAULT_MODELS.repair,
-    yearsBySpeed: { ...DEFAULT_MODELS.yearsBySpeed, ...deps.models?.yearsBySpeed },
+    // an explicit yearsBySpeed replaces the default ({} = heavy model at every speed)
+    yearsBySpeed: deps.models?.yearsBySpeed ?? DEFAULT_MODELS.yearsBySpeed,
   };
   const call = createCaller({ llm: deps.llm, models, onUsage: deps.onUsage });
   const at = () => nowIso(deps.now);

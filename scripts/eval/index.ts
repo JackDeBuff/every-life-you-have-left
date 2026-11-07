@@ -51,7 +51,7 @@ const jobs = personas.flatMap((p) => MODELS.map((m) => ({ p, m })));
 console.log(`eval: ${personas.length} personas x ${MODELS.length} models = ${jobs.length} sessions; budget $${budget}; judge ${judge ? "gemini-4-argon" : "off"}`);
 
 // projected per-session cost by model, updated as sessions finish
-const projected: Record<string, number> = { "gemini-3.8-flash": 0.3, "gemini-4-argon": 0.8, "openai/gpt-oss-120b-maas": 0.15, "gemini-3.5-flash-lite": 0.15 };
+const projected: Record<string, number> = { "gemini-3.8-flash": 0.35, "gemini-4-argon": 0.65, "openai/gpt-oss-120b-maas": 0.15, "gemini-3.5-flash-lite": 0.25, "gemini-3.8-flash+auto:gemini-3.5-flash-lite": 0.3 };
 let running = 0;
 const projectedRunning = new Map<number, number>();
 
@@ -74,9 +74,8 @@ async function worker(id: number) {
     let verdict: Verdict | null = null;
     let judgeCost = 0;
     if (judge && result.transcript.profile && result.transcript.years.length) {
-      const before = ledger.spent;
-      verdict = await judgeSession(llm, result, job.p.input.line, (u: UsageEvent) => ledger.add(u));
-      judgeCost = ledger.spent - before;
+      // the judge's own usage only (a ledger delta would include concurrent sessions' spend)
+      verdict = await judgeSession(llm, result, job.p.input.line, (u: UsageEvent) => (judgeCost += ledger.add(u)));
     }
     projectedRunning.delete(id);
     running--;

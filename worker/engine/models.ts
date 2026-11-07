@@ -40,7 +40,9 @@ export const DEFAULT_MODELS: EngineModels = {
   branch: "gemini-3.5-flash-lite",
   repair: "gemini-3.8-flash",
   fallback: "gemini-3.6-flash",
-  yearsBySpeed: {},
+  // Auto plays a year every 1.5 s and 4x every 2 s: 3.8 Flash writes ~2.8 s/year, Flash-Lite ~1.1 s/year.
+  // With forkLeadYears the heavy model still writes the 2 consequence years after each fork (docs/EVAL.md).
+  yearsBySpeed: { auto: "gemini-3.5-flash-lite", "4x": "gemini-3.5-flash-lite" },
   forkLeadYears: 2,
   heavyThinking: "low",
 };

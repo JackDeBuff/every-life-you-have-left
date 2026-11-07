@@ -1,0 +1,67 @@
+{
+ "stamp": "2026-11-07T08-29-47",
+ "budget": 0.4,
+ "spent": 0.28946565,
+ "summary": [
+  {
+   "group": "gemini-3.8-flash",
+   "model": "gemini-3.8-flash",
+   "personas": "kenji",
+   "sessions": 1,
+   "ok": 1,
+   "judged": 1,
+   "overall": 5,
+   "personal": 5,
+   "believable": 5,
+   "no_melodrama": 5,
+   "forks": 5,
+   "specificity": 5,
+   "ending": 5,
+   "safety": 5,
+   "schemaValidPct": 100,
+   "ruleValidPct": 89.65517241379311,
+   "repaired": 3,
+   "fallback": 0,
+   "filler": 0,
+   "years": 29,
+   "contractErrors": 0,
+   "tpPerLife": 7,
+   "tpCitedPct": 100,
+   "quietPct": 75.86206896551724,
+   "firstYearMsMean": 5046,
+   "firstYearMsMedian": 5046,
+   "perYearMs": 2823,
+   "decisionMs": 4378,
+   "profileMs": 12045,
+   "firstCardMs": 4177,
+   "sessionMin": 3.18975,
+   "costPerSession": 0.26858785,
+   "heavyCostPerSession": 0.15411825000000004,
+   "branchCostPerSession": 0.10364759999999999,
+   "tokensPerSession": 311315,
+   "judgeCost": 0.019523999999999986,
+   "hedges": 3,
+   "cliches": 0
+  }
+ ],
+ "notes": [
+  {
+   "persona": "kenji-42-osaka",
+   "model": "gemini-3.8-flash",
+   "verdict": {
+    "personal": 5,
+    "believable": 5,
+    "no_melodrama": 5,
+    "forks": 5,
+    "specificity": 5,
+    "ending": 5,
+    "safety": 5,
+    "overall": 5,
+    "best": "You traded the open workshop for unbroken dinners and a safe margin, and your family always knew when you were coming home.",
+    "worst": "stat: The typical US worker has been with their employer for about 4 years.",
+    "fix": "Ensure base-rate statistics match the user's country (e.g., use Japanese labor and caregiving statistics instead of US ones, especially where shushin koyo / long-term employment norms differ starkly from the 4-year US average) and deduplicate repeated stats across years."
+   },
+   "error": null
+  }
+ ]
+}

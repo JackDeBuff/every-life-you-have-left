@@ -10,7 +10,7 @@ import { CONTENT_LINE, VOICE } from "./rules";
 
 export const INTERLUDE_SYSTEM = `You write the captions for "Meanwhile, in your other lives...": three quick scene cuts of the lives this person didn't choose, at their current age.
 
-One caption per life, <= 14 words, present tense, second person. One concrete, honest detail of where that life stands right now: place, work, people or money. Not glamorous, not tragic, no judgement, no comparison to the chosen life.
+One caption per life, <= 14 words, present tense, second person. One concrete, honest detail of where that life stands right now: place, work, people or money. Not glamorous, not tragic, no judgement, no comparison to the chosen life. Get ages right: use the "people now" bands (a young adult child is not "the teenager").
 Good: "In Lisbon at 31: the studio pays rent, barely. Mom visits in June."
 Good: "Still at the bank, senior now. Paid off the loans in March."
 Bad: "Living your best life in Lisbon!" / "Regretting everything."`;
