@@ -53,6 +53,7 @@ import {
 import type { Profile } from "../../shared/schema";
 import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
 import type { FoldItem, SmallDecisionKit } from "../engine/smalls";
+import { chosenOf, resolveBig } from "../engine/answers";
 import { costOf } from "../engine/pricing";
 import {
   applyWarmDelta,
@@ -950,6 +951,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       quoteId: null,
       answeredAt: nowIso(),
     };
+    // A fork answered in their own words (typed without a tap, or against the tap) is their own
+    // path, never filed under an option (engine/answers.ts). A tap + words that fit it stays the tap.
+    if (d.kind === "big" && !a.slid) rec.optionId = resolveBig(d, rec.optionId, rec.text).optionId;
 
     if (a.slid && d.kind === "small") {
       const slid: Decision = { ...d, status: "slid" };
@@ -968,7 +972,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const isBig = d.kind === "big";
     if (isBig) this.forking = true;
     const opt = d.options.find((o) => o.id === rec.optionId);
-    const decisionLine = this.line(d.year, "decision", opt ? `You chose: ${opt.label}` : `You said: "${short(rec.text ?? "", 18)}"`, d.id, d.domains[0] ?? null);
+    const own = isBig && !opt && !!rec.text ? chosenOf(d, rec) : null;
+    const decisionLine = this.line(d.year, "decision", opt ? `You chose: ${opt.label}` : own ? `You chose: ${own.label}` : `You said: "${short(rec.text ?? "", 18)}"`, d.id, d.domains[0] ?? null);
     this.update((s) => ({
       decisions: s.decisions.map((x) => (x.id === d.id ? answered : x)),
       answers: [...s.answers.filter((x) => !(late && x.decisionId === d.id)), rec],
@@ -1800,7 +1805,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const prep = this.prepared.get(d.id) ?? null;
     try {
       const opt = d.options.find((o) => o.id === chosenOptionId);
-      this.update((s) => ({ log: [...s.log, this.line(d.year, "fork", `Your life splits here: ${opt?.branchTitle ?? opt?.label ?? "your own way"}`, d.id, d.domains[0] ?? null)] }));
+      const own = opt ? null : chosenOf(d, this.s.answers.find((x) => x.decisionId === d.id));
+      this.update((s) => ({ log: [...s.log, this.line(d.year, "fork", `Your life splits here: ${opt?.branchTitle ?? opt?.label ?? (own?.own ? own.title : "your own way")}`, d.id, d.domains[0] ?? null)] }));
       const apply = (returned: Branch[]) => {
         const ids = new Set(returned.map((b) => b.id));
         this.update((s) => {

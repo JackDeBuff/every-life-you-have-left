@@ -14,6 +14,7 @@
  */
 import type { Profile } from "../../shared/schema";
 import type { Branch, SceneSpec, SessionState, SimYear } from "../../shared/sim";
+import { chosenOf } from "./answers";
 import { hash32 } from "./util";
 
 export type Role = "partner" | "child" | "pet" | "parent" | "sibling" | "grandchild" | "other";
@@ -566,9 +567,9 @@ export function forksTaken(state: SessionState, uptoYear = 9999): LifeNow["path"
     .filter((d) => d.kind === "big" && d.status === "answered" && d.year <= uptoYear)
     .sort((a, b) => a.year - b.year)
     .map((d) => {
-      const a = state.answers.find((x) => x.decisionId === d.id);
-      const o = d.options.find((x) => x.id === a?.optionId);
-      return { year: d.year, age: d.age, title: o?.branchTitle ?? o?.label ?? "their own answer" };
+      // their own words when they typed instead of tapping (answers.ts)
+      const c = chosenOf(d, state.answers.find((x) => x.decisionId === d.id));
+      return { year: d.year, age: d.age, title: c.own ? `${c.title} (their own words)` : c.title };
     });
 }
 

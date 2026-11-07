@@ -15,6 +15,7 @@ import { clamp, norm, truncateWords } from "./util";
 import { writeYears, type WriterEnv } from "./years";
 import { fixPeopleNumbers } from "./consistency";
 import { branchForks, lifeAt, peopleNowLine, profileAsOf, type LifeNow } from "./ledger";
+import { chosenOf } from "./answers";
 
 // ---------------------------------------------------------------------------------------------
 // Divergence: state distance + path difference (research/03 §3.1 "divergence guarantee")
@@ -83,8 +84,9 @@ export function selectDiverse(branches: Branch[], chosen: SimYear[], k = 3): { k
 export function branchLabel(state: SessionState, decision: Decision | undefined, branch: Branch): string {
   const opt = decision?.options.find((o) => o.id === branch.optionId);
   const chosenAns = decision ? state.answers.find((a) => a.decisionId === decision.id) : undefined;
-  const chosen = decision?.options.find((o) => o.id === chosenAns?.optionId);
-  return `A life they didn't choose: "${branch.title}". At ${branch.forkAge} (${branch.forkYear}), facing "${decision?.prompt ?? "a big decision"}", this life chose "${opt?.label ?? branch.title}"${opt?.hint ? ` (${opt.hint})` : ""}${chosen ? ` instead of "${chosen.label}"` : ""}. From here it follows its own logic: same person, same people, same world, different choices. It does not take the decisions of their chosen life after ${branch.forkYear}; it makes its own, true to this fork.`;
+  const chosen = decision && chosenAns ? chosenOf(decision, chosenAns) : null;
+  const instead = chosen && (chosen.option || chosen.own) ? ` instead of ${chosen.own ? `their own way ("${chosen.label}")` : `"${chosen.label}"`}` : "";
+  return `A life they didn't choose: "${branch.title}". At ${branch.forkAge} (${branch.forkYear}), facing "${decision?.prompt ?? "a big decision"}", this life chose "${opt?.label ?? branch.title}"${opt?.hint ? ` (${opt.hint})` : ""}${instead}. From here it follows its own logic: same person, same people, same world, different choices. It does not take the decisions of their chosen life after ${branch.forkYear}; it makes its own, true to this fork.`;
 }
 
 export interface BranchEnv {
