@@ -265,9 +265,10 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
   - Year turns re-render only what changed (pieces, procs and the hero are memoised on content).
 - Measured Sat Nov 7 (prod build, 1440×900, DPR 2 screen, M4 Pro, headless Chromium on Metal;
   "old" = before these rules): lab steady state 414 → 232 draw calls, 3 → 1 scene renders a
-  frame, 63 → 36 shader programs, worst year-turn frame 77 → 23 ms; demo at a 4× CPU throttle
-  with the quality pinned high, 47 → 51 fps, frames over 50 ms 23 → 12, shader links in 40 s
-  31 → 5.
+  frame, 63 → 36 shader programs, worst year-turn frame 77 → 23 ms. The lab's "Alex's life"
+  autoplay (40 s, 4× CPU throttle, quality pinned high, two runs each): JS per frame 7.7 / 12.5 →
+  4.0 / 5.6 ms, frames over 33 ms 9 / 25 → 4 / 3, frames over 100 ms 2 / 2 → 0 / 0, shader links
+  16 → 8. Scripts: `measure.mjs`, `labbench.mjs`, `labauto.mjs` (Playwright + CDP throttling).
 - `frameloop="demand"` when the world is hidden, off-screen or in reduced motion; `always` while it
   is visible and animating.
 - Kits are lazy-loaded per setting (`manifest.json` lists URLs and sizes): the current spec's kits
