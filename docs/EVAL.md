@@ -277,6 +277,51 @@ and every 9th opens a thread.
 Spend for this pass: ~$3.6 (before run $0.30, full 1× $1.38, two eval runs $1.21, Auto $0.38, 10-year check $0.30,
 cache probes ~$0.05).
 
+## Pacing fixes after the final QA pass (Sat Nov 7 ~10am-12pm)
+
+`npx tsx scripts/judge-run.ts <url> --speed 1x|2x|auto --read 3 --small-read 3 [--years N]` on a local production
+build (`vite preview`, real engine), Alex 25. The script answers every small card after 3 s and now prints cards on
+screen per year, cards cut off by a fork, every interlude's length and fork → resume. "Before" is the QA pass on
+production (a person playing).
+
+| | Before (QA) | After |
+|---|---|---|
+| 2× small cards | **0 in 23 years** (`smalls.served` 0, slots ran 14 → 9 unused) | **17 in 26 years**, 0.65 a year (1 every 1.5 years), none cut off; a 13-year run: 8 (0.62) |
+| 2× forks | every 2-3 years, 10 by 57 | 25 28 32 36 40 44 48 52: every 4 |
+| 1× small cards | 5 in 9 years, 33 slots unused, 2 cut off after 11-15 s | **33 in 11 years, 3.0 a year** (4 in every year but one), none cut off |
+| Interludes 1×/2× | 9-20 s, `interlude_late` | cuts on screen at once; 6.9 s of cuts (fork phase 9.3 s incl. the fork moment; 10-year one 7.0 s) |
+| Fork → resume 1×/2× | up to 22.5 s | 9.4 s median, max 10.6 s (1× 9.4 s every fork) |
+| Auto, 2 s reads | ~2:26 of machine time | 151.5 s total, 137.5 s machine (158.5 / 144.5 s before the last two cuts) |
+
+**Why 2× showed nothing.** Three rules stacked: the planner kept a fork's year and the year after free, the agent also
+skipped the year *before* a fork (a fork used to shelve an open card), and windowed fork picks put 2× forks 2-3 years
+apart. With a fork every 3 years, no year was left. Now 1×/2× forks sit at even spots (the nearest life-stage moment
+names each), the year before a fork is allowed, and a fork never shelves an on-screen card: the agent waits
+(`gateCheck`) and the clock holds that year's end (`state.nextFork`, `src/ui/pacing.ts holdsYearEnd`).
+
+**Why 1× showed so few.** A 1× year is 6-12 s; a person answering in 10-15 s got one card a year, none in a fork's
+year, none started in the last 6 s before a fork, and a fork shelved the one that was open. Now 1× (the conversation)
+plans 3-4 cards in every year, a fork's year included once its consequence has played 3 s; the year doesn't end while
+a card is open or the next is being written (`state.smallDue`, 6 s at most); a "Let it slide" button lets one go. Two
+intermediate runs measured 1.73 and 1.64 a year: in a fork's year the agent wrote *next* year's card ahead during the
+quiet moment, and that blocked this year's (fixed).
+
+**Interludes.** `prepareFork` already ran at every speed and was ready at almost every 1×/2× fork (`[prepare]` /
+`[fork]` logs). The long waits were the 13 s fork deadline (+4 s for the cuts) and the 10-year interlude, which was never
+prepared and stepped every branch on the spot. Now: past 3.5 s (6 s for a first fork, which has no other lives; Auto
+8 s) the lives that are ready play (`readyCuts`: latest snapshots, code captions, no model call); the 10-year interlude
+is written a few years ahead and otherwise falls back the same way; cuts are 2.3 s (Auto 1.6 s).
+
+**Auto length.** Safe cuts: cuts 1.8 → 1.6 s; 3D moments at most one every 6 years (a run held 9, 22.5 s; now 5,
+12.5 s); once the last fork is behind and the ending is written (`state.endingReady`), the last years play at 0.9 s,
+so the coda can never add a wait (the ending was written 11 s after it started, shown 0 s after the last year). The
+final run still lost 8.1 s and 6.5 s to two late fork preparations (Auto waited 8 s for them); with lives to fall back
+to it now waits 3.5 s at every speed, so a run like it should land near 130 s of machine time (not re-measured: spend
+cap). A judge reading ~10 s per card adds ~70-110 s, so ~3.5-4 min.
+
+Spend for this pass: $2.55 (2× 13 years $0.25, 2× 26 years $0.43, three 1× 10-year runs $0.92, two Auto runs $0.87,
+a UI check $0.05).
+
 ## Method
 
 **Personas** (`scripts/eval/personas.ts`): eight fictional people, written as the start line they would type

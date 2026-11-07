@@ -18,7 +18,7 @@
  */
 import { applyServerMsg, agentPath, isServerMsg, type AgentState, type AnswerInput } from "../worker/agent/protocol";
 import { SPEED_CONFIG, type SimYear, type StartInput } from "../shared/sim";
-import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, cutSecondsFor, FORK_MOMENT_S, MOMENT_RULES, playableMoments, SMALL_DECISION_SCALE } from "../src/ui/pacing";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, cutSecondsFor, FORK_MOMENT_S, holdsYearEnd, MOMENT_RULES, playableMoments, secondsPerYearNow, SMALL_DECISION_SCALE } from "../src/ui/pacing";
 
 const args = process.argv.slice(2);
 const flag = (name: string, dflt: string) => {
@@ -80,6 +80,13 @@ const smallGaps: number[] = [];
 let lastSmallAnswerAt: number | null = null;
 let lastSmallAnswerYear: number | null = null;
 const handledSmall = new Set<string>();
+/** Small cards on screen, by the year they came up in (served per year). */
+const smallShownByYear = new Map<number, number>();
+/** Cards that were on screen and closed before the script answered (a fork cut them off). */
+let smallCutOff = 0;
+/** Every "meanwhile": phase start, cuts on screen, phase end, and whether a fork led to it. */
+const interludes: { start: number; cuts: number | null; end: number | null; fork: boolean; n: number }[] = [];
+let smallAt = 0;
 
 const sessionId = `judge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 const ws = new WebSocket(`${base.replace(/^http/, "ws")}${agentPath(sessionId)}`);
@@ -229,13 +236,17 @@ function frame() {
   const small = visibleDecisions.find((d) => d.kind === "small" && d.status === "pending");
   if (small && s.phase === "playing" && !handledSmall.has(small.id)) {
     handledSmall.add(small.id);
+    smallShownByYear.set(s.playhead.year, (smallShownByYear.get(s.playhead.year) ?? 0) + 1);
     // Time to show: from the previous answer to this card, when it's due in the same year.
     if (lastSmallAnswerAt !== null && lastSmallAnswerYear !== null && small.year <= lastSmallAnswerYear) smallGaps.push(T() - lastSmallAnswerAt);
     lastSmallAnswerAt = null;
     const k = smallAnswered;
     setTimeout(() => {
       const cur = state?.decisions.find((d) => d.id === small.id);
-      if (!cur || cur.status !== "pending") return;
+      if (!cur || cur.status !== "pending") {
+        smallCutOff++;
+        return;
+      }
       const opt = small.options[Math.floor(Math.random() * 4)]!;
       const text = k % 9 === 4 ? THREAD_TEXTS[(k / 9) % THREAD_TEXTS.length | 0]! : k % 2 === 0 ? SMALL_TEXTS[k % SMALL_TEXTS.length]! : null;
       smallAnswered++;
@@ -245,6 +256,13 @@ function frame() {
       const a: AnswerInput = { decisionId: small.id, optionId: opt.id, text, via: text ? "text" : "tap" };
       void call("answer", a).catch((e) => log("small answer failed", e));
     }, SMALL_READ_S * 1000);
+  }
+  // Every interlude's length (phase start → cuts → resume).
+  const il = interludes.at(-1);
+  if (s.phase === "interlude" && (!il || il.end !== null)) interludes.push({ start: T(), cuts: null, end: null, fork: !!(f && f.answered !== null && f.resumed === null), n: 0 });
+  else if (il && il.end === null) {
+    if (il.cuts === null && s.interlude?.length) (il.cuts = T()), (il.n = s.interlude.length);
+    if (s.phase !== "interlude") il.end = T();
   }
   // A periodic "meanwhile" (1x/2x, every 10 years): the world plays the cuts, then resumes.
   if (s.phase === "interlude" && s.interlude?.length && !(f && f.answered !== null && f.resumed === null)) {
@@ -276,6 +294,8 @@ function frame() {
   const next = year + 1;
   const buffered = next > endYear || s.bufferedTo === null || s.bufferedTo >= next;
   const smallPending = visibleDecisions.some((d) => d.kind === "small" && d.status === "pending");
+  if (smallPending) smallAt = now;
+  const holdEnd = !legacy && holdsYearEnd({ speed: s.speed, smallOpen: smallPending, smallDue: s.smallDue, nextYear: next, nextFork: s.nextFork, msSinceSmall: now - smallAt });
   const held = now < forkUntil || now < momentUntil;
   const playing = s.phase === "playing" && !s.playhead.paused && !held;
   const target = playing ? (smallPending ? (legacy ? 0.25 : SMALL_DECISION_SCALE) : 1) : 0;
@@ -283,11 +303,13 @@ function frame() {
   scale += (target - scale) * k;
   if (Math.abs(scale - target) < 0.002) scale = target;
   if (s.phase !== "playing" && awaiting === null) progress = 0;
-  const spy = SPEED_CONFIG[s.speed].secondsPerYear;
+  const spy = legacy ? SPEED_CONFIG[s.speed].secondsPerYear : secondsPerYearNow({ speed: s.speed, base: SPEED_CONFIG[s.speed].secondsPerYear, nextFork: s.nextFork, endingReady: s.endingReady });
   if (playing || scale > 0) progress += ((dt / 1000) * scale) / spy;
   if (progress >= 1) {
     if (awaiting === null) {
-      if (buffered && s.phase === "playing") {
+      if (holdEnd && s.phase === "playing") {
+        progress = 1; // the year waits for the small card (src/ui/clock.ts), not for the agent
+      } else if (buffered && s.phase === "playing") {
         awaiting = next;
         sentAt = now;
         void call("tick", next).catch(() => {});
@@ -382,6 +404,15 @@ async function main() {
   console.log(`small cards: ${smallsShown} shown, ${smallAnswered} answered (${smallWithText} with text); same-year answer → next card: median ${gaps.length ? gaps[gaps.length >> 1]!.toFixed(2) : "-"} s, max ${gaps.length ? gaps.at(-1)!.toFixed(2) : "-"} s over ${gaps.length}`);
   if (sm) console.log(`agent: served ${sm.served} (${sm.fromQueue} straight from the queue, waits ${sm.waitMs} ms total, max ${sm.maxWaitMs} ms), batches ${sm.batches}, discarded ${sm.discarded}, follow-ups ${sm.followUps}, folds ${sm.folds} (${sm.folded} answers)`);
   console.log(`big decisions: ${s.decisions.filter((d) => d.kind === "big").length}; years ${s.years.length}; wall ${fmt(T())} s`);
+  const played = Math.max(1, s.playhead.year - s.profile!.startYear + 1);
+  const shown = [...smallShownByYear.values()].reduce((a, b) => a + b, 0);
+  console.log(`small cards on screen: ${shown} over ${played} years = ${(shown / played).toFixed(2)} a year (1 every ${shown ? (played / shown).toFixed(1) : "-"} years); cut off by a fork: ${smallCutOff}`);
+  console.log(`  by age: ${[...smallShownByYear].sort((a, b) => a[0] - b[0]).map(([y, n]) => `${y - s.profile!.birthYear}:${n}`).join(" ")}`);
+  const ages = s.decisions.filter((d) => d.kind === "big").map((d) => d.age);
+  console.log(`  fork ages: ${ages.join(" ")} (gaps ${ages.slice(1).map((a, i) => a - ages[i]!).join(" ")})`);
+  for (const x of interludes) console.log(`  interlude ${x.fork ? "fork    " : "periodic"} @${fmt(x.start)}: cuts after ${fmt(x.cuts !== null ? x.cuts - x.start : null)} s, ${x.n} cuts, ${fmt(x.end !== null ? x.end - x.start : null)} s long`);
+  const ar = forks.filter((x) => x.resumed !== null && x.answered !== null).map((x) => x.resumed! - x.answered!);
+  if (ar.length) console.log(`fork -> resume: median ${ar.slice().sort((a, b) => a - b)[ar.length >> 1]!.toFixed(1)} s, max ${Math.max(...ar).toFixed(1)} s over ${ar.length}`);
   if (snap) {
     const u = snap.usage as { usd?: number; calls?: number; detail?: Record<string, { calls: number }> } | null;
     console.log(`after ${SNAP_YEARS} years (${fmt(snap.at)} s): $${u?.usd?.toFixed(3) ?? "?"} over ${u?.calls ?? "?"} calls, ${snap.smalls} small cards; calls ${JSON.stringify(Object.fromEntries(Object.entries(u?.detail ?? {}).map(([k, v]) => [k, v.calls])))}`);
@@ -389,7 +420,7 @@ async function main() {
   console.log(`engine ${s.engine}, error ${s.error ?? "none"}`);
   if (out) {
     const fs = await import("node:fs");
-    fs.writeFileSync(out, JSON.stringify({ sessionId, speed: SPEED, legacy, readS: READ_S, smallReadS: SMALL_READ_S, total: ended, wall: T(), firstCard, warmup: { asked: warmAsked, first: firstWarm, lastAnswer: lastWarmAnswer }, starvedS, momentsPlayed, forks, smallAnswered, smallWithText, smallGaps, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage, snap, decisions: s.decisions.map((d) => ({ id: d.id, kind: d.kind, year: d.year, status: d.status, prompt: d.prompt })), answers: s.answers }, null, 2));
+    fs.writeFileSync(out, JSON.stringify({ sessionId, speed: SPEED, legacy, readS: READ_S, smallReadS: SMALL_READ_S, total: ended, wall: T(), firstCard, warmup: { asked: warmAsked, first: firstWarm, lastAnswer: lastWarmAnswer }, starvedS, momentsPlayed, forks, interludes, smallShownByYear: Object.fromEntries(smallShownByYear), smallCutOff, smallAnswered, smallWithText, smallGaps, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage, snap, decisions: s.decisions.map((d) => ({ id: d.id, kind: d.kind, year: d.year, status: d.status, prompt: d.prompt })), answers: s.answers }, null, 2));
   }
   ws.close();
   process.exit(ended !== null || STOP_YEARS > 0 ? 0 : 1);

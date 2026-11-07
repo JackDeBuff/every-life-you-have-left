@@ -9,6 +9,7 @@ import { TWIN_THRESHOLD } from "../../../shared/schema";
 import { Icon } from "../icons";
 import { AI_EXPORT_PROMPT, pdfText } from "../pdf";
 import { sim, useSim } from "../session";
+import { knowDropNote, useUi } from "../uiStore";
 
 export type DocKind = "cv" | "linkedin" | "ai_export";
 export interface AddedDoc {
@@ -190,6 +191,7 @@ function AiExport({ done, onAdd, dense }: { done: boolean; onAdd: (t: string) =>
 /** Left-pane block. */
 export function TellMeMore() {
   const score = useSim((s) => s.profile?.knowMeScore ?? 0);
+  const drop = knowDropNote(score, useUi((s) => s.knowDrop));
   const [added, setAdded] = useState<AddedDoc[]>([]);
   return (
     <section className="tmm" aria-label="Tell me more">
@@ -198,7 +200,8 @@ export function TellMeMore() {
         <div>
           <h3 className="label">Tell me more</h3>
           <p className="small muted">
-            {score >= TWIN_THRESHOLD ? "I know you well enough to write like you." : `I know you ${score}%. At ${TWIN_THRESHOLD}, future-you can talk back in your voice.`}
+            {drop ? `I know you ${score}% (${drop}). ` : ""}
+            {score >= TWIN_THRESHOLD ? "I know you well enough to write like you." : `${drop ? "" : `I know you ${score}%. `}At ${TWIN_THRESHOLD}, future-you can talk back in your voice.`}
           </p>
         </div>
       </div>

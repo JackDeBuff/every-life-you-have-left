@@ -36,7 +36,7 @@
  *   forget(kind, id) → removes a learned item from the profile (and keeps it out of later folds).
  */
 import { Agent, callable, type Connection, type ConnectionContext } from "agents";
-import type { DecisionSlot, DocInput, DocKind, Engine, Ending, PreparedFork, SafetyResult } from "../../shared/engine";
+import type { DecisionSlot, DocInput, DocKind, Engine, Ending, InterludeCut, PreparedFork, SafetyResult } from "../../shared/engine";
 import { endAgeFor, type Quote } from "../../shared/schema";
 import {
   SPEED_CONFIG,
@@ -53,6 +53,7 @@ import {
 import type { Profile } from "../../shared/schema";
 import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
 import type { FoldItem, SmallDecisionKit } from "../engine/smalls";
+import { readyCuts } from "../engine/branches";
 import { costOf } from "../engine/pricing";
 import {
   applyWarmDelta,
@@ -123,6 +124,12 @@ function docKey(kind: string, text: string): string {
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
   return `${kind}:${text.length}:${h}`;
 }
+/** Interlude cuts and the branch copy they were written on (published when they play). */
+interface WrittenCuts {
+  cuts: InterludeCut[];
+  copy: AgentState;
+}
+
 /** The engine's code-only fallback card (both model tries failed): never preferred over a written one. */
 const isGenericCard = (d: Decision) => d.whyAsking === "This is one of the moments a life turns on.";
 
@@ -158,9 +165,11 @@ const STALE_YEARS = 3;
 const FOLD_EVERY = 3;
 const FOLD_WAIT_MS = 4000; // the next year call waits at most this long for a pending fold
 const FOLLOWUP_MS = 7000; // the next small card waits at most this long for a follow-up
-// 1x: no NEW small card this late into the year right before a fork (it would be shelved by the
-// fork before anyone could answer it; a 1x year lasts 6 s, 12 s while a card is up).
-const PREFORK_CUTOFF_MS = 6000;
+// 1x: in a fork's own year the first small card waits until the consequence has played this long
+// after life resumes (the fork moment and the "meanwhile" cuts come first).
+const FORK_QUIET_MS = 3000;
+// 1x: the year's end waits at most this long for a small card that is still being written.
+const SMALL_DUE_MAX_MS = 6000;
 // Big ones earlier (the playhead waits at a big slot until its decision exists): ~12 s of playback
 // ahead, at least 2 years. A real big decision takes ~5 s on 3.8 Flash, 15-20 s when it stalls.
 const lookaheadBig = (speed: AgentState["speed"]) => Math.max(2, Math.ceil(12 / SPEED_CONFIG[speed].secondsPerYear));
@@ -170,11 +179,14 @@ const BRANCH_STEP = 5; // hidden branches advance coarsely in 5-year steps
 const INTERLUDE_S = 30;
 const FLUSH_MS = 50; // patch coalescing
 const HEDGE_MS = 6500; // no year streamed after this long → the fast writer races the stretch
-// From a fork's answer to its "meanwhile" cuts. Past this the interlude is skipped (measured: a
-// 28 s stall once); life resumes and the branches land in the background. The fork is normally
-// prepared while its card is open (prepareFork), so the cuts are ready at the answer; Auto (the
-// judge run, <= 3 min) waits less for a fork that isn't.
-const forkDeadlineMs = (speed: AgentState["speed"]) => (speed === "auto" ? 8000 : 13_000);
+// From a fork's answer to its "meanwhile" cuts. The fork is normally prepared while its card is
+// open (prepareFork), so the cuts are ready at the answer. Past this, the lives that are ready play
+// instead (runInterlude) and the new branches land in the background. Every speed: the fork moment
+// (2.4 s) plus a second, so fork -> resume stays <= 10 s (QA: up to 22.5 s with 13 s; an Auto run
+// lost 8.1 s and 6.5 s waiting on two late preparations).
+// With no lives split yet (the first fork) there is nothing ready to fall back to, so that one
+// waits longer rather than show no interlude: 6 s, Auto 8 s (its first fork can wait on the profile).
+const forkDeadlineMs = (speed: AgentState["speed"], fallback: boolean) => (fallback ? 3500 : speed === "auto" ? 8000 : 6000);
 
 /** The promise's value if it settles before `deadline` (epoch ms), else null. Rejections propagate. */
 function before<T>(p: Promise<T>, deadline: number): Promise<T | null> {
@@ -273,8 +285,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private followUp: Promise<void> | null = null;
   /** When a due (visible) small slot first found nothing to serve. */
   private waitingSince: number | null = null;
-  /** When the playhead entered its current year (or life resumed in it after a fork). */
-  private yearStartedAt = Date.now();
+  /** When life last resumed after a fork or an interlude (1x: a fork's year stays quiet a moment). */
+  private resumedAt = Date.now();
+  private quietTimer: ReturnType<typeof setTimeout> | null = null;
   /** Answers whose quotes are in but which aren't folded into the profile yet. */
   private pendingFold: FoldItem[] = [];
   private foldChain: Promise<void> = Promise.resolve();
@@ -296,6 +309,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       const u = this.cur.usage;
       this.spend = { ...freshSpend(), usd: u.usd, listUsd: u.listUsd ?? u.usd, calls: u.calls, byPurpose: { ...u.byPurpose }, detail: { ...(u.detail ?? {}) }, smalls: { ...freshSpend().smalls, ...(u.smalls ?? {}) } };
     }
+    // Know-me never drops on screen: after a cold start (eviction, a deploy) the floor is the score
+    // the user last saw, not 0 (QA: 45% -> 33% when a later answer was counted from scratch).
+    this.knowFloor = this.cur.profile?.knowMeScore ?? 0;
     if (this.cur.phase !== "start" && this.cur.profile) {
       const ph = this.cur.playhead.year;
       this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => (this.cur!.phase === "warmup" ? sl.year >= ph : sl.year > ph));
@@ -381,6 +397,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const base = this.s;
     const p = typeof patch === "function" ? patch(base) : patch;
     this.cur = { ...base, ...p, updatedAt: nowIso() };
+    const nf = this.nextForkYear();
+    if (nf !== (this.cur.nextFork ?? null)) this.cur = { ...this.cur, nextFork: nf };
     if (!this.flushTimer) this.flushTimer = setTimeout(() => this.flush(), FLUSH_MS);
     if (!this.persistTimer) this.persistTimer = setTimeout(() => this.persist(), PERSIST_MS);
     return this.cur;
@@ -960,6 +978,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       }));
       void this.mirror.decisions([slid]);
       void this.mirror.answer(rec, true);
+      this.gateCheck(); // a fork that waited for this card opens now
       this.ensureDecisions();
       return;
     }
@@ -975,6 +994,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       log: [...s.log.filter((l) => !(late && l.kind === "slid" && l.refId === d.id)), decisionLine],
       thinking: isBig ? true : s.thinking,
     }));
+    if (!isBig) this.gateCheck(); // a fork that waited for this card opens now
     if (!isBig && this.kit) {
       this.answerSmall(answered, rec, decisionLine.id);
       return;
@@ -1001,7 +1021,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         if (kit) {
           // D-089: the quote at once, in code; the fold takes this answer and any small answers
           // still waiting, in one call. A fork is a new context: the small-card queue goes.
-          this.newContext();
+          this.newContext("fork");
           const q = kit.quoteAnswer(this.s, answered, rec);
           this.update({ profile: this.withId(q.profile) });
           folded = { profile: q.profile, quote: q.quote };
@@ -1105,7 +1125,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (next > s.playhead.year) {
       const yr = s.years.find((y) => y.year === next);
       this.update({ playhead: { year: next, age: this.ageAt(next), paused: false }, status: yr?.states ?? s.status, thinking: starved });
-      this.yearStartedAt = Date.now();
+      if (this.waitingSince !== null) this.stopWaiting(); // last year's card never came: its slot is passed
       this.catchUpLog();
     } else if (starved !== s.thinking) {
       this.update({ thinking: starved });
@@ -1116,10 +1136,19 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       this.runEnding();
       return;
     }
-    if (periodic && this.s.phase === "playing") this.bg("interlude", () => this.runInterlude());
+    // (skipped while a small card from an earlier year is still open: it's optional, the card
+    // isn't; a card that comes up with this year simply waits until the cuts are done)
+    const cardOpen = this.s.decisions.some((d) => d.kind === "small" && d.status === "pending" && d.year < next);
+    if (periodic && this.s.phase === "playing" && !cardOpen) {
+      const pre = this.periodicPre?.key === this.periodicKey(next) ? this.periodicPre.p : undefined;
+      this.periodicPre = null;
+      // Written ahead: it plays at once. Not ready: a short wait, then the cuts that are ready.
+      this.bg("interlude", () => this.runInterlude(Date.now() + 1500, null, pre ?? Promise.resolve(null)));
+    }
     this.stepBranchesCoarse();
     this.ensureBuffer();
     this.ensureDecisions();
+    this.preparePeriodic();
     this.precomputeEnding();
   }
 
@@ -1220,6 +1249,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.epoch++;
     this.spend = freshSpend();
     this.prepared.clear();
+    this.preparedDone.clear();
+    this.periodicPre = null;
+    if (this.quietTimer) clearTimeout(this.quietTimer);
+    this.quietTimer = null;
     this.holdGen = false;
     this.endingPre = null;
     this.slots = [];
@@ -1230,6 +1263,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.smallCtx++;
     this.pendingFold = [];
     this.waitingSince = null;
+    if (this.smallDueTimer) clearTimeout(this.smallDueTimer);
+    this.smallDueTimer = null;
     this.batchMisses = 0;
     this.warm = null;
     this.forgotten = [];
@@ -1266,6 +1301,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     return have > Math.max(0, idx);
   }
 
+  /** The next fork not answered yet: pending, or its slot not written yet (state.nextFork). */
+  private nextForkYear(): number | null {
+    const s = this.cur;
+    if (!s?.profile || s.phase === "ended") return null;
+    const ph = s.playhead.year;
+    let y = Infinity;
+    for (const d of s.decisions) if (d.kind === "big" && d.status === "pending") y = Math.min(y, d.year);
+    for (const sl of this.slots) if (sl.kind === "big" && sl.year >= ph && sl.year < y && !this.materialized(sl)) y = sl.year;
+    return y === Infinity ? null : y;
+  }
+
   private updateBudgets(): void {
     const ph = this.s.playhead.year;
     const left = this.slots.filter((sl) => !this.materialized(sl) && sl.year >= ph);
@@ -1278,7 +1324,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
    * Create decisions shortly before the playhead reaches them (serialized). At most ONE small
    * decision exists at a time (pending or being written): the next one is written only after it is
    * answered or slides, and small slots the playhead passes meanwhile are dropped, so cards never
-   * queue up (owner, Sat Nov 7: a backlog slid in bursts). No small card next to an open fork.
+   * queue up (owner, Sat Nov 7: a backlog slid in bursts).
+   * Small cards next to forks (D-081): never in an open fork's year; 2x/4x never in a fork's year
+   * or the year after it; 1x in a fork's year once its consequence has played FORK_QUIET_MS. The
+   * year before a fork is fine: a fork never cuts off an open card, it waits for it (gateCheck).
    */
   private ensureDecisions(): void {
     const s = this.s;
@@ -1306,11 +1355,15 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       const key = this.slotKey(sl, idx);
       if (this.making.has(key) || this.materialized(sl)) continue;
       if (sl.kind === "small") {
-        // 1x (several a year): a card may come the year before a fork (the fork shelves it if
-        // it's still open); 2x/4x keep a year between them.
-        const gap = s.speed === "1x" ? 0 : 1;
-        if (smallBusy || openFork <= sl.year + gap || sl.year <= lastFork) continue;
-        if (gap === 0 && openFork === sl.year + 1 && sl.year === ph && Date.now() - this.yearStartedAt > PREFORK_CUTOFF_MS) continue;
+        if (smallBusy || openFork <= sl.year) continue;
+        if (s.speed === "1x") {
+          if (sl.year < lastFork) continue;
+          if (sl.year === lastFork && (s.phase !== "playing" || Date.now() - this.resumedAt < FORK_QUIET_MS)) {
+            // This year's cards come after the quiet moment: don't write next year's ahead of them.
+            smallBusy = true;
+            continue;
+          }
+        } else if (sl.year <= lastFork + 1) continue;
         smallBusy = true;
         // D-089: served from the written-ahead queue (instant); a single card only when batches fail.
         if (this.kit && this.batchMisses < 2) {
@@ -1336,7 +1389,29 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   //     and served next
   // -------------------------------------------------------------------------------------------
 
-  private newContext(): void {
+  /**
+   * A due (on-screen) small slot found nothing to serve: the wait starts (timing), and at 1x the
+   * client holds the year's end for the card on its way (state.smallDue), SMALL_DUE_MAX_MS at most.
+   */
+  private smallDueTimer: ReturnType<typeof setTimeout> | null = null;
+  private startWaiting(): void {
+    this.waitingSince ??= Date.now();
+    if (this.s.speed !== "1x" || this.s.smallDue || this.smallDueTimer) return;
+    this.update({ smallDue: true });
+    this.smallDueTimer = setTimeout(() => {
+      this.smallDueTimer = null;
+      if (this.s.smallDue) this.update({ smallDue: false });
+    }, SMALL_DUE_MAX_MS);
+  }
+  private stopWaiting(): void {
+    this.waitingSince = null;
+    if (this.smallDueTimer) clearTimeout(this.smallDueTimer);
+    this.smallDueTimer = null;
+    if (this.s.smallDue) this.update({ smallDue: false });
+  }
+
+  private newContext(why = ""): void {
+    if (this.smallQ.length) console.log(`[small] queue of ${this.smallQ.length} dropped: ${why || "new context"}`);
     this.smallCtx++;
     this.spend.smalls.discarded += this.smallQ.length;
     this.smallQ = [];
@@ -1365,6 +1440,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         void this.mirror.decisions([d]);
         const sm = this.spend.smalls;
         sm.served++;
+        // Timing trail only (no personal data): which slot each card took, and where the playhead was.
+        console.log(`[small] served slot ${sl.year} at playhead ${ph} (queue ${this.smallQ.length})`);
         if (this.waitingSince === null) sm.fromQueue++;
         else {
           const w = Date.now() - this.waitingSince;
@@ -1373,14 +1450,14 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
           // Timing trail only (no personal data): why a due card wasn't ready.
           console.log(`[small] waited ${w} ms${q.ctx !== this.smallCtx ? " (stale ctx)" : ""} queue=${this.smallQ.length} batches=${sm.batches} followUps=${sm.followUps}`);
         }
-        this.waitingSince = null;
+        this.stopWaiting();
         this.publishSpend();
         this.refillSmalls();
         return;
       }
     }
     // Nothing ready: the wait counts from when the card would be on screen.
-    if (visible) this.waitingSince ??= Date.now();
+    if (visible) this.startWaiting();
     this.refillSmalls();
   }
 
@@ -1424,6 +1501,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.batching = false;
         // Two empty batches in a row: single cards (queueDecision) for 30 s.
         this.batchMisses = got ? 0 : this.batchMisses + 1;
+        console.log(`[small] batch for ${want.map((w) => w.year).join(",")}: ${got} cards${ctx !== this.smallCtx ? " (context changed: dropped)" : ""}`);
         if (this.batchMisses >= 2)
           setTimeout(() => {
             this.batchMisses = 0;
@@ -1459,7 +1537,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // A new thread (a new person, a job quit, a move, love, a baby) changes the context: the
     // queued cards go, the fold runs now, and one follow-up is written for it.
     const thread = kit.newThread(this.s, d, finalRec);
-    if (thread) this.newContext();
+    if (thread) this.newContext("an answer opened a thread");
     if (thread || this.pendingFold.length >= FOLD_EVERY) void this.flushFold();
     if (thread || kit.begsFollowUp(finalRec)) {
       const ph = this.s.playhead.year;
@@ -1501,7 +1579,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.update((s) => (s.profile ? { profile: this.withId(res.apply(s.profile)) } : {}));
         void this.mirror.session(this.s);
         // The delta can show a thread the words alone didn't (a new person, job, home or plan).
-        if (res.thread && items.every((i) => i.decision.kind === "small")) this.newContext();
+        if (res.thread && items.every((i) => i.decision.kind === "small")) this.newContext("the fold found a thread");
       })
       .catch((e: unknown) => console.error("fold failed", e instanceof Error ? e.name : "error"));
     return this.foldChain;
@@ -1570,7 +1648,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.update((s) => ({
       branches: s.branches.map((b) => {
         const c = byId.get(b.id);
-        return c && (c.years !== b.years || c.verdictAtEnd !== b.verdictAtEnd) ? { ...b, years: c.years, verdictAtEnd: c.verdictAtEnd ?? b.verdictAtEnd } : b;
+        // (never fewer years: a copy written earlier can land after the coarse steps moved on)
+        return c && (c.years !== b.years || c.verdictAtEnd !== b.verdictAtEnd) ? { ...b, years: c.years.length >= b.years.length ? c.years : b.years, verdictAtEnd: c.verdictAtEnd ?? b.verdictAtEnd } : b;
       }),
     }));
   }
@@ -1582,6 +1661,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
    * are kept and the "meanwhile" cuts are ready at once. Cost: one extra coarse branch per fork.
    */
   private prepared = new Map<string, Promise<PreparedFork | null>>();
+  private preparedDone = new Set<string>();
   private maybePrepare(): void {
     const s = this.s;
     // (The first card is written from a provisional profile; preparing waits for the real one.)
@@ -1590,15 +1670,23 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     for (const d of s.decisions) {
       if (d.kind !== "big" || d.status !== "pending" || this.prepared.has(d.id)) continue;
       if (d.year > this.startYear && lastYear < d.year - 1) continue;
+      const t = Date.now();
       const p = (async () => {
         await this.profileReady;
         const engine = await this.eng();
         if (!engine.prepareFork) return null;
         return engine.prepareFork(this.s, d);
-      })().catch((e: unknown) => {
-        console.error("prepareFork failed", e instanceof Error ? e.name : "error");
-        return null;
-      });
+      })()
+        .catch((e: unknown) => {
+          console.error("prepareFork failed", e instanceof Error ? e.name : "error");
+          return null;
+        })
+        .then((r) => {
+          this.preparedDone.add(d.id);
+          // Timing trail only: how long a fork takes to prepare, and how far ahead of the playhead.
+          console.log(`[prepare] fork ${d.year} ${r ? "ready" : "failed"} in ${Date.now() - t} ms (playhead ${this.s.playhead.year}, ${this.s.phase})`);
+          return r;
+        });
       this.prepared.set(d.id, p);
       this.ctx.waitUntil(p);
     }
@@ -1614,10 +1702,14 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.warm && !this.warm.placed) return;
     const big = s.decisions.find((d) => d.kind === "big" && d.status === "pending" && d.year <= s.playhead.year);
     if (big) {
-      // A fork preempts an open small card: it is shelved silently (status "slid" with no answer
-      // record and no log line, so it never resurfaces and the chat doesn't mention it). The QA
-      // run locked up at 2x: the small card held the right pane while the dimmed fork waited.
+      // A fork never cuts off a small card that is on screen (QA: 2 of 5 cards at 1x were shelved
+      // 11-15 s into an answer): it waits until that card is answered or slides (answer() calls
+      // gateCheck again). The client holds the year's end meanwhile (src/ui/pacing.ts).
+      if (s.decisions.some((d) => d.kind === "small" && d.status === "pending" && d.year <= s.playhead.year)) return;
+      // A card written ahead for a later year (not on screen yet) is shelved silently: status
+      // "slid" with no answer record and no log line, so it never resurfaces.
       const shelved = s.decisions.filter((d) => d.kind === "small" && d.status === "pending");
+      this.stopWaiting(); // a card that was due is the fork's now (not a queue wait)
       this.update((st) => ({
         phase: "deciding",
         playhead: { ...st.playhead, paused: true },
@@ -1636,6 +1728,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
    */
   private invalidate(fromYear?: number): void {
     this.epoch++;
+    if (this.s.endingReady) this.update({ endingReady: false }); // that ending is stale now
     const from = Math.min(fromYear ?? this.s.playhead.year + 1, this.s.playhead.year + 1);
     this.update((s) => {
       const years = s.years.filter((y) => y.year < from);
@@ -1796,7 +1889,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   /** After a big decision: branches → interlude → settings → playing. */
   private async fork(engine: Engine, d: Decision, chosenOptionId: string): Promise<void> {
-    const deadline = Date.now() + forkDeadlineMs(this.s.speed);
+    const t0 = Date.now();
+    const deadline = t0 + forkDeadlineMs(this.s.speed, this.s.branches.some((b) => b.status === "active"));
     const prep = this.prepared.get(d.id) ?? null;
     try {
       const opt = d.options.find((o) => o.id === chosenOptionId);
@@ -1817,16 +1911,23 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       })();
       const returned = await before(spawn, deadline);
       this.prepared.delete(d.id);
+      console.log(`[fork] ${d.year} branches ${returned ? `in ${Date.now() - t0} ms` : "late"} (prepared: ${prep ? (this.preparedDone.has(d.id) ? "ready" : "in flight") : "none"})`);
+      this.preparedDone.delete(d.id);
       if (!returned) {
-        // A stalled model call must not hold the whole life: skip this "meanwhile", keep playing,
-        // and let the branches land when they're written.
-        console.error("fork: branches late, skipping this interlude");
+        // A stalled model call must not hold the whole life: the lives that are ready play (the
+        // ones split at earlier forks; none at the first), and this fork's branches land when
+        // they're written.
         void spawn.then(apply).catch(() => {});
+        if (this.s.branches.some((b) => b.status === "active")) {
+          this.forking = false;
+          await this.runInterlude(Date.now(), null, Promise.resolve(null));
+          return;
+        }
       } else {
         apply(returned);
         if (this.s.branches.some((b) => b.status === "active")) {
           this.forking = false;
-          await this.runInterlude(deadline, prepared);
+          await this.runInterlude(Math.max(deadline, Date.now() + 1500), prepared);
           return;
         }
       }
@@ -1837,9 +1938,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.toPlaying();
   }
 
-  private async runInterlude(deadline = Date.now() + forkDeadlineMs(this.s.speed), prepared: PreparedFork | null = null): Promise<void> {
+  /**
+   * "Meanwhile, in your other lives…". The written cuts if they land by `deadline`; past it, the
+   * cuts that are ready (each active life's latest snapshot with a code caption: no model call),
+   * or none (life resumes). It never waits on a slow call (QA: 9-20 s interludes, interlude_late).
+   * `written`: cuts already being written (a periodic interlude prepared ahead), else they're
+   * written now from the branches as they stand (instant when the fork was prepared).
+   */
+  private async runInterlude(deadline: number, prepared: PreparedFork | null = null, written?: Promise<WrittenCuts | null>): Promise<void> {
     const engine = await this.eng();
     const seq = ++this.interludeSeq;
+    const t0 = Date.now();
     this.update((s) => ({
       phase: "interlude",
       interlude: null,
@@ -1849,17 +1958,68 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     }));
     this.persistNow();
     try {
-      const copy = this.branchCopy();
-      const cuts = await before(engine.interlude(copy, prepared), Math.max(deadline, Date.now() + 4000));
-      if (!cuts) throw new Error("interlude_late");
-      this.publishBranches(copy);
-      if (this.s.phase !== "interlude") return; // skipped by the client meanwhile
+      let job = written;
+      if (!job) {
+        const copy = this.branchCopy();
+        job = engine.interlude(copy, prepared).then((cuts) => ({ cuts, copy }));
+      }
+      const safe = job.catch(() => null);
+      this.ctx.waitUntil(safe);
+      const got = await before(safe, deadline);
+      if (this.s.phase !== "interlude" || seq !== this.interludeSeq) return; // skipped by the client meanwhile
+      let cuts: InterludeCut[];
+      if (got?.cuts.length) {
+        this.publishBranches(got.copy);
+        cuts = got.cuts;
+      } else {
+        // Late (or nothing written): the lives as they stand now. Written ones still land later.
+        cuts = readyCuts(this.s, this.s.branches, this.s.playhead.year, prepared?.captions);
+        void safe.then((g) => g && this.publishBranches(g.copy));
+      }
+      console.log(`[interlude] ${got?.cuts.length ? "written" : "ready"} cuts (${cuts.length}) after ${Date.now() - t0} ms`);
+      if (!cuts.length) {
+        this.endInterlude();
+        return;
+      }
       this.update({ interlude: cuts, thinking: false });
       await this.schedule(INTERLUDE_S, "endInterlude", { seq });
     } catch (e) {
       this.update({ error: `interlude: ${errCode(e)}` });
       this.endInterlude();
     }
+  }
+
+  /**
+   * 1x/2x: the periodic "meanwhile" (every 10 years) is written a few years ahead (the lives
+   * stepped to that year and captioned), so it plays the moment it's due. Keyed by the year and
+   * the lives in it: a fork in between makes it stale (that fork plays its own interlude).
+   */
+  private periodicPre: { key: string; p: Promise<WrittenCuts | null> } | null = null;
+  private periodicKey(year: number): string {
+    return `${year}:${this.s.branches.filter((b) => b.status === "active").map((b) => b.id).sort().join(",")}`;
+  }
+  private nextPeriodicYear(): number | null {
+    const every = SPEED_CONFIG[this.s.speed].interludeEveryYears;
+    if (!every) return null;
+    const y = this.startYear + (Math.floor((this.s.playhead.year - this.startYear) / every) + 1) * every;
+    return y <= this.endYear ? y : null;
+  }
+  private preparePeriodic(): void {
+    const s = this.s;
+    const engine = this.engineSync;
+    const due = this.nextPeriodicYear();
+    if (!engine || !due || s.phase === "ended" || !s.branches.some((b) => b.status === "active")) return;
+    if (due - s.playhead.year > Math.ceil(15 / SPEED_CONFIG[s.speed].secondsPerYear)) return;
+    if ((s.nextFork ?? Infinity) <= due) return;
+    const key = this.periodicKey(due);
+    if (this.periodicPre?.key === key) return;
+    const copy: AgentState = { ...this.branchCopy(), playhead: { ...s.playhead, year: due, age: this.ageAt(due) } };
+    const p = engine
+      .interlude(copy, null)
+      .then((cuts) => ({ cuts, copy }))
+      .catch(() => null);
+    this.ctx.waitUntil(p);
+    this.periodicPre = { key, p };
   }
 
   /** Scheduled (alarm, with seq) or client pause(false) (no seq). Stale alarms are ignored. */
@@ -1872,12 +2032,21 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   private toPlaying(): void {
     this.update((s) => ({ phase: "playing", thinking: false, playhead: { ...s.playhead, paused: false } }));
-    this.yearStartedAt = Date.now();
+    this.resumedAt = Date.now();
+    // 1x: the fork's own year gets its small cards once the consequence has played a moment.
+    if (this.s.speed === "1x") {
+      if (this.quietTimer) clearTimeout(this.quietTimer);
+      this.quietTimer = setTimeout(() => {
+        this.quietTimer = null;
+        this.ensureDecisions();
+      }, FORK_QUIET_MS + 50);
+    }
     this.persistNow();
     void this.mirror.session(this.s);
     this.gateCheck();
     this.ensureBuffer();
     this.ensureDecisions();
+    this.refillSmalls();
   }
 
   /**
@@ -1894,8 +2063,15 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.slots.some((sl) => sl.kind === "big" && sl.year > s.playhead.year) || s.decisions.some((d) => d.kind === "big" && d.status === "pending")) return;
     if (this.endingPre?.epoch === this.epoch) return;
     const epoch = this.epoch;
+    const t = Date.now();
     const p = this.computeEnding();
-    p.catch(() => {});
+    // Timing trail only: when the ending started (playhead vs the end) and how long it took.
+    const ph = s.playhead.year;
+    p.then(() => {
+      console.log(`[ending] written in ${Date.now() - t} ms (started at playhead ${ph}, end ${this.endYear})`);
+      // Auto plays its last years quicker once nothing is left to wait for (src/ui/pacing.ts).
+      if (this.endingPre?.p === p && this.epoch === epoch && this.s.phase === "playing") this.update({ endingReady: true });
+    }).catch(() => {});
     this.endingPre = { epoch, p };
   }
   private async computeEnding(): Promise<{ ending: Ending; copy: AgentState }> {
@@ -1920,7 +2096,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.update((s) => ({ thinking: true, playhead: { ...s.playhead, paused: true } }));
     this.bg("ending", async () => {
       const pre = this.endingPre?.epoch === this.epoch ? this.endingPre.p : null;
+      const t = Date.now();
       const { ending, copy } = await (pre ?? this.computeEnding()).catch(() => this.computeEnding());
+      console.log(`[ending] shown ${Date.now() - t} ms after the last year (${pre ? "written ahead" : "written now"})`);
       this.publishBranches(copy);
       this.update((s) => ({
         phase: "ended",

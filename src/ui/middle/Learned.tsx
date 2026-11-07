@@ -13,6 +13,7 @@ import "../../styles/warmup.css";
 import { Icon } from "../icons";
 import { sim, useSim } from "../session";
 import type { ForgetKind, WarmupState } from "../types";
+import { knowDropNote, useUi } from "../uiStore";
 
 type Src = "you" | DocKind | "docs" | "guess";
 const SRC_LABEL: Record<Src, string> = { you: "Your words", cv: "CV", linkedin: "LinkedIn", ai_export: "AI export", docs: "Your uploads", guess: "My guess" };
@@ -81,10 +82,13 @@ export function Learned({ compact = false }: { compact?: boolean }) {
   const profile = useSim((s) => s.profile);
   const warmup = useSim((s) => s.warmup);
   const score = useSim((s) => s.profile?.knowMeScore ?? 0);
+  const drop = knowDropNote(score, useUi((s) => s.knowDrop));
   const all = useMemo(() => learnedItems(profile, warmup), [profile, warmup]);
   const items = useArrivalOrder(all);
   const remove = (it: LearnedItem) => {
-    if (it.forget) void sim().forget(it.forget.kind, it.forget.id).catch(() => {});
+    if (!it.forget) return;
+    useUi.getState().noteRemoval(score);
+    void sim().forget(it.forget.kind, it.forget.id).catch(() => {});
   };
 
   if (compact) {
@@ -114,7 +118,7 @@ export function Learned({ compact = false }: { compact?: boolean }) {
         <h3 className="label">Here's what I learned</h3>
         <span className="label faint">
           {items.length ? `${items.length} ${items.length === 1 ? "thing" : "things"}` : ""}
-          {items.length ? " · " : ""}I know you {score}%
+          {items.length ? " · " : ""}I know you {score}%{drop ? ` (${drop})` : ""}
         </span>
       </div>
       <div className="log-body scroll">

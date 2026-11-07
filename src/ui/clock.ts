@@ -6,6 +6,8 @@
  *    interlude stop it, and so do UI holds (the fork moment, a world moment's cinematic)
  *  - a pending small decision slows it to 0.5× (the card slides itself after smallTimeoutSec of
  *    idle time); typing an answer into a small card holds it
+ *  - the end of a year waits for an open small card when a fork is next (the fork never cuts a
+ *    card off), and always at 1× (pacing.ts holdsYearEnd)
  *  - it never runs past `bufferedTo`: when the buffer is behind it waits at the year's end and
  *    reports `starved` (the world shows "life is thinking…")
  *  - the network round trip of a tick is hidden: time keeps accruing while the agent confirms
@@ -15,7 +17,7 @@ import { create } from "zustand";
 import { SPEED_CONFIG } from "../../shared/sim";
 import { typingInSmallCard } from "./activity";
 import { gsap } from "./motion";
-import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, SMALL_DECISION_SCALE } from "./pacing";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, holdsYearEnd, secondsPerYearNow, SMALL_DECISION_SCALE } from "./pacing";
 import { sim } from "./session";
 
 type Listener = (yearFloat: number, scale: number) => void;
@@ -71,6 +73,8 @@ class LifeClock {
   }
 
   private last = 0;
+  /** When a small card was last open (1×: the year's end waits a moment for the next one). */
+  private smallAt = 0;
 
   private frame = () => {
     // Real elapsed time, not gsap's lag-smoothed delta: a slow frame (a busy laptop, a throttled
@@ -91,6 +95,8 @@ class LifeClock {
     // The last year may always be "ticked past": that is the end-of-life signal.
     const buffered = next > endYear || s.bufferedTo === null || s.bufferedTo >= next;
     const smallPending = s.decisions.some((d) => d.kind === "small" && d.status === "pending");
+    if (smallPending) this.smallAt = now;
+    const holdEnd = holdsYearEnd({ speed: s.speed, smallOpen: smallPending, smallDue: s.smallDue, nextYear: next, nextFork: s.nextFork, msSinceSmall: now - this.smallAt });
     // Writing an answer to a small card holds time (the agent keeps one small card open at a time).
     const playing = s.phase === "playing" && !s.playhead.paused && this.holds.size === 0 && !document.hidden && !typingInSmallCard();
     const target = playing ? (smallPending ? SMALL_DECISION_SCALE : 1) : 0;
@@ -99,13 +105,15 @@ class LifeClock {
     if (Math.abs(this.scale - target) < 0.002) this.scale = target;
     // Leaving a decision or an interlude starts a fresh year (no carried-over time).
     if (s.phase !== "playing" && this.awaiting === null) this.progress = 0;
-    const spy = SPEED_CONFIG[s.speed].secondsPerYear;
+    const spy = secondsPerYearNow({ speed: s.speed, base: SPEED_CONFIG[s.speed].secondsPerYear, nextFork: s.nextFork, endingReady: s.endingReady });
     if (playing || this.scale > 0) this.progress += ((dtMs / 1000) * this.scale) / spy;
 
     let starved = false;
     if (this.progress >= 1) {
       if (this.awaiting === null) {
-        if (buffered && s.phase === "playing") {
+        if (holdEnd && s.phase === "playing") {
+          this.progress = 1; // waiting for the small card, not for the agent: not starved
+        } else if (buffered && s.phase === "playing") {
           this.awaiting = next;
           this.sentAt = performance.now();
           void s.tick(next).catch(() => {});

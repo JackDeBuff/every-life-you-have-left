@@ -116,6 +116,18 @@ export interface SessionExtras {
   thinking: boolean;
   /** Last generated year of the chosen life (years > playhead.year are provisional). */
   bufferedTo: number | null;
+  /**
+   * The year of the next fork not answered yet (written or still planned), null = none left. The
+   * clock holds the end of the year before it while a small card is open: a fork never cuts one off.
+   */
+  nextFork?: number | null;
+  /**
+   * 1x: this year's next small card is on its way (being written: a batch or a follow-up). The
+   * clock holds the year's end for it, for a few seconds at most.
+   */
+  smallDue?: boolean;
+  /** The ending is written (for the life as it stands): Auto plays its last years quicker then. */
+  endingReady?: boolean;
   engine: "mock" | "real";
   /** Last non-fatal engine error code, for debugging. */
   error: string | null;

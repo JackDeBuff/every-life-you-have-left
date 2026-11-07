@@ -46,17 +46,20 @@ The life runs from the user's current age to `endAge` (70, or current age + 15 i
 
 | Speed | Small decisions (whole life) | Big decisions | Pace (target) |
 |---|---|---|---|
-| 1× | ~150 (a conversation: several a year, as fast as you answer) | ~20 | ~6 s per year (12 s while a card is up) + decisions (a long, deep session) |
-| 2× | ~30 (1 every ~1.5 years) | ~10 | ~4 s per year |
+| 1× | ~150 (a conversation: 3–4 every year; the year waits for them) | ~20 | ~6 s per year (12 s while a card is up) + decisions (a long, deep session) |
+| 2× | ~30 (1 every ~1.5 years) | ~10, evenly spaced | ~4 s per year |
 | 4× | ~15 (1 every ~3 years) | ~5 | ~2 s per year |
 | **Auto (judge mode)** | **0** | **5** | ~1.5 s per year. The whole run takes **≤3 min**, decisions included |
 
 - **Small decisions** don't stop time. They slide into the chat and the clock slows to 0.5×. If
   there's no answer within ~12 s (2×) / ~10 s (4×) of idle time (no limit at 1×), the decision
-  fades as "let it slide". One small card at a time; none in a fork's year (at 2×/4× not in the
-  year after it either). At 1× they come one after another, written ahead in batches (D-089) so
-  each appears at once; cards the playhead passes are dropped, never queued up. (Numbers amended
-  Sat Nov 7 twice, see D-081.)
+  fades as "let it slide". One small card at a time. 2×/4×: none in a fork's year or the year
+  after it. 1× (the conversation): 3–4 in every year, a fork's year included once its consequence
+  has played ~3 s; they come one after another, written ahead in batches (D-089) so each appears
+  at once, and the year doesn't end while one is open or the next is being written (a "Let it
+  slide" button lets one go). A fork never cuts off an open card: it waits for the answer (or the
+  slide). Cards the playhead passes are dropped, never queued up. (Amended Sat Nov 7 three times,
+  see D-081.)
   That is logged, and the life follows its inertia. They are spread across the life and **weighted
   toward the domains the user worries about**. Their job is to learn who the user is, so each one
   should cover a gap in the profile.
@@ -97,8 +100,11 @@ thread). Voice goes to Gemini for transcription, and the transcript is shown so 
 - Hidden branches simulate **coarsely and cheaply** (in 5-year steps, fast model) and are refined
   only when someone looks at them.
 - **"Meanwhile, in your other lives…"** plays after every big decision, plus every 10 years at 1×
-  and 2×. It's a 6–10 s interlude in the middle pane: three quick 3D scene cuts, each with a
-  one-line caption, then back to your life.
+  and 2×. It's a ~7 s interlude in the middle pane (Auto ~5 s): three quick 3D scene cuts, each
+  with a one-line caption, then back to your life. It never waits on a slow call: the cuts are
+  written ahead (forks while the card is open, the 10-year one a few years early), and if they
+  are late the lives that are ready play instead (their latest snapshots). Answer → life resumes
+  in ≤ 10 s.
 - **Peek anytime.** Hovering or clicking a ◆ on the timeline, or opening the "Lives you have left"
   drawer, shows each branch: portrait at that age, place, work, people, net worth, one line. It can
   open the branch's 3D scene and log read-only.
