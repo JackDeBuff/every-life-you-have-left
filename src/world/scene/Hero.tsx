@@ -3,12 +3,14 @@
  * indoor years (front walls slide down, the upper floors and roof float up) to show the room.
  */
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
-import { AdditiveBlending, BoxGeometry, CanvasTexture, CylinderGeometry, ExtrudeGeometry, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Shape, SRGBColorSpace, type Group, type Material, type PointLight } from "three";
+import { memo, useMemo, useRef } from "react";
+import { AdditiveBlending, BoxGeometry, CanvasTexture, CylinderGeometry, ExtrudeGeometry, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Shape, SRGBColorSpace, type Group, type Material, type Object3D } from "three";
 import type { SceneSpec } from "../../../shared/sim";
 import type { HeroSpec } from "../layout";
 import { MATS, solid } from "../materials";
 import { clamp01, easeInOutCubic, Pop, usePresence, useMotion } from "./anim";
+import { markShadows } from "./shadows";
+import { requestLight } from "./practical";
 import { PieceItem } from "./Pieces";
 import { ProcItem } from "./Procs";
 import { useLookRef } from "./look";
@@ -127,7 +129,7 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
   const upper = useRef<Group>(null);
   const room = useRef<Group>(null);
   const extras = useRef<Group>(null);
-  const light = useRef<PointLight>(null);
+  const light = useRef<Object3D>(null);
   const look = useLookRef();
   const { time } = useMotion();
   const roomList = usePresence(hero.room.pieces, (p) => p.key, 600, time);
@@ -155,7 +157,8 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
       extras.current.scale.set(1, k, 1);
       extras.current.visible = k > 0.01;
     }
-    if (light.current) light.current.intensity = c * (0.6 + look.current.windowGlow * 2.2);
+    // the room lamp comes from the fixed light pool (practical.tsx), never a light of its own
+    if (light.current && c > 0.01) requestLight("room", light.current, c * (0.6 + look.current.windowGlow * 2.2), "#FFD7A0", 2.6, 1.6);
     SUNPATCH.opacity = c * Math.max(0, 0.22 - look.current.windowGlow * 0.22) * look.current.shadowStrength;
   });
 
@@ -196,7 +199,7 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
             <ProcItem key={pr.key} pr={pr} />
           ))}
         </group>
-        <pointLight ref={light} position={[0.1, fh * 0.8, 0.1]} color="#FFD7A0" intensity={0} distance={2.6} decay={1.6} />
+        <object3D ref={light} position={[0.1, fh * 0.8, 0.1]} />
       </group>
       {/* back facade windows (outside) */}
       <group position={[-w / 2 - 0.001, 0, 0]}>
@@ -304,12 +307,14 @@ export function Hero({ hero, flavor, snowy }: { hero: HeroSpec; flavor: SceneSpe
   );
 }
 
-function HeroCut({ hero, flavor, reduced }: { hero: HeroSpec; flavor: SceneSpec["flavor"]; reduced: boolean }) {
+const HeroCut = memo(function HeroCut({ hero, flavor, reduced }: { hero: HeroSpec; flavor: SceneSpec["flavor"]; reduced: boolean }) {
   const cut = useRef(hero.cutaway ? 1 : 0);
   useFrame((_, dt) => {
     const target = hero.cutaway ? 1 : 0;
+    const before = cut.current;
     if (reduced) cut.current = target;
     else cut.current += Math.sign(target - cut.current) * Math.min(Math.abs(target - cut.current), dt / 1.1);
+    if (cut.current !== before) markShadows();
   });
   return <Building hero={hero} cutRef={cut} flavor={flavor} />;
-}
+}, (a, b) => a.flavor === b.flavor && a.reduced === b.reduced && (a.hero === b.hero || JSON.stringify(a.hero) === JSON.stringify(b.hero)));

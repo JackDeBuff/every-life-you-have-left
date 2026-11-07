@@ -14,6 +14,7 @@ import type { InterludeCut } from "../../shared/engine";
 import type { Appearance, SceneSpec } from "../../shared/sim";
 import { MotionCtx, type WorldMotion } from "./scene/anim";
 import { WorldScene } from "./scene/WorldScene";
+import { withStory, type WorldStory } from "./story";
 import "./world.css";
 
 export interface WorldProps {
@@ -31,8 +32,29 @@ export interface WorldProps {
   paused?: boolean;
   /** Interlude: seconds per cut (default 2.5). The UI shortens it in Auto to keep the run ≤3 min. */
   cutSeconds?: number;
+  /**
+   * This year's story (src/world/story.ts: storyFor(year, prevYear)): names over the characters,
+   * ledger people the scene should show, and the beat the camera eases toward. Life mode only.
+   */
+  story?: WorldStory | null;
   className?: string;
 }
+
+/**
+ * `?perf` exposes the R3F state (renderer.info) in production builds, for frame-time measurements;
+ * `?perf=hi|mid|lo` also pins the quality tier (no adaptive changes), for A/B numbers.
+ */
+const PERF_PARAM = typeof location !== "undefined" ? new URLSearchParams(location.search).get("perf") : null;
+const PERF_HOOK = PERF_PARAM !== null;
+const PINNED: Tier | null = PERF_PARAM === "hi" ? 2 : PERF_PARAM === "mid" ? 1 : PERF_PARAM === "lo" ? 0 : null;
+
+/**
+ * Quality tiers. 2: DPR <= 1.5, MSAA x4, AO; 1: DPR <= 1.25, MSAA x2, cheaper AO; 0: DPR 1, no
+ * MSAA, no AO / tilt-shift, smaller shadow map. Machines start at 2 (1 on small CPUs / very high
+ * DPR screens) and step down (or back up) with the measured frame rate.
+ */
+export type Tier = 0 | 1 | 2;
+const TIER_PIXELS: Record<Tier, { maxDpr: number; mp: number }> = { 2: { maxDpr: 1.5, mp: 1.6e6 }, 1: { maxDpr: 1.25, mp: 1.1e6 }, 0: { maxDpr: 1, mp: 0 } };
 
 function webglAvailable(): boolean {
   try {
@@ -75,7 +97,7 @@ export function Poster({ caption }: { caption?: string }) {
   );
 }
 
-export function World({ spec, mode = "life", cuts, appearance = null, onMomentDone, onCut, onInterludeDone, paused = false, cutSeconds, className }: WorldProps) {
+export function World({ spec, mode = "life", cuts, appearance = null, onMomentDone, onCut, onInterludeDone, paused = false, cutSeconds, story = null, className }: WorldProps) {
   const reduced = usePrefersReducedMotion();
   const [gl] = useState(webglAvailable);
   const host = useRef<HTMLDivElement>(null);
@@ -85,7 +107,6 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
   // Pixel budget: keep the drawing buffer near 1.6 MP (crisp in the expo pane, sane full-screen),
   // and step down further if the frame rate declines (drei PerformanceMonitor).
   const [area, setArea] = useState(800 * 450);
-  const [degraded, setDegraded] = useState(false);
   useEffect(() => {
     const el = host.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -135,6 +156,11 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
   );
 
   const active = visible && pageVisible && !paused && !reduced;
+  // The story only belongs to the life itself (interlude cuts are other lives, captioned by the UI).
+  const tellStory = mode === "life" ? story : null;
+  const shown = useMemo(() => withStory(spec, tellStory), [spec, tellStory]);
+  // name tags: DOM nodes positioned every frame from inside the canvas (scene/Tags.tsx)
+  const tags = useMemo(() => new Map<string, HTMLElement>(), []);
   const fade = useCallback((on: boolean) => setFadeOn(on), []);
   const snapshot = useCallback((url: string) => setSnap({ url, id: performance.now() }), []);
   useEffect(() => {
@@ -143,13 +169,27 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
     return () => window.clearTimeout(id);
   }, [snap]);
 
-  const quality = useMemo<"high" | "low">(() => {
+  const startTier = useMemo<Tier>(() => {
+    if (PINNED !== null) return PINNED;
     const cores = navigator.hardwareConcurrency ?? 8;
-    return cores >= 8 && window.devicePixelRatio <= 2 ? "high" : "low";
+    return cores >= 8 && window.devicePixelRatio <= 2 ? 2 : 1;
   }, []);
+  const [tier, setTier] = useState<Tier>(startTier);
+  // Adaptive quality watches the frame rate only once the scene has warmed up (kit loads and
+  // shader compiles in the first seconds are not a slow machine) and only while it animates.
+  const [watch, setWatch] = useState(false);
+  useEffect(() => {
+    if (!active || PINNED !== null) return;
+    const id = window.setTimeout(() => setWatch(true), 6000);
+    return () => {
+      window.clearTimeout(id);
+      setWatch(false);
+    };
+  }, [active]);
+  const step = useCallback((d: -1 | 1) => setTier((t) => Math.max(0, Math.min(startTier, t + d)) as Tier), [startTier]);
 
-  const maxDpr = quality === "high" ? 1.5 : 1.25;
-  const dpr = degraded ? 1 : Math.max(1, Math.min(maxDpr, Math.sqrt(1.6e6 / area)));
+  const px = TIER_PIXELS[tier];
+  const dpr = tier === 0 ? 1 : Math.max(1, Math.min(px.maxDpr, Math.sqrt(px.mp / area)));
 
   if (!gl) {
     return (
@@ -172,14 +212,23 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
           camera={{ fov: 22, near: 1, far: 260, position: [25, 20, 25] }}
           onCreated={(state) => {
             state.gl.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
-            if (import.meta.env.DEV) (window as unknown as { __r3f: unknown }).__r3f = state;
+            // Production: don't block on getProgramInfoLog after every shader link (it stalls the
+            // frame until the compile finishes; parallel compilation can't help while it does).
+            state.gl.debug.checkShaderErrors = import.meta.env.DEV;
+            // The scene root never moves: without this, its per-frame updateMatrix() would force
+            // a world-matrix recompute of every object. Static set pieces freeze their own matrices.
+            state.scene.matrixAutoUpdate = false;
+            state.scene.updateMatrix();
+            if (import.meta.env.DEV || PERF_HOOK) (window as unknown as { __r3f: unknown }).__r3f = state;
           }}
         >
           <MotionCtx.Provider value={motion}>
-            <PerformanceMonitor onDecline={() => setDegraded(true)} flipflops={2} onFallback={() => setDegraded(true)} />
+            {watch && <PerformanceMonitor ms={400} iterations={8} bounds={(hz) => (hz > 90 ? [55, 85] : [44, 57])} flipflops={3} onDecline={() => step(-1)} onIncline={() => step(1)} />}
             <DemandTicker on={!active && visible && pageVisible} />
             <WorldScene
-              spec={spec}
+              spec={shown}
+              story={tellStory}
+              tags={tags}
               mode={mode}
               cuts={cuts}
               appearance={appearance}
@@ -189,12 +238,30 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
               cutSeconds={cutSeconds}
               fade={fade}
               snapshot={snapshot}
-              quality={degraded ? "low" : quality}
+              tier={tier}
             />
           </MotionCtx.Provider>
         </Canvas>
       </Boundary>
       {mode === "interlude" && <div className="world-letterbox" aria-hidden />}
+      {tellStory && (
+        <div className="world-tags" aria-hidden>
+          {tellStory.cast.map((c) => (
+            <span
+              key={c.key}
+              className="world-tag"
+              data-self={c.key === "self0" || undefined}
+              data-new={c.isNew || undefined}
+              ref={(el) => {
+                if (el) tags.set(c.key, el);
+                else tags.delete(c.key);
+              }}
+            >
+              {c.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="world-fade" data-on={fadeOn} aria-hidden />
       {snap && <img key={snap.id} className="world-snap" src={snap.url} alt="" aria-hidden />}
     </div>

@@ -22,72 +22,103 @@ import {
 } from "three";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { animalUrl, CLIPS_URL, personUrl, type AnimalModel, type PersonModel } from "../assets";
-import { HALF, Q_SCALE, type PersonSlot, type Pose, type V3 } from "../layout";
+import { HALF, PERSON_H, Q_SCALE, type PersonSlot, type Pose, type V3 } from "../layout";
 import { SWATCH } from "../palette";
 import { clamp01, easeOutBack, usePresence, useMotion, type Present } from "./anim";
-import { CarryBox } from "./props";
+import { BlobShadow, CarryBox } from "./props";
+
+export interface CastPos {
+  /** Feet position (world). */
+  pos: Vector3;
+  /** Height of the head above the feet (world). */
+  h: number;
+  /** In the scene and not leaving. */
+  on: boolean;
+  /** The mover writing this entry (a person walking out and one walking in can share a key). */
+  owner: unknown;
+}
 
 export interface SelfTracker {
   pos: Vector3;
   /** Moment overrides (Victory, wave...) for the self. */
   override: Pose | null;
+  /** Where each person of the life stands this frame, by slot key (name tags, story beats). */
+  cast: Map<string, CastPos>;
 }
 
 const GREY = new Color("#C9C6C0");
 const PET_H = { Dog: 0.17, Cat: 0.12 };
 const petScaleCache = new Map<string, number>();
 
+/**
+ * Recoloured materials are shared by every character with the same colour and are never disposed:
+ * disposing the last user of a shader program makes three.js delete it, and the next person to
+ * walk in would recompile it (a visible hitch on every year with new people).
+ */
+const personMats = new Map<string, MeshStandardMaterial>();
+function personMat(base: MeshStandardMaterial, color: Color, rough: number): MeshStandardMaterial {
+  const k = `${base.name}|${base.uuid}|${color.getHexString()}|${rough}`;
+  let m = personMats.get(k);
+  if (!m) {
+    m = base.clone();
+    m.roughness = rough;
+    m.metalness = 0;
+    m.color.copy(color);
+    personMats.set(k, m);
+  }
+  return m;
+}
+
 function recolorPerson(root: Object3D, slot: PersonSlot) {
   const hair = new Color(slot.hair).lerp(GREY, slot.grey);
   const pants = new Color(slot.pants);
+  const c = new Color();
   root.traverse((o) => {
     const mesh = o as Mesh;
     if (!mesh.isMesh) return;
-    mesh.castShadow = true;
+    mesh.castShadow = false;
     mesh.receiveShadow = false;
     mesh.frustumCulled = false;
     const remap = (mat: MeshStandardMaterial) => {
-      const m = mat.clone();
-      m.roughness = 0.85;
-      m.metalness = 0;
+      c.copy(mat.color);
       switch (mat.name) {
         case "Skin":
-          m.color.set(slot.skin);
+          c.set(slot.skin);
           break;
         case "Hair":
-          m.color.copy(hair);
+          c.copy(hair);
           break;
         case "Shirt":
-          m.color.set(slot.shirt);
+          c.set(slot.shirt);
           break;
         case "Pants":
-          m.color.copy(pants);
+          c.copy(pants);
           break;
         case "Face":
-          m.color.set(SWATCH.ink);
+          c.set(SWATCH.ink);
           break;
         case "Belt":
         case "Black":
-          m.color.copy(pants).multiplyScalar(0.55);
+          c.copy(pants).multiplyScalar(0.55);
           break;
         case "Hat":
-          m.color.copy(hair).multiplyScalar(0.7);
+          c.copy(hair).multiplyScalar(0.7);
           break;
         case "Vest":
         case "Detail":
         case "Details":
-          m.color.set(slot.shirt).multiplyScalar(0.72);
+          c.set(slot.shirt).multiplyScalar(0.72);
           break;
         case "Beige":
-          m.color.set("#E9D8BC");
+          c.set("#E9D8BC");
           break;
         case "Brown":
-          m.color.set("#7A5644");
+          c.set("#7A5644");
           break;
         default:
           break;
       }
-      return m;
+      return personMat(mat, c, 0.85);
     };
     mesh.material = Array.isArray(mesh.material) ? mesh.material.map((x) => remap(x as MeshStandardMaterial)) : remap(mesh.material as MeshStandardMaterial);
   });
@@ -95,16 +126,13 @@ function recolorPerson(root: Object3D, slot: PersonSlot) {
 
 function recolorPet(root: Object3D, model: AnimalModel, seed: number) {
   const coats = model === "Dog" ? ["#D9A86C", "#F3EEE6", "#7A5644", "#2E3A4F"] : ["#E39B4B", "#A9ADB3", "#3A4250", "#F3EEE6"];
-  const coat = coats[seed % coats.length]!;
+  const coat = new Color(coats[seed % coats.length]!);
   root.traverse((o) => {
     const mesh = o as Mesh;
     if (!mesh.isMesh) return;
-    mesh.castShadow = true;
+    mesh.castShadow = false;
     mesh.frustumCulled = false;
-    const m = (mesh.material as MeshStandardMaterial).clone();
-    m.color.set(coat);
-    m.roughness = 0.9;
-    mesh.material = m;
+    mesh.material = personMat(mesh.material as MeshStandardMaterial, coat, 0.9);
   });
 }
 
@@ -172,10 +200,6 @@ function useRig(url: string, clipsUrl: string, prepare: (root: Object3D) => void
   useEffect(
     () => () => {
       rig.mixer.stopAllAction();
-      rig.root.traverse((o) => {
-        const mesh = o as Mesh;
-        if (mesh.isMesh) (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((m) => m.dispose());
-      });
     },
     [rig],
   );
@@ -199,15 +223,17 @@ interface PersonProps {
   walkIn: boolean;
   self?: SelfTracker;
   frozen: boolean;
+  /** Report this person's position to self.cast (false on an island that is sinking away). */
+  track: boolean;
 }
 
-function Human({ pr, walkIn, self, frozen }: PersonProps) {
+function Human({ pr, walkIn, self, frozen, track }: PersonProps) {
   const slot = pr.item;
   const rig = useRig(personUrl(slot.model as PersonModel), CLIPS_URL, (root) => recolorPerson(root, slot), [slot.skin, slot.hair, slot.shirt, slot.pants, slot.grey]);
-  return <Mover pr={pr} rig={rig} walkIn={walkIn} self={self} frozen={frozen} scale={Q_SCALE * slot.scale} pet={false} />;
+  return <Mover pr={pr} rig={rig} walkIn={walkIn} self={self} frozen={frozen} track={track} scale={Q_SCALE * slot.scale} pet={false} />;
 }
 
-function Pet({ pr, walkIn, frozen }: PersonProps) {
+function Pet({ pr, walkIn, self, frozen, track }: PersonProps) {
   const slot = pr.item;
   const model = slot.model as AnimalModel;
   const url = animalUrl(model);
@@ -223,15 +249,24 @@ function Pet({ pr, walkIn, frozen }: PersonProps) {
     }
     return s;
   }, [model, rig]);
-  return <Mover pr={pr} rig={rig} walkIn={walkIn} frozen={frozen} scale={scale} pet />;
+  return <Mover pr={pr} rig={rig} walkIn={walkIn} self={self} frozen={frozen} track={track} scale={scale} pet />;
 }
 
-function Mover({ pr, rig, walkIn, self, frozen, scale, pet }: PersonProps & { rig: Rig; scale: number; pet: boolean }) {
+function Mover({ pr, rig, walkIn, self, frozen, track, scale, pet }: PersonProps & { rig: Rig; scale: number; pet: boolean }) {
   const slot = pr.item;
   const group = useRef<Group>(null);
   const { time, reduced } = useMotion();
   const state = useRef({ phase: walkIn && !reduced ? "enter" : "place", s: Math.random() * 10, pose: "" as string, pos: new Vector3(), head: 0, born: time() });
   const tmp = useMemo(() => new Vector3(), []);
+  const tracked = track && !slot.key.startsWith("walker");
+  useEffect(() => {
+    if (!self || !tracked) return;
+    const key = slot.key;
+    const me = state.current;
+    return () => {
+      if (self.cast.get(key)?.owner === me) self.cast.delete(key);
+    };
+  }, [self, tracked, slot.key]);
   /** Procedural bone offsets applied last frame (undone before the mixer runs, since not every clip drives every bone). */
   const applied = useRef<{ bone: Bone; axis: "x" | "z"; v: number }[]>([]);
 
@@ -335,17 +370,28 @@ function Mover({ pr, rig, walkIn, self, frozen, scale, pet }: PersonProps & { ri
       if (pose === "sad") add(b.Neck, "x", 0.35);
     }
     if (self && slot.role === "self") self.pos.copy(st.pos);
+    if (self && tracked) {
+      let c = self.cast.get(slot.key);
+      if (!c) self.cast.set(slot.key, (c = { pos: new Vector3(), h: 0, on: false, owner: st }));
+      if (!out || c.owner === st) {
+        c.owner = st;
+        c.pos.copy(st.pos);
+        c.h = pet ? 0.24 : PERSON_H * slot.scale * 1.08;
+        c.on = !out && g.visible;
+      }
+    }
   });
 
   return (
     <group ref={group}>
       <primitive object={rig.root} />
       {slot.carry === "box" && !pet && <CarryBox />}
+      <BlobShadow w={pet ? 0.2 : 0.3} d={pet ? 0.26 : 0.3} parentScale={pet ? scale : Q_SCALE} />
     </group>
   );
 }
 
-export function People({ people, islandBorn, self, frozen }: { people: PersonSlot[]; islandBorn: number; self: SelfTracker; frozen: boolean }) {
+export function People({ people, islandBorn, self, frozen, track = true }: { people: PersonSlot[]; islandBorn: number; self: SelfTracker; frozen: boolean; track?: boolean }) {
   const { time } = useMotion();
   const list = usePresence(people, (p) => `${p.key}|${p.model}`, 1700, time);
   return (
@@ -353,9 +399,9 @@ export function People({ people, islandBorn, self, frozen }: { people: PersonSlo
       {list.map((pr) => {
         const walkIn = pr.t0 - islandBorn > 0.6 && pr.item.role !== "self" && !pr.item.key.startsWith("walker");
         return pr.item.pet ? (
-          <Pet key={pr.key} pr={pr} walkIn={walkIn} frozen={frozen} />
+          <Pet key={pr.key} pr={pr} walkIn={walkIn} self={self} frozen={frozen} track={track} />
         ) : (
-          <Human key={pr.key} pr={pr} walkIn={walkIn} self={self} frozen={frozen} />
+          <Human key={pr.key} pr={pr} walkIn={walkIn} self={self} frozen={frozen} track={track} />
         );
       })}
     </>

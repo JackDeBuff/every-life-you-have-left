@@ -63,3 +63,88 @@
 @media (prefers-reduced-motion: reduce) {
   .world-letterbox { animation: none; }
 }
+
+/* ---- the year's story: name tags over the characters, the beat line under the caption ---- */
+.world-tags {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.world-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 2px 7px 3px;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: var(--fs-label);
+  font-weight: 640;
+  font-stretch: var(--w-data);
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(13 26 31 / 0.18);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--e-settle);
+  will-change: transform;
+}
+.world-tag[data-on="true"] {
+  opacity: 0.94;
+}
+/* you: the sun colour (the self wears the hero coral; the tag says it in UI language) */
+.world-tag[data-self] {
+  background: var(--sun);
+  color: var(--on-sun);
+}
+/* someone new this year: a sun ring, so the arrival reads at a glance */
+.world-tag[data-new] {
+  box-shadow: 0 0 0 2px var(--sun), 0 1px 2px rgb(13 26 31 / 0.18);
+}
+.world-tag::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  background: inherit;
+  transform: rotate(45deg);
+  border-radius: 1px;
+  z-index: -1;
+}
+
+.world-beat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s1);
+  padding: 3px 10px 4px 8px;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: var(--fs-meta);
+  font-weight: 620;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgb(13 26 31 / 0.18);
+  animation: world-beat-in var(--t-slow) var(--e-settle) both;
+}
+.world-beat::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sun);
+  flex: none;
+}
+@keyframes world-beat-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .world-tag { transition: none; }
+  .world-beat { animation: none; }
+}

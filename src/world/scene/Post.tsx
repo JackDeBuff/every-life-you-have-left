@@ -45,16 +45,36 @@ class GradeEffect extends Effect {
   }
 }
 
+/** The N8AO pass object (the wrapper forwards its ref to it). */
+interface AOPass {
+  autoDetectTransparency: boolean;
+  configuration: { transparencyAware: boolean };
+}
+
+/**
+ * N8AO's transparency mode switches itself on whenever any material in the scene is transparent
+ * (water, blob shadows, weather), and then traverses the scene four times and renders it twice
+ * more on every frame: 3 scene renders instead of 1. The AO is subtle enough that letting it see
+ * through those few surfaces is invisible, so it stays off. (A callback ref: the composer mounts
+ * its children a render after this component's own effects run.)
+ */
+function quietAO(p: AOPass | null) {
+  if (!p) return;
+  p.autoDetectTransparency = false;
+  p.configuration.transparencyAware = false;
+}
+
 export interface PostProps {
   /** 0..1 "memory" grade for interlude cuts (cooler, less saturated). */
   memory: MutableNumber;
-  quality: "high" | "low";
+  /** 2 high, 1 medium, 0 low (no AO, no tilt-shift, no MSAA). */
+  tier: 0 | 1 | 2;
 }
 export interface MutableNumber {
   current: number;
 }
 
-export function Post({ memory, quality }: PostProps) {
+export function Post({ memory, tier }: PostProps) {
   const look = useLookRef();
   const grade = useMemo(() => new GradeEffect(), []);
   const bloom = useRef<BloomEffect>(null);
@@ -73,12 +93,12 @@ export function Post({ memory, quality }: PostProps) {
     if (vignette.current) vignette.current.darkness = L.vignette + memory.current * 0.15;
   });
   return (
-    <EffectComposer multisampling={quality === "high" ? 4 : 0} enableNormalPass={false}>
-      <N8AO halfRes aoRadius={0.55} distanceFalloff={0.6} intensity={2.2} quality={quality === "high" ? "medium" : "performance"} color="#1E2A38" />
+    <EffectComposer key={`t${tier}`} multisampling={tier === 2 ? 4 : tier === 1 ? 2 : 0} enableNormalPass={false}>
+      {tier > 0 ? <N8AO ref={quietAO} halfRes aoRadius={0.55} distanceFalloff={0.6} intensity={2.2} quality={tier === 2 ? "medium" : "performance"} color="#1E2A38" /> : <></>}
       <Bloom ref={bloom} mipmapBlur luminanceThreshold={0.82} luminanceSmoothing={0.2} intensity={0.3} radius={0.65} />
       <primitive object={grade} dispose={null} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
-      <TiltShift2 blur={0.08} taper={0.55} start={[0.5, 0.0]} end={[0.5, 1.0]} samples={quality === "high" ? 8 : 5} />
+      {tier > 0 ? <TiltShift2 blur={0.08} taper={0.55} start={[0.5, 0.0]} end={[0.5, 1.0]} samples={tier === 2 ? 8 : 5} /> : <></>}
       <Vignette ref={vignette} offset={0.32} darkness={0.22} eskil={false} />
     </EffectComposer>
   );

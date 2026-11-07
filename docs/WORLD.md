@@ -248,7 +248,27 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
   rAF counter read ~105 fps. A MacBook Air GPU is roughly 3–4× slower, which keeps the pane well
   inside 16.7 ms.
 - Pixel budget: DPR = clamp(sqrt(1.6 MP / canvas area), 1, 1.5), so a full-screen world does not
-  render 3 MP. drei's `PerformanceMonitor` drops to DPR 1, no MSAA and cheaper AO if fps declines.
+  render 3 MP. Three quality tiers (World.tsx): 2 = DPR 1.5, MSAA x4, AO; 1 = DPR 1.25, MSAA x2,
+  cheaper AO; 0 = DPR 1, no AO / tilt-shift, 1024 shadow map. drei's `PerformanceMonitor` starts
+  6 s after the world is up (load hitches are not a slow machine) and steps a tier down or back
+  up. `?perf` exposes `window.__r3f` in production; `?perf=hi|mid|lo` pins a tier.
+- **Per-frame rules (keep them):**
+  - Shadows on demand (`scene/shadows.ts`): the shadow map re-renders only when a caster moves;
+    animators call `markShadows()`. People, pets and cars never cast into it (blob shadows).
+  - The light count never changes: room lamps and moment glows come from a fixed pool of two
+    point lights (`scene/practical.tsx`). Mounting a light recompiles every material.
+  - Never dispose a material whose program others will need (character colours are cached).
+  - Static subtrees freeze their matrices (`freezeStatic`, `Pop` once settled); the scene root
+    and a settled island do not recompose.
+  - N8AO's transparency mode stays off (it auto-enables on any transparent material and costs
+    two extra scene renders and four traversals a frame).
+  - Year turns re-render only what changed (pieces, procs and the hero are memoised on content).
+- Measured Sat Nov 7 (prod build, 1440×900, DPR 2 screen, M4 Pro, headless Chromium on Metal;
+  "old" = before these rules): lab steady state 414 → 232 draw calls, 3 → 1 scene renders a
+  frame, 63 → 36 shader programs, worst year-turn frame 77 → 23 ms. The lab's "Alex's life"
+  autoplay (40 s, 4× CPU throttle, quality pinned high, two runs each): JS per frame 7.7 / 12.5 →
+  4.0 / 5.6 ms, frames over 33 ms 9 / 25 → 4 / 3, frames over 100 ms 2 / 2 → 0 / 0, shader links
+  16 → 8. Scripts: `measure.mjs`, `labbench.mjs`, `labauto.mjs` (Playwright + CDP throttling).
 - `frameloop="demand"` when the world is hidden, off-screen or in reduced motion; `always` while it
   is visible and animating.
 - Kits are lazy-loaded per setting (`manifest.json` lists URLs and sizes): the current spec's kits
@@ -268,6 +288,7 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
   onCut={(index, cut) => void}   // interlude: a cut starts (UI draws the caption)
   onInterludeDone={() => void}   // interlude: all cuts played
   paused={boolean}               // optional: freeze animation (e.g. while the UI dims the pane)
+  story={WorldStory | null}      // optional, life mode: storyFor(year, prevYear) from src/world/story.ts
 />
 ```
 
@@ -282,6 +303,12 @@ Behaviour notes for the UI:
 - Interlude: `onCut(i)` fires as cut `i` starts (~2.5 s each, joined by a 220 ms fade);
   `onInterludeDone` after the last. Switching `mode` back to `"life"` restores the life spec.
 - `paused` freezes world time; anything that mounts while paused simply appears.
+- `story` (src/world/story.ts, pure, from `SimYear.life`): names over the people of the life
+  (tags are DOM nodes positioned from inside the canvas), ledger people the scene should add
+  (arrivals, the household on home years, a parent's visit; never anyone not in the ledger), and
+  one beat a year (a birth, a new partner, a move, a new home, new work, a visit). The camera eases
+  toward the beat's subject for ~2.6 s; `beatLine(beat, caption)` is the line the UI shows under
+  the caption (null when the caption already says it).
 
 ## 11. Code map (`src/world/`)
 
@@ -296,4 +323,6 @@ Behaviour notes for the UI:
 | `scene/Island.tsx`, `Procs.tsx`, `Pieces.tsx`, `Hero.tsx` | ground block, procedural set pieces, kit models, dollhouse hero |
 | `scene/People.tsx`, `Cars.tsx`, `Weather.tsx`, `Atmosphere.tsx` | characters, traffic, particles, sky/light/fog/clouds |
 | `scene/Moments.tsx`, `CameraRig.tsx`, `Post.tsx` | 16 cinematics, camera language, post chain + grade |
+| `story.ts`, `scene/Story.tsx` | the year's story (cast, beat, extra people); name tags + beat camera |
+| `scene/shadows.ts`, `practical.tsx`, `warmup.ts` | shadows on demand, fixed light pool, shader warm-up |
 | `Lab.tsx`, `alex.ts` | the lab page and Alex's 17 years + demo interlude cuts |

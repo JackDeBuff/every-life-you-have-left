@@ -22,6 +22,8 @@ import { MATS, updateMaterials } from "../materials";
 import { rng } from "../rng";
 import { useMotion } from "./anim";
 import { useLookRef } from "./look";
+import { BLOB_MAT } from "./props";
+import { markShadows } from "./shadows";
 
 const skyVert = /* glsl */ `
 varying vec3 vDir;
@@ -49,7 +51,7 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-export function Atmosphere({ center }: { center: [number, number, number] }) {
+export function Atmosphere({ center, shadowSize = 2048 }: { center: [number, number, number]; shadowSize?: number }) {
   const look = useLookRef();
   const { scene, camera } = useThree();
   const sun = useRef<DirectionalLight>(null);
@@ -93,6 +95,9 @@ export function Atmosphere({ center }: { center: [number, number, number] }) {
   }, [scene, target]);
 
   const tmp = useMemo(() => new Color(), []);
+  const dir = useMemo(() => new Vector3(), []);
+  const lastSun = useMemo(() => new Vector3(0, -1, 0), []);
+  const sunTick = useRef(0);
   useFrame(() => {
     const L = look.current;
     const u = skyMat.uniforms;
@@ -104,10 +109,19 @@ export function Atmosphere({ center }: { center: [number, number, number] }) {
     u.uStars!.value = L.stars;
     const el = (L.sunElevation * Math.PI) / 180;
     const az = (L.sunAzimuth * Math.PI) / 180;
-    const dir = new Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
+    dir.set(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
     (u.uSunDir!.value as Vector3).copy(dir);
     if (sun.current) {
       sun.current.position.set(center[0] + dir.x * 20, dir.y * 20, center[2] + dir.z * 20);
+      // the shadow map only re-renders when the sun (or the island under it) has moved a visible
+      // step (~0.15 deg), and while the sun glides through a look blend only every 4th frame
+      // (a 60 ms lag nobody sees); a jump (new island) updates at once
+      const moved = sun.current.position.distanceToSquared(lastSun);
+      sunTick.current++;
+      if (moved > 1 || (moved > 0.0025 && sunTick.current % 4 === 0)) {
+        lastSun.copy(sun.current.position);
+        markShadows(1);
+      }
       target.position.set(center[0], 0, center[2]);
       sun.current.target = target;
       sun.current.color.copy(L.sun);
@@ -124,6 +138,7 @@ export function Atmosphere({ center }: { center: [number, number, number] }) {
     fog.near = D + 3 - haze * 12;
     fog.far = D + 70 - haze * 58;
     updateMaterials(L);
+    BLOB_MAT.opacity = 0.16 + 0.2 * L.shadowStrength;
     for (const m of GLOW_MATERIALS) m.emissiveIntensity = L.windowGlow * 1.3;
   });
 
@@ -134,7 +149,7 @@ export function Atmosphere({ center }: { center: [number, number, number] }) {
       <directionalLight
         ref={sun}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowSize, shadowSize]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.025}
         shadow-radius={4}
@@ -186,11 +201,11 @@ function Clouds() {
     mesh.instanceMatrix.needsUpdate = true;
   }, [data]);
   const total = data.puffs.reduce((s, p) => s + p.parts, 0);
+  const o = useMemo(() => new Object3D(), []);
   useFrame(() => {
     const mesh = around.current;
     if (!mesh) return;
     const t = reduced ? 0 : time();
-    const o = new Object3D();
     let k = 0;
     const vis = 0.35 + look.current.cloudiness * 0.65;
     for (const p of data.puffs) {
@@ -212,7 +227,7 @@ function Clouds() {
   return (
     <>
       <instancedMesh ref={below} args={[PUFF, MATS.cloud, data.sea.length]} frustumCulled={false} />
-      <instancedMesh ref={around} args={[PUFF, MATS.cloud, total]} frustumCulled={false} castShadow />
+      <instancedMesh ref={around} args={[PUFF, MATS.cloud, total]} frustumCulled={false} />
     </>
   );
 }
