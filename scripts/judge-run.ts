@@ -4,7 +4,7 @@
  * interlude cuts driven by the 3D world, moment holds, the reading time on each card), so the
  * numbers match a visible browser tab without depending on one (a hidden pane stalls rAF).
  *
- *   npx tsx scripts/judge-run.ts [baseUrl] [--read 2] [--persona alex|maya|dev] [--pick random|cycle|0..3]
+ *   npx tsx scripts/judge-run.ts [baseUrl] [--read 2] [--persona alex|maya|ploy|dev] [--pick random|cycle|0..3]
  *                                [--legacy] [--out file.json]
  *   baseUrl defaults to http://127.0.0.1:4173 (vite preview of a production build).
  *   --legacy   the client as of 29a2c96: 1.75 s cuts, every moment held 0.7 s.
@@ -36,6 +36,10 @@ const PERSONAS: Record<string, StartInput> = {
   maya: {
     firstName: "Maya", age: 31, city: "Columbus", region: "OH", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: "USD",
     line: "I'm an ER nurse and I'm tired. A friend wants me to co-found a home-care startup with her. My husband wants a second kid. I'm scared of losing the pension.",
+  },
+  ploy: {
+    firstName: "Ploy", age: 27, city: "Durham", region: "NC", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: "USD",
+    line: "I'm a UX designer in Durham. My parents in Bangkok want me to come home, and a Bangkok startup offered me a lead role. I send money home every month.",
   },
   dev: {
     firstName: "Dev", age: 28, city: "Austin", region: "TX", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: "USD",
@@ -270,6 +274,10 @@ async function main() {
   for (const l of lives) console.log(`  ${l.title.padEnd(28)} ${money(l.y?.money.netWorth).padStart(8)}  income ${money(l.y?.money.income)}  (${l.y?.year}, ${l.y?.place})`);
   const nws = lives.map((l) => l.y?.money.netWorth ?? 0);
   console.log(`  spread: ${money(Math.min(...nws))} – ${money(Math.max(...nws))} (max/min ${(Math.max(...nws) / Math.max(1, Math.min(...nws))).toFixed(2)}x)`);
+  if (s.ending) {
+    console.log(`verdict (you): ${s.ending.verdict}`);
+    for (const b of s.branches.filter((x) => x.status === "active")) console.log(`verdict (${b.title}): ${s.ending.branchVerdicts[b.id] ?? "-"}`);
+  }
   console.log(`usage: $${s.usage?.usd.toFixed(3) ?? "?"} over ${s.usage?.calls ?? "?"} calls ${JSON.stringify(s.usage?.byPurpose ?? {})}`);
   console.log(`engine ${s.engine}, error ${s.error ?? "none"}`);
   if (out) {

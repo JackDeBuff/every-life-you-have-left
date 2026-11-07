@@ -93,6 +93,32 @@ ending and chat stay on 3.8 Flash.
 The main run stopped itself at its $7 projection gate after 15 of the 32 planned sessions. Argon and gpt-oss had
 already shown the same pattern on 3-4 personas each, so the remaining budget went to the confirmation run.
 
+## Auto judge run: timing, money and cost (Quality pass, Sat Nov 7 ~5-8am)
+
+Measured with `npx tsx scripts/judge-run.ts [url] --read <s>` against a local production build (`vite preview`,
+real engine). The script plays the client's part exactly as `src/ui` does (life clock, fork moment, world-driven
+interlude cuts, moment holds, reading time per card), so a hidden browser pane can't stall the numbers.
+Start click = 0. "answer → cuts" is what the user waits for after each fork.
+
+| Run | Reading per card | Start → ending | First card | answer → cuts (5 forks) | Starved | Moments (held) | Net worth at 70 | $ |
+|---|---|---|---|---|---|---|---|---|
+| **Before** (29a2c96), Alex | 2 s | **174 s** | 4.7 s | 13.1 / 6.3 / 7.7 / 7.5 / 4.9 s | 8.3 s | 10, cut after ~2 s | $425k-$450k (1.06x) | 0.37 |
+| After, Alex | 2 s | **165 s** | 5.0 s | 5.8 / 0.1 / 0.1 / 0.1 / 2.7 s | 0 | 7 (2.5 s each, they finish) | $157k-$843k (5.4x) | 0.43 |
+| After, Alex | 5 s | **167 s** | 4.2 s | skipped / 1.1 / 0.1 / 0.1 / 4.4 s | 0 | 9 | $156k-$978k (6.3x) | 0.38 |
+| After, Maya (31, nurse) | 3 s | **154 s** | 4.3 s | 17.9 / 0.1 / 0.8 / 0.1 / 4.3 s | 0 | 6 | $257k-$1.72M (6.7x) | 0.35 |
+| Final (main merged), Alex | 2 s | **166 s** | 4.5 s | 7.6 / 0.1 / 0.1 / 0.1 / 0.1 s | 8.2 s (one stall) | 9 | $140k-$845k (6.0x) | 0.41 |
+| Final, Ploy (Durham → Bangkok at 47) | 3 s | **157 s** | 4.9 s | 6.5 / 0.1 / 0.1 / 0.1 / 0.1 s | 0 | 7 | $220k-$718k (3.3x), Bangkok pay ~1/3 | 0.42 |
+
+- Each fork now costs ~7.9 s from the answer to life resuming (2.4 s fork moment + 3 x 1.8 s cuts), down from
+  10-18 s. Forks are prepared while the card is open (`prepareFork`); the first fork still waits on the profile
+  (7-20 s from the start) when the answer comes fast, and Auto skips that interlude past 8 s.
+- 3D moments are fewer (turning points, >= 3 years apart) but now play out; they cost ~2.5 s each.
+- Cost: +3-15% per session (one extra single-snapshot branch per fork, more small branch calls; fewer year calls).
+- Money lanes (`worker/engine/money.ts`) spread the four lives; place re-anchoring and a savings + returns bound
+  stop runaway growth after a move abroad.
+- Budget for a judge: ~150 s + 5 x (reading time). With ~5 s per card it lands near 3 minutes; D-090's warm-up
+  questions will add to that by design.
+
 ## What the judge caught, and what changed in the engine since the main run
 
 The main run used commit `85b4dbb`. Fixes made from its transcripts and the judge's "fix" notes:
