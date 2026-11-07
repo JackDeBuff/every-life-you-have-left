@@ -14,7 +14,8 @@
     "db:migrate:local": "wrangler d1 migrations apply elyl-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply elyl-db --remote",
     "eval": "tsx scripts/eval/index.ts",
-    "demo:build": "tsx scripts/demo/build-alex.ts"
+    "demo:build": "tsx scripts/demo/build-alex.ts",
+    "smoke:session": "tsx scripts/smoke-session.ts"
   },
   "dependencies": {
     "agents": "^0.33.0",
