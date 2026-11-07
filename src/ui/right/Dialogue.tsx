@@ -41,8 +41,10 @@ export function RightPane() {
   const warm = useSim((s) => (s.phase === "warmup" ? (s.warmup ?? null) : null));
   const profile = useSim((s) => s.profile);
   // A due fork always takes the pane (it preempts a small card; the agent shelves that one).
-  const pendingBig = deciding ? decisions.find((d) => d.kind === "big" && d.status === "pending") : undefined;
-  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending"));
+  // (Two forks can be pending at once: the next one is written ~2 years ahead. Only the earliest is
+  // due; a written-ahead fork never shows while life plays.)
+  const pendingBig = deciding ? decisions.filter((d) => d.kind === "big" && d.status === "pending").sort((a, b) => a.year - b.year)[0] : undefined;
+  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending" && d.kind === "small"));
   const big = active?.kind === "big";
   // The first fork is being written: its card's place shows that (never an empty pane).
   const firstPending = useSim((s) => s.phase !== "ended" && !!s.profile && !s.decisions.some((d) => d.kind === "big"));

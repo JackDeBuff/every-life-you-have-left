@@ -59,6 +59,7 @@ import { chosenOf, resolveBig } from "../engine/answers";
 import { bigCardIssues } from "../engine/decisions";
 import { readyCuts } from "../engine/branches";
 import { costOf } from "../engine/pricing";
+import { forkYears, indexedSlots, owedThisYear, slotDone, smallVerdict, SMALL_GIVEUP_MS, type PaceView } from "../engine/small-pace";
 import {
   applyWarmDelta,
   COVERED_AT,
@@ -160,7 +161,8 @@ function firstValue<T>(ps: Promise<T | null>[]): Promise<T | null> {
 const BUFFER_AHEAD = 4; // keep at least this many years generated past the playhead (target ≥2)
 const CHUNK = 4; // generateYears chunk size (3–5)
 const CHUNK_FAST = 8; // Auto/4x: one streamed call per stretch, up to the next fork
-const LOOKAHEAD_SMALL = 1; // make small decisions this many years before the playhead reaches them
+// Small cards: how far ahead they are written and when a 1x year waits for them live in
+// worker/engine/small-pace.ts (smallLookahead, owedThisYear, SMALL_GIVEUP_MS).
 // D-089 small-card queue: refill when fewer than REFILL_AT cards are written ahead; one batch call
 // writes up to BATCH_MAX cards for slots within BATCH_YEARS of the first; queued cards older than
 // STALE_YEARS are dropped. Answers fold every FOLD_EVERY, or before the next year call.
@@ -174,8 +176,6 @@ const FOLLOWUP_MS = 7000; // the next small card waits at most this long for a f
 // 1x: in a fork's own year the first small card waits until the consequence has played this long
 // after life resumes (the fork moment and the "meanwhile" cuts come first).
 const FORK_QUIET_MS = 3000;
-// 1x: the year's end waits at most this long for a small card that is still being written.
-const SMALL_DUE_MAX_MS = 6000;
 // Big ones earlier (the playhead waits at a big slot until its decision exists): ~12 s of playback
 // ahead, at least 2 years. A real big decision takes ~5 s on 3.8 Flash, 15-20 s when it stalls.
 const lookaheadBig = (speed: AgentState["speed"]) => Math.max(2, Math.ceil(12 / SPEED_CONFIG[speed].secondsPerYear));
@@ -987,6 +987,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // still counts, bound to the card they answered (never to whatever is pending now).
     const late = d.kind === "small" && d.status === "slid" && !a.slid && (!!a.optionId || !!a.text?.trim());
     if (d.status !== "pending" && !late) return;
+    // A fork written ahead (lookahead: its year isn't reached yet) can't be answered early: two
+    // forks are pending at once by design, but only the one the playhead reached is on screen.
+    if (d.kind === "big" && d.year > this.s.playhead.year) return;
     const rec: DecisionAnswer = {
       decisionId: d.id,
       optionId: a.optionId ?? null,
@@ -1127,6 +1130,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // (During the warm-up the first fork, at the playhead, is still to come.)
     const warming = !!this.warm && !this.warm.placed;
     this.slots = engine.planSlots(this.s).filter((sl) => (warming ? sl.year >= ph : sl.year > ph));
+    this.skippedSmall.clear();
     this.newContext();
     // Drop future decisions that haven't been reached; the new plan replaces them.
     this.update((s) => ({ decisions: s.decisions.filter((d) => d.status !== "pending" || d.year <= ph) }));
@@ -1159,6 +1163,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const starved = target > lastGen || (gate <= target && gate !== Infinity && !s.decisions.some((d) => d.kind === "big" && d.status === "pending" && d.year === gate));
     if (next > s.playhead.year) {
       const yr = s.years.find((y) => y.year === next);
+      // 1x holds the year for its small cards; a year that ends owing some is a client that didn't wait.
+      const owed = owedThisYear(this.paceView());
+      if (owed) console.log(`[small] year ${s.playhead.year} ended with ${owed} small slot(s) unserved`);
       this.update({ playhead: { year: next, age: this.ageAt(next), paused: false }, status: yr?.states ?? s.status, thinking: starved });
       if (this.waitingSince !== null) this.stopWaiting(); // last year's card never came: its slot is passed
       this.catchUpLog();
@@ -1321,8 +1328,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.smallCtx++;
     this.pendingFold = [];
     this.waitingSince = null;
-    if (this.smallDueTimer) clearTimeout(this.smallDueTimer);
-    this.smallDueTimer = null;
+    this.skippedSmall.clear();
+    this.holdSince = null;
+    if (this.giveUpTimer) clearTimeout(this.giveUpTimer);
+    this.giveUpTimer = null;
     this.batchMisses = 0;
     this.warm = null;
     this.forgotten = [];
@@ -1349,14 +1358,22 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     };
   }
 
-  private slotKey(sl: DecisionSlot, idx: number) {
-    return `${sl.kind}-${sl.year}-${idx}`;
-  }
-  /** A slot is materialized when there are enough decisions of its kind in its year. */
+  /** A slot is materialized when there are enough decisions of its kind in its year (or it was given up on). */
   private materialized(sl: DecisionSlot): boolean {
     const idx = this.slots.filter((x) => x.kind === sl.kind && x.year === sl.year).indexOf(sl);
-    const have = this.s.decisions.filter((d) => d.kind === sl.kind && d.year === sl.year).length;
-    return have > Math.max(0, idx);
+    return slotDone({ decisions: this.s.decisions, skipped: this.skippedSmall }, sl, Math.max(0, idx));
+  }
+  /** The pacing view (worker/engine/small-pace.ts) of the life as it stands. */
+  private paceView(): PaceView {
+    const s = this.s;
+    return {
+      speed: s.speed,
+      ph: s.playhead.year,
+      slots: this.slots,
+      decisions: s.decisions,
+      skipped: this.skippedSmall,
+      quiet: s.phase !== "playing" || Date.now() - this.resumedAt < FORK_QUIET_MS,
+    };
   }
 
   /** The next fork not answered yet: pending, or its slot not written yet (state.nextFork). */
@@ -1380,12 +1397,15 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   /**
    * Create decisions shortly before the playhead reaches them (serialized). At most ONE small
-   * decision exists at a time (pending or being written): the next one is written only after it is
-   * answered or slides, and small slots the playhead passes meanwhile are dropped, so cards never
-   * queue up (owner, Sat Nov 7: a backlog slid in bursts).
-   * Small cards next to forks (D-081): never in an open fork's year; 2x/4x never in a fork's year
-   * or the year after it; 1x in a fork's year once its consequence has played FORK_QUIET_MS. The
-   * year before a fork is fine: a fork never cuts off an open card, it waits for it (gateCheck).
+   * decision exists at a time (pending or being written); the next is written ahead in the queue
+   * (D-089) while one is open, and served the moment the open one is answered or slides.
+   * 1x (the deep mode, owner's playtest Sat Nov 7): small cards are served in their own year, and
+   * the year WAITS for every small slot planned in it (syncSmallHold → state.smallDue), so none is
+   * dropped because writing or answering took longer than the 6 s a year plays. 2x/4x: slots the
+   * playhead passes are dropped, so cards never queue up (a backlog slid in bursts).
+   * Small cards next to forks (D-081, worker/engine/small-pace.ts): never in an open fork's year;
+   * 2x/4x never in a fork's year or the year after it; 1x in a fork's year once its consequence has
+   * played FORK_QUIET_MS. A fork never cuts off an open card, it waits for it (gateCheck).
    */
   private ensureDecisions(): void {
     const s = this.s;
@@ -1393,44 +1413,71 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // The warm-up writes the first fork itself (from every answer); nothing else is due before it.
     if (this.warm && !this.warm.placed) return;
     const ph = s.playhead.year;
+    const view = this.paceView();
+    const forks = forkYears(view);
     let smallBusy =
       s.decisions.some((d) => d.kind === "small" && d.status === "pending") || [...this.making].some((k) => k.startsWith("small-"));
-    // The next fork that isn't answered yet (pending, or its slot not written yet).
-    const openFork = Math.min(
-      ...s.decisions.filter((d) => d.kind === "big" && d.status === "pending").map((d) => d.year),
-      ...this.slots.filter((sl) => sl.kind === "big" && sl.year >= ph && !this.materialized(sl)).map((sl) => sl.year),
-      Infinity,
-    );
-    // ...and the fork just answered: its consequence year plays without a small card.
-    const lastFork = Math.max(...s.decisions.filter((d) => d.kind === "big" && d.status === "answered").map((d) => d.year), -Infinity);
-    const byKindYear = new Map<string, number>();
-    for (const sl of this.slots) {
-      const k = `${sl.kind}-${sl.year}`;
-      const idx = byKindYear.get(k) ?? 0;
-      byKindYear.set(k, idx + 1);
-      if (sl.year > ph + (sl.kind === "big" ? lookaheadBig(s.speed) : LOOKAHEAD_SMALL)) continue;
-      if (sl.year < ph) continue; // passed while we were busy: skip it
-      const key = this.slotKey(sl, idx);
-      if (this.making.has(key) || this.materialized(sl)) continue;
-      if (sl.kind === "small") {
-        if (smallBusy || openFork <= sl.year) continue;
-        if (s.speed === "1x") {
-          if (sl.year < lastFork) continue;
-          if (sl.year === lastFork && (s.phase !== "playing" || Date.now() - this.resumedAt < FORK_QUIET_MS)) {
-            // This year's cards come after the quiet moment: don't write next year's ahead of them.
-            smallBusy = true;
-            continue;
-          }
-        } else if (sl.year <= lastFork + 1) continue;
-        smallBusy = true;
-        // D-089: served from the written-ahead queue (instant); a single card only when batches fail.
-        if (this.kit && this.batchMisses < 2) {
-          this.serveSmall(sl);
-          continue;
-        }
+    for (const { sl, idx, key } of indexedSlots(this.slots)) {
+      if (sl.kind === "big") {
+        if (sl.year > ph + lookaheadBig(s.speed) || sl.year < ph) continue;
+        if (this.making.has(key) || this.materialized(sl)) continue;
+        this.queueDecision(sl, key);
+        continue;
       }
-      this.queueDecision(sl, key);
+      if (this.making.has(key)) continue;
+      const verdict = smallVerdict(view, sl, idx, forks);
+      // This year's cards come after the quiet moment: don't write next year's ahead of them.
+      if (verdict === "quiet") smallBusy = true;
+      if (verdict !== "due" || smallBusy) continue;
+      smallBusy = true;
+      // D-089: served from the written-ahead queue (instant); a single card only when batches fail.
+      if (this.kit && this.batchMisses < 2) this.serveSmall(sl);
+      else this.queueDecision(sl, key);
     }
+    this.syncSmallHold();
+  }
+
+  /**
+   * 1x: hold the year's end (state.smallDue) while this year still owes small cards and none is
+   * open (an open card holds it client-side). A writer that brings nothing for SMALL_GIVEUP_MS of
+   * playing time gives the year's remaining slots up, so a broken model can't freeze the life.
+   */
+  private skippedSmall = new Set<string>();
+  private giveUpTimer: ReturnType<typeof setTimeout> | null = null;
+  private holdSince: number | null = null;
+  private syncSmallHold(): void {
+    const s = this.s;
+    const open = s.decisions.some((d) => d.kind === "small" && d.status === "pending");
+    const owed = s.speed === "1x" && !open && s.profile && s.phase !== "ended" && !(this.warm && !this.warm.placed) ? owedThisYear(this.paceView()) : 0;
+    if (!owed) {
+      this.holdSince = null;
+      if (this.giveUpTimer) clearTimeout(this.giveUpTimer);
+      this.giveUpTimer = null;
+      if (s.smallDue) this.update({ smallDue: false });
+      return;
+    }
+    if (!s.smallDue) this.update({ smallDue: true });
+    // Only playing time counts toward giving up (a fork or an interlude on screen isn't the writer's fault).
+    if (s.phase !== "playing") this.holdSince = null;
+    else this.holdSince ??= Date.now();
+    if (this.giveUpTimer) return;
+    this.giveUpTimer = setTimeout(() => {
+      this.giveUpTimer = null;
+      const year = this.s.playhead.year;
+      if (this.holdSince !== null && Date.now() - this.holdSince >= SMALL_GIVEUP_MS && this.s.phase === "playing") {
+        let n = 0;
+        for (const { sl, key } of indexedSlots(this.slots)) {
+          if (sl.kind === "small" && sl.year === year && !this.materialized(sl)) {
+            this.skippedSmall.add(key);
+            n++;
+          }
+        }
+        // Timing trail only (no personal data).
+        console.log(`[small] gave up on ${n} slot(s) of ${year} after ${SMALL_GIVEUP_MS} ms with no card`);
+        this.updateBudgets();
+      }
+      this.syncSmallHold();
+    }, SMALL_GIVEUP_MS / 5);
   }
 
   // -------------------------------------------------------------------------------------------
@@ -1448,24 +1495,14 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   // -------------------------------------------------------------------------------------------
 
   /**
-   * A due (on-screen) small slot found nothing to serve: the wait starts (timing), and at 1x the
-   * client holds the year's end for the card on its way (state.smallDue), SMALL_DUE_MAX_MS at most.
+   * A due (on-screen) small slot found nothing to serve: the wait starts (timing only). At 1x the
+   * year's end is held meanwhile by syncSmallHold (state.smallDue), not by a fixed timer.
    */
-  private smallDueTimer: ReturnType<typeof setTimeout> | null = null;
   private startWaiting(): void {
     this.waitingSince ??= Date.now();
-    if (this.s.speed !== "1x" || this.s.smallDue || this.smallDueTimer) return;
-    this.update({ smallDue: true });
-    this.smallDueTimer = setTimeout(() => {
-      this.smallDueTimer = null;
-      if (this.s.smallDue) this.update({ smallDue: false });
-    }, SMALL_DUE_MAX_MS);
   }
   private stopWaiting(): void {
     this.waitingSince = null;
-    if (this.smallDueTimer) clearTimeout(this.smallDueTimer);
-    this.smallDueTimer = null;
-    if (this.s.smallDue) this.update({ smallDue: false });
   }
 
   private newContext(why = ""): void {
@@ -1525,7 +1562,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const s = this.s;
     // (Not during the warm-up: its first fork comes before any small card.)
     if (!kit || this.batching || !s.profile || s.phase === "ended" || s.phase === "start" || this.forking || (this.warm && !this.warm.placed)) return;
-    if (this.smallQ.length >= REFILL_AT) return;
+    // 1x keeps one more card written ahead: ~3-4 cards a year are answered back to back.
+    if (this.smallQ.length >= (s.speed === "1x" ? REFILL_AT + 1 : REFILL_AT)) return;
     const ph = s.playhead.year;
     // Only the slots before the next fork: the fork changes the context and drops the queue.
     const nextFork = Math.min(
@@ -1536,9 +1574,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const upcoming = this.slots.filter((sl) => sl.kind === "small" && sl.year >= ph && sl.year < nextFork && !this.materialized(sl)).slice(this.smallQ.length);
     if (!upcoming.length) return;
     const want = upcoming.filter((sl) => sl.year <= upcoming[0]!.year + BATCH_YEARS).slice(0, BATCH_MAX);
-    // The NOW block reads the years before the first card: after a fork they are being rewritten.
+    // The NOW block reads the life up to the first card's own year (its place, work and people
+    // after the latest fork): after a fork those years are being rewritten, so wait for them.
     const lastGen = s.years.at(-1)?.year ?? this.startYear - 1;
-    if (lastGen < Math.max(ph, want[0]!.year - 1)) return;
+    if (lastGen < Math.max(ph, want[0]!.year)) return;
     const ctx = this.smallCtx;
     this.batching = true;
     this.bg("smallBatch", async () => {
