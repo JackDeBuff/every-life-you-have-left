@@ -118,6 +118,14 @@ export function hedged<T>(fn: (signal: AbortSignal) => Promise<T>, hedgeMs: numb
   });
 }
 
+/** First-token deadlines before a duplicate request is started (see json()). */
+export const HEAVY_FIRST_TOKEN_MS = 5000;
+export const FAST_FIRST_TOKEN_MS = 3500;
+/** Give up (retryable) if neither the request nor its hedge produced a token by then. */
+export const FIRST_TOKEN_DEADLINE_MS = 30_000;
+/** Abort a stream that sends nothing for this long after it started. */
+export const STREAM_IDLE_MS = 20_000;
+
 const jsonInstruction = (system: string, schema: Record<string, unknown> | undefined) =>
   schema ? `${system}\n\nReply with one JSON object only (no prose, no code fences), matching this JSON Schema:\n${JSON.stringify(schema)}` : system;
 
@@ -125,8 +133,43 @@ export function createCaller(deps: CallerDeps) {
   const { llm, models } = deps;
   const report = (purpose: string, usage: LlmUsage, wasHedged: boolean) => deps.onUsage?.({ ...usage, purpose, hedged: wasHedged });
 
-  /** One JSON call, parsed and zod-validated. Returns the raw object too (for code-side fixes). */
+  /**
+   * One JSON call, parsed and zod-validated. Returns the raw object too (for code-side fixes).
+   * Runs over the streaming endpoint so the hedge can fire on time-to-first-token: the stalls
+   * we measured (25-60 s) all happen before the first token, while normal first tokens take
+   * 0.5-2 s. `hedgeMs` is therefore a first-token deadline (default 5 s heavy, 3.5 s fast).
+   */
   async function json<S extends z.ZodType>(c: JsonCall<S>): Promise<{ data: z.infer<S> | null; raw: unknown; issues: string[]; model: string }> {
+    const model = modelFor(models, c.tier);
+    let text = "";
+    for await (const d of stream({
+      tier: c.tier,
+      purpose: c.purpose,
+      system: c.system,
+      prompt: c.prompt,
+      history: c.history,
+      schema: c.schema,
+      maxOutputTokens: c.maxOutputTokens,
+      hedgeMs: c.tier === "fast" || c.tier === "branch" ? FAST_FIRST_TOKEN_MS : HEAVY_FIRST_TOKEN_MS,
+    }))
+      text += d;
+    return parseJson(c.schema, text, model);
+  }
+
+  function parseJson<S extends z.ZodType>(schema: S, text: string, model: string): { data: z.infer<S> | null; raw: unknown; issues: string[]; model: string } {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(extractJsonText(text));
+    } catch {
+      return { data: null, raw: null, issues: ["response was not valid JSON"], model };
+    }
+    const parsed = schema.safeParse(raw);
+    if (parsed.success) return { data: parsed.data, raw, issues: [], model };
+    return { data: null, raw, issues: parsed.error.issues.slice(0, 12).map((i) => `${i.path.join(".")}: ${i.message}`), model };
+  }
+
+  /** Non-streaming variant (kept for callers that need generateJSON semantics, e.g. the Worker port). */
+  async function jsonOnce<S extends z.ZodType>(c: JsonCall<S>): Promise<{ data: z.infer<S> | null; raw: unknown; issues: string[]; model: string }> {
     const model = modelFor(models, c.tier);
     const jsonSchema = geminiSchema(c.schema);
     const run = async (signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> => {
@@ -161,15 +204,7 @@ export function createCaller(deps: CallerDeps) {
     };
     const { value, hedged: wasHedged } = await hedged(run, c.hedgeMs ?? 0);
     report(c.purpose, value.usage, wasHedged);
-    let raw: unknown;
-    try {
-      raw = JSON.parse(extractJsonText(value.text));
-    } catch {
-      return { data: null, raw: null, issues: ["response was not valid JSON"], model };
-    }
-    const parsed = c.schema.safeParse(raw);
-    if (parsed.success) return { data: parsed.data, raw, issues: [], model };
-    return { data: null, raw, issues: parsed.error.issues.slice(0, 12).map((i) => `${i.path.join(".")}: ${i.message}`), model };
+    return parseJson(c.schema, value.text, model);
   }
 
   interface StreamCall {
@@ -271,12 +306,20 @@ export function createCaller(deps: CallerDeps) {
     add();
     let winner: Src | null = null;
     let firstChunk: Chunk | null = null;
+    const deadline = Date.now() + FIRST_TOKEN_DEADLINE_MS;
     while (!winner) {
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const racers: Promise<First | { kind: "hedge" }>[] = [...pending.values()];
+      let stop: ReturnType<typeof setTimeout> | undefined;
+      const racers: Promise<First | { kind: "hedge" } | { kind: "deadline" }>[] = [...pending.values()];
       if (hedgeMs && sources.length === 1) racers.push(new Promise((r) => (timer = setTimeout(() => r({ kind: "hedge" }), hedgeMs))));
+      racers.push(new Promise((r) => (stop = setTimeout(() => r({ kind: "deadline" }), Math.max(0, deadline - Date.now())))));
       const got = await Promise.race(racers);
       if (timer) clearTimeout(timer);
+      if (stop) clearTimeout(stop);
+      if (got.kind === "deadline") {
+        for (const s of sources) s.ac.abort();
+        throw new LlmError(`${model}: no first token in ${FIRST_TOKEN_DEADLINE_MS}ms`, 504, model, true);
+      }
       if (got.kind === "hedge") {
         add();
         continue;
@@ -295,15 +338,24 @@ export function createCaller(deps: CallerDeps) {
 
     if (firstChunk?.usage) report(c.purpose, firstChunk.usage, wasHedged);
     if (firstChunk?.text) yield firstChunk.text;
+    const w = winner;
     for (;;) {
-      const r = await winner.it.next();
+      // idle timeout: a stream that goes silent mid-way is aborted (the caller retries the rest)
+      let idle: ReturnType<typeof setTimeout> | undefined;
+      const r = await Promise.race([
+        w.it.next(),
+        new Promise<never>((_, rej) => (idle = setTimeout(() => rej(new LlmError(`${model}: stream idle ${STREAM_IDLE_MS}ms`, 504, model, true)), STREAM_IDLE_MS))),
+      ]).catch((e: unknown) => {
+        w.ac.abort();
+        throw e;
+      }).finally(() => idle && clearTimeout(idle));
       if (r.done) break;
       if (r.value.usage) report(c.purpose, r.value.usage, wasHedged);
       if (r.value.text) yield r.value.text;
     }
   }
 
-  return { json, stream, model: (t: Tier) => modelFor(models, t) };
+  return { json, jsonOnce, stream, model: (t: Tier) => modelFor(models, t) };
 }
 
 export type Caller = ReturnType<typeof createCaller>;

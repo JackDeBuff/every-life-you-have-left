@@ -110,7 +110,7 @@ export async function* reply(
     prompt: text,
     history: turns,
     maxOutputTokens: 800,
-    hedgeMs: 7000,
+    hedgeMs: 5000,
   })) {
     yield d;
   }

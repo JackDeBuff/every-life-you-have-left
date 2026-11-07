@@ -80,6 +80,19 @@ const GAP_TEXT: Record<DomainKey, string> = {
   risk: "the biggest risk they've taken, and what would have to be true before they'd take another",
 };
 
+const GENERIC_STAGE: Record<DomainKey, string> = {
+  career: "a work decision: an offer, a promotion, a side project or a way out",
+  wealth: "a money decision: a windfall, a big expense, or where the savings go",
+  achievement: "a chance to make or finish something real, with a cost in time",
+  family: "a family decision: parents, siblings, being there or not",
+  relationships: "a decision about love or a close friendship",
+  children: "a decision about kids: having them, raising them, or letting them go",
+  mentalHealth: "something has to give: energy, rest, what they stop doing",
+  happiness: "a choice about what makes their weeks good",
+  lifeGoals: "the want they keep postponing comes back",
+  risk: "a bet with real upside and real downside",
+};
+
 interface Moment {
   age: number;
   domain: DomainKey;
@@ -156,24 +169,31 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
   if (remainingBig > 0) {
     const firstAge = nowAge + 1;
     const lastAge = Math.max(firstAge, endAge - 4);
-    const minGap = Math.max(2, Math.min(5, Math.floor((lastAge - firstAge + 1) / (remainingBig + 1))));
+    // Auto/4x: >= 3-5 years apart so the next stretch and the next card generate while it plays.
+    const fewBig = state.speed === "auto" || state.speed === "4x";
+    const minGap = fewBig ? Math.max(3, Math.min(5, Math.floor((lastAge - firstAge + 1) / (remainingBig + 1)))) : 2;
     const moments = stageMoments(profile, state, nowAge, endAge);
     const span = lastAge - firstAge + 1;
-    const used = new Set<string>(state.decisions.map((d) => d.domains.join(",")));
+    const used = new Set<string>();
+    // Spread big decisions across life areas: a domain already decided on scores lower.
+    const usedDomains = new Set<string>([...state.decisions.filter((d) => d.kind === "big").flatMap((d) => d.domains), ...slots.map((s) => s.reason.split(":")[1]!)]);
     let prevAge = slots.length ? nowAge : Math.max(nowAge, ...state.decisions.filter((d) => d.kind === "big").map((d) => d.age), nowAge - 99);
     for (let k = 0; k < remainingBig; k++) {
       const lo = firstAge + Math.floor((span * k) / remainingBig);
       const hi = firstAge + Math.floor((span * (k + 1)) / remainingBig) - 1;
+      const adj = (x: Moment) => x.score - (usedDomains.has(x.domain) ? 0.4 : 0);
       const inWin = moments
-        .filter((x) => x.age >= lo - 1 && x.age <= hi + 1 && x.age - prevAge >= minGap && !takenBigYears.has(profile.birthYear + x.age))
-        .sort((a, b) => b.score - a.score);
+        // a moment slightly too close to the previous decision is shifted later, not dropped
+        .filter((x) => x.age >= lo - 1 && x.age <= hi + 1 && x.age - prevAge >= minGap - 2 && !takenBigYears.has(profile.birthYear + x.age))
+        .sort((a, b) => adj(b) - adj(a));
       let pick: Moment | undefined = inWin.find((x) => !used.has(x.key));
       if (!pick) {
         const age = Math.min(endAge - 3, Math.max(prevAge + minGap, Math.round((lo + hi) / 2)));
         const domain = topDomain(profile, k);
-        pick = { age, domain, key: `stage_${k}`, why: `a turning point in ${domain === "lifeGoals" ? "what this life is for" : domain}`, score: 0 };
+        pick = { age, domain, key: `stage_${k}`, why: GENERIC_STAGE[domain], score: 0 };
       }
       used.add(pick.key);
+      usedDomains.add(pick.domain);
       const age = Math.max(pick.age, prevAge + minGap);
       if (age > endAge - 2) break;
       slots.push({ year: profile.birthYear + age, age, kind: "big", reason: `big:${pick.domain}:${pick.key}: ${pick.why}` });

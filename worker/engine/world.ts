@@ -221,14 +221,14 @@ export interface BudgetLedger {
   parentDeaths: number;
 }
 
-export function ledgerFrom(years: SimYear[]): BudgetLedger {
+export function ledgerFrom(years: SimYear[], world: WorldEvent[] = []): BudgetLedger {
   const l: BudgetLedger = { counts: {}, lastYear: {}, shockYears: [], worldIds: new Set(), parentDeaths: 0 };
-  for (const y of years) for (const e of y.events) recordEvent(l, y.year, e);
+  for (const y of years) for (const e of y.events) recordEvent(l, y.year, e, worldIdFor(world, y.year));
   return l;
 }
 
 export function recordEvent(l: BudgetLedger, year: number, e: LifeEvent, worldId?: string | null) {
-  if (e.category === "world_context" && worldId) l.worldIds.add(worldId);
+  if (e.category === "world_context") l.worldIds.add(worldId ?? `w@${year}`);
   if (PARENT_DEATH_RE.test(`${e.title} ${e.narrative}`)) l.parentDeaths++;
   if (!e.isTurningPoint && e.category !== "world_context") return;
   l.counts[e.category] = (l.counts[e.category] ?? 0) + 1;
@@ -383,3 +383,7 @@ export function sampleCandidates(
 }
 
 export const statDisplay = (id: string | null) => (id ? getBaseRate(id)?.display ?? null : null);
+
+/** The world event a world_context event in `year` refers to (it starts that year or up to 2 before). */
+export const worldIdFor = (world: WorldEvent[], year: number): string | null =>
+  world.find((w) => year >= w.year && year <= w.year + 2)?.id ?? null;

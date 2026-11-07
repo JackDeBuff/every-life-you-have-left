@@ -13,7 +13,7 @@ import {
   ACTIVITIES, AGE_BANDS, FLAVORS, HOMES, MOMENTS, MOODS, ROLES, SEASONS, SETTINGS_PLACE, TIMES, WEATHERS,
   type SceneSpec, type SimYear,
 } from "../../shared/sim";
-import { YearDraft, type EventDraft } from "./schemas";
+import { STATE_ORDER, YearC, type EventDraft, type YearDraft } from "./schemas";
 import { clamp, clampInt, truncateWords } from "./util";
 import { CATEGORY_RULES, flavorFor, PARENT_DEATH_RE, recordEvent, selfAgeBand, SHOCK_CATEGORIES, snowPlausible, type BudgetLedger } from "./world";
 
@@ -54,62 +54,93 @@ const DEFAULT_SCENE: SceneSpec = {
 
 function coerceEvent(raw: unknown): EventDraft {
   const e = obj(raw);
-  const cause = obj(e.cause);
-  const br = obj(e.baseRate);
+  const q = typeof e.q === "string" && e.q.trim() ? e.q.trim() : null;
   return {
-    domain: pick(e.domain, DOMAIN_KEYS, "lifeGoals"),
-    category: pick(e.category, EVENT_CATEGORIES, "texture"),
-    title: str(e.title, "A small change"),
-    narrative: str(e.narrative),
-    isTurningPoint: e.isTurningPoint === true,
-    cause: typeof cause.quoteId === "string" ? { quoteId: cause.quoteId, reason: str(cause.reason) } : null,
-    baseRate: typeof br.statId === "string" && isBaseRateId(br.statId) ? { statId: br.statId } : null,
+    domain: pick(e.d, DOMAIN_KEYS, "lifeGoals"),
+    category: pick(e.c, EVENT_CATEGORIES, "texture"),
+    title: str(e.t, "A small change"),
+    narrative: str(e.n),
+    isTurningPoint: e.tp === true,
+    cause: q ? { quoteId: q, reason: str(e.why) } : null,
+    baseRate: typeof e.st === "string" && isBaseRateId(e.st) ? { statId: e.st } : null,
     tone: pick(e.tone, ["up", "down", "mixed"] as const, "mixed"),
-    worldId: typeof e.worldId === "string" ? e.worldId : null,
+    worldId: typeof e.w === "string" && e.w ? e.w : null,
   };
 }
 
+function coercePeople(v: unknown, fallback: SceneSpec["people"]): SceneSpec["people"] {
+  if (!Array.isArray(v)) return fallback.filter((p) => p.role !== "self");
+  const out: SceneSpec["people"] = [];
+  for (const tag of v) {
+    if (typeof tag !== "string") continue;
+    const [role, band] = tag.split(":");
+    if (!role || role === "self" || !(ROLES as readonly string[]).includes(role)) continue;
+    out.push({ role: role as SceneSpec["people"][number]["role"], ageBand: pick(band, AGE_BANDS, "adult") });
+  }
+  return out;
+}
+
+/**
+ * Expand the model's compact year (schemas.ts YearC) into a YearDraft, tolerating missing or
+ * malformed fields (filled from the previous year). schemaOk = the raw JSON passed YearC as-is.
+ */
 export function coerceYear(raw: unknown, prev: SimYear | null): { draft: YearDraft; schemaOk: boolean } {
-  const parsed = YearDraft.safeParse(raw);
-  if (parsed.success) return { draft: parsed.data, schemaOk: true };
+  const schemaOk = YearC.safeParse(raw).success;
   const y = obj(raw);
-  const states = obj(y.states);
-  const money = obj(y.money);
-  const scene = obj(y.scene);
+  const k = Array.isArray(y.k) ? y.k : [];
+  const sc = obj(y.sc);
   const ps = prev?.scene ?? DEFAULT_SCENE;
+  const place = str(y.p, prev?.place ?? "");
   const draft: YearDraft = {
-    year: typeof y.year === "number" ? y.year : 0,
-    age: typeof y.age === "number" ? y.age : 0,
-    place: str(y.place, prev?.place ?? ""),
-    events: Array.isArray(y.events) ? y.events.map(coerceEvent) : [],
-    summary: str(y.summary, "A quiet year."),
+    year: typeof y.y === "number" ? y.y : 0,
+    age: 0,
+    place,
+    events: Array.isArray(y.e) ? y.e.map(coerceEvent) : [],
+    summary: str(y.s, "A quiet year."),
     money: {
-      income: clampInt(money.income, 0, 50_000_000, prev?.money.income ?? 0),
-      netWorth: clampInt(money.netWorth, -5_000_000, 500_000_000, prev?.money.netWorth ?? 0),
+      income: clampInt(y.inc, 0, 50_000_000, prev?.money.income ?? 0),
+      netWorth: clampInt(y.nw, -5_000_000, 500_000_000, prev?.money.netWorth ?? 0),
     },
-    states: Object.fromEntries(DOMAIN_KEYS.map((d) => [d, clampInt(states[d], 0, 100, prev?.states[d] ?? 50)])) as DomainStates,
+    states: Object.fromEntries(STATE_ORDER.map((d, i) => [d, clampInt(k[i], 0, 100, prev?.states[d] ?? 50)])) as DomainStates,
     scene: {
-      setting: pick(scene.setting, SETTINGS_PLACE, ps.setting),
-      flavor: pick(scene.flavor, FLAVORS, ps.flavor),
-      placeLabel: str(scene.placeLabel, ps.placeLabel),
-      home: pick(scene.home, HOMES, ps.home),
-      activity: pick(scene.activity, ACTIVITIES, ps.activity),
-      people: Array.isArray(scene.people)
-        ? scene.people.map((p) => {
-            const o = obj(p);
-            return { role: pick(o.role, ROLES, "friend"), ageBand: pick(o.ageBand, AGE_BANDS, "adult") };
-          })
-        : ps.people,
-      season: pick(scene.season, SEASONS, ps.season),
-      timeOfDay: pick(scene.timeOfDay, TIMES, ps.timeOfDay),
-      weather: pick(scene.weather, WEATHERS, ps.weather),
-      mood: pick(scene.mood, MOODS, ps.mood),
-      moment: typeof scene.moment === "string" && (MOMENTS as readonly string[]).includes(scene.moment) ? (scene.moment as SceneSpec["moment"]) : null,
-      caption: str(scene.caption),
+      setting: pick(sc.set, SETTINGS_PLACE, ps.setting),
+      flavor: pick(sc.fl, FLAVORS, ps.flavor),
+      placeLabel: place || ps.placeLabel,
+      home: pick(sc.home, HOMES, ps.home),
+      activity: pick(sc.act, ACTIVITIES, ps.activity),
+      people: [{ role: "self", ageBand: "adult" }, ...coercePeople(sc.ppl, ps.people)],
+      season: pick(sc.sea, SEASONS, ps.season),
+      timeOfDay: pick(sc.tod, TIMES, ps.timeOfDay),
+      weather: pick(sc.wx, WEATHERS, ps.weather),
+      mood: pick(sc.mood, MOODS, ps.mood),
+      moment: typeof sc.mom === "string" && (MOMENTS as readonly string[]).includes(sc.mom) ? (sc.mom as SceneSpec["moment"]) : null,
+      caption: str(sc.cap),
     },
   };
-  return { draft, schemaOk: false };
+  return { draft, schemaOk };
 }
+
+/** The compact form of a checked year, for repair prompts. */
+export function compactOf(d: YearDraft): YearC {
+  return {
+    y: d.year,
+    p: d.place,
+    e: d.events.map((e) => ({
+      d: e.domain, c: e.category, t: e.title, n: e.narrative, tp: e.isTurningPoint, q: e.cause?.quoteId ?? null,
+      why: e.cause?.reason ?? null, st: e.baseRate?.statId ?? null, tone: e.tone, w: e.worldId,
+    })),
+    s: d.summary,
+    inc: d.money.income,
+    nw: d.money.netWorth,
+    k: STATE_ORDER.map((s) => d.states[s]),
+    sc: {
+      set: d.scene.setting, fl: d.scene.flavor, home: d.scene.home, act: d.scene.activity,
+      ppl: d.scene.people.filter((p) => p.role !== "self").map((p) => `${p.role}:${p.ageBand}`),
+      sea: d.scene.season, tod: d.scene.timeOfDay, wx: d.scene.weather, mood: d.scene.mood, mom: d.scene.moment, cap: d.scene.caption,
+    },
+  };
+}
+
 
 // ---------------------------------------------------------------------------------------------
 // Validation context

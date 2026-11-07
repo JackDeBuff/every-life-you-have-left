@@ -155,8 +155,54 @@ export const YearDraft = z.object({
 });
 export type YearDraft = z.infer<typeof YearDraft>;
 
-export const YearsLLM = z.object({ years: z.array(YearDraft) });
-export const OneYearLLM = z.object({ year: YearDraft });
+/**
+ * What the model actually writes per year: short keys, states as a fixed-order array, people as
+ * "role:ageBand" tags. ~2.5x fewer output tokens than YearDraft (measured 490 → ~200 tokens/year
+ * on gemini-3.8-flash at ~130 tok/s), which is what keeps generation ahead of Auto playback.
+ * Code expands it into YearDraft (validate.ts coerceYear) and then SimYear.
+ */
+export const STATE_ORDER = ["career", "wealth", "achievement", "family", "relationships", "children", "mentalHealth", "happiness", "lifeGoals", "risk"] as const;
+export const PEOPLE_TAGS = ROLES.filter((r) => r !== "self").flatMap((r) => AGE_BANDS.map((b) => `${r}:${b}`)) as [string, ...string[]];
+
+export const EventC = z.object({
+  d: DomainKey.describe("domain"),
+  c: EventCategory.describe("category"),
+  t: z.string().describe("title, <= 8 words"),
+  n: z.string().describe("narrative: 1-2 concrete sentences, <= 30 words, present tense, second person"),
+  tp: z.boolean().describe("isTurningPoint"),
+  q: z.string().nullable().describe("cause quote id (required when tp)"),
+  why: z.string().nullable().describe("one sentence linking their words to this event (required when tp)"),
+  st: z.enum(BASE_RATE_IDS).nullable().describe("base-rate statId, only when it genuinely applies"),
+  tone: Tone,
+  w: z.string().nullable().describe("world event id, world_context only"),
+});
+export const SceneC = z.object({
+  set: z.enum(SETTINGS_PLACE),
+  fl: z.enum(FLAVORS),
+  home: z.enum(HOMES),
+  act: z.enum(ACTIVITIES),
+  ppl: z.array(z.enum(PEOPLE_TAGS)).max(5).describe('everyone in their life this year besides self, as "role:ageBand"'),
+  sea: z.enum(SEASONS),
+  tod: z.enum(TIMES),
+  wx: z.enum(WEATHERS),
+  mood: z.enum(MOODS),
+  mom: z.enum(MOMENTS).nullable(),
+  cap: z.string().describe("caption, <= 8 words"),
+});
+export const YearC = z.object({
+  y: int().describe("year"),
+  p: z.string().describe("place"),
+  e: z.array(EventC).max(3),
+  s: z.string().describe("summary, <= 18 words"),
+  inc: int().describe("income USD"),
+  nw: int().describe("net worth USD"),
+  k: z.array(z.number().int().min(0).max(100)).min(10).max(10).describe(`states in this order: ${STATE_ORDER.join(", ")}`),
+  sc: SceneC,
+});
+export type YearC = z.infer<typeof YearC>;
+
+export const YearsLLM = z.object({ years: z.array(YearC) });
+export const OneYearLLM = z.object({ year: YearC });
 
 // ---------------------------------------------------------------------------------------------
 // Settings, interlude, ending, safety

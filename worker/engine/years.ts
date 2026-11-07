@@ -13,8 +13,8 @@ import type { Caller, Tier } from "./models";
 import { COARSE_ADDENDUM, REPAIR_SYSTEM, repairPrompt, YEARS_SYSTEM, yearsPrompt } from "./prompts/years";
 import { OneYearLLM, YearsLLM } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
-import { clicheCount, checkYear, coerceYear, fallbackYear } from "./validate";
-import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay } from "./world";
+import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
+import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor } from "./world";
 import { rng, shuffled, usd } from "./util";
 
 export interface YearMetric {
@@ -24,6 +24,8 @@ export interface YearMetric {
   model: string;
   schemaOk: boolean;
   hardErrors: number;
+  /** First-pass hard errors (what the repair call was asked to fix). */
+  errors: string[];
   repaired: boolean;
   fallback: boolean;
   softFixes: number;
@@ -62,8 +64,8 @@ export interface LifeSpec {
 
 const BASE_RATES_TEXT = baseRatesBlock();
 
-function budgetBlock(past: SimYear[], span: number, firstYear: number): string {
-  const l = ledgerFrom(past);
+function budgetBlock(past: SimYear[], span: number, firstYear: number, world: WorldEvent[]): string {
+  const l = ledgerFrom(past, world);
   const lines: string[] = [];
   for (const [cat, rule] of Object.entries(CATEGORY_RULES)) {
     const used = l.counts[cat as keyof typeof l.counts] ?? 0;
@@ -146,7 +148,7 @@ export async function writeYears(env: WriterEnv, spec: LifeSpec, targetYears: nu
       written.push(y);
       onYear?.(y);
       env.onMetric?.({
-        kind: "year", lifeId: spec.idPrefix, year, model: "code", schemaOk: false, hardErrors: 0, repaired: false, fallback: true,
+        kind: "year", lifeId: spec.idPrefix, year, model: "code", schemaOk: false, hardErrors: 0, errors: [], repaired: false, fallback: true,
         softFixes: 0, cliches: 0, turningPoints: 0, filler: true, atMs: Date.now() - t0,
       });
     }
@@ -159,7 +161,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const { profile, call } = env;
   const first = years[0]!;
   const last = years[years.length - 1]!;
-  const ledger = ledgerFrom(past);
+  const ledger = ledgerFrom(past, env.world);
   const busy = new Set<number>(years.filter((y) => spec.decisionIdsFor(y).length > 0).flatMap((y) => [y, y + 1]));
   const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const step = spec.coarse ? 5 : 1;
@@ -189,19 +191,19 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     person: personBlock(profile),
     quotes: quotesBlock(profile),
     focusQuotes: focus,
-    lifeSoFar: lifeSoFarBlock(past),
+    lifeSoFar: lifeSoFarBlock(past, spec.coarse ? 16 : 40),
     decisions: spec.decisions,
     mustShow: spec.mustShow,
     settings: spec.settings,
     world: worldBlock(worldInSpan),
-    budget: budgetBlock(past, env.span, first),
+    budget: budgetBlock(past, env.span, first, env.world),
     quiet: quiet.length ? quiet.join(", ") : "(none required in this stretch)",
     anchors,
     candidates: cands.length
       ? cands.map((c) => `${c.year} (${c.age}): ${c.category}, ${c.hint}${c.statId ? ` [${c.statId}: ${statDisplay(c.statId)}]` : ""}`).join("\n")
       : "(nothing sampled: let it be ordinary)",
     attention: attention || "(no strong worries; spread attention evenly)",
-    baseRates: BASE_RATES_TEXT,
+    baseRates: spec.coarse ? "(coarse mode: set st to null)" : BASE_RATES_TEXT,
     task,
   });
   const system = spec.coarse ? `${YEARS_SYSTEM}\n\n${COARSE_ADDENDUM}` : YEARS_SYSTEM;
@@ -228,6 +230,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     };
     let check = checkYear(draft, ctx);
     const hardErrors = check.hard.length;
+    const errors = check.hard.slice(0, 5);
     let repaired = false;
     let fallback = false;
     if (check.hard.length) {
@@ -237,7 +240,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
           purpose: "years.repair",
           system: REPAIR_SYSTEM,
           prompt: repairPrompt({
-            yearJson: JSON.stringify(draft),
+            yearJson: JSON.stringify(compactOf(draft)),
             errors: check.hard,
             quotes: quotesText,
             context: `${spec.lifeLabel}\nPrevious year: ${prev ? `${prev.year} ${prev.summary}` : "(none)"}`,
@@ -263,12 +266,12 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
       }
     }
     const y = check.year;
-    for (const e of y.events) recordEvent(ledger, y.year, e, null);
+    for (const e of y.events) recordEvent(ledger, y.year, e, worldIdFor(env.world, y.year));
     lastEmitted.push(y);
     emitted++;
     emit(y);
     env.onMetric?.({
-      kind: "year", lifeId: spec.idPrefix, year, model, schemaOk, hardErrors, repaired, fallback, softFixes: check.soft.length,
+      kind: "year", lifeId: spec.idPrefix, year, model, schemaOk, hardErrors, errors, repaired, fallback, softFixes: check.soft.length,
       cliches: clicheCount(`${y.summary} ${y.events.map((e) => `${e.title} ${e.narrative}`).join(" ")}`),
       turningPoints: y.events.filter((e) => e.isTurningPoint).length, filler: false, atMs: Date.now() - t0,
     });
@@ -282,7 +285,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
       prompt,
       schema: YearsLLM,
       maxOutputTokens: Math.min(16000, 900 + years.length * (spec.coarse ? 700 : 600)),
-      hedgeMs: 9000,
+      hedgeMs: spec.tier === "branch" ? 3500 : 5000,
     })) {
       for (const item of extractor.feed(delta)) await handle(item);
     }
