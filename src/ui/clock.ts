@@ -4,7 +4,7 @@
  * scale, and calls sim.tick(year) when a year completes. Rules:
  *  - runs only in phase "playing" and not paused; big decisions (phase "deciding") and the
  *    interlude stop it, and so do UI holds (the fork moment, a world moment's cinematic)
- *  - a pending small decision slows it to 0.25× (the card slides itself after smallTimeoutSec of
+ *  - a pending small decision slows it to 0.5× (the card slides itself after smallTimeoutSec of
  *    idle time); typing an answer into a small card holds it
  *  - it never runs past `bufferedTo`: when the buffer is behind it waits at the year's end and
  *    reports `starved` (the world shows "life is thinking…")
@@ -15,6 +15,7 @@ import { create } from "zustand";
 import { SPEED_CONFIG } from "../../shared/sim";
 import { typingInSmallCard } from "./activity";
 import { gsap } from "./motion";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, SMALL_DECISION_SCALE } from "./pacing";
 import { sim } from "./session";
 
 type Listener = (yearFloat: number, scale: number) => void;
@@ -92,8 +93,8 @@ class LifeClock {
     const smallPending = s.decisions.some((d) => d.kind === "small" && d.status === "pending");
     // Writing an answer to a small card holds time (the agent keeps one small card open at a time).
     const playing = s.phase === "playing" && !s.playhead.paused && this.holds.size === 0 && !document.hidden && !typingInSmallCard();
-    const target = playing ? (smallPending ? 0.25 : 1) : 0;
-    const k = Math.min(1, dtMs / (target < this.scale ? 260 : 600));
+    const target = playing ? (smallPending ? SMALL_DECISION_SCALE : 1) : 0;
+    const k = Math.min(1, dtMs / (target < this.scale ? CLOCK_EASE_OUT_MS : CLOCK_EASE_IN_MS));
     this.scale += (target - this.scale) * k;
     if (Math.abs(this.scale - target) < 0.002) this.scale = target;
     // Leaving a decision or an interlude starts a fresh year (no carried-over time).

@@ -30,10 +30,12 @@ export interface SpeedConfig {
   interludeEveryYears: number | null;
 }
 
+// Small budgets amended Sat Nov 7 (D-081 note): ~1 small decision a year at 1x, one every ~1.5
+// years at 2x, one every ~3 years at 4x (was 200/100/50: 2-4 a year kept 2x slowed nearly always).
 export const SPEED_CONFIG: Record<SpeedMode, SpeedConfig> = {
-  "1x": { smallBudget: 200, bigBudget: 20, secondsPerYear: 6, smallTimeoutSec: null, interludeEveryYears: 10 },
-  "2x": { smallBudget: 100, bigBudget: 10, secondsPerYear: 4, smallTimeoutSec: 12, interludeEveryYears: 10 },
-  "4x": { smallBudget: 50, bigBudget: 5, secondsPerYear: 2, smallTimeoutSec: 12, interludeEveryYears: null },
+  "1x": { smallBudget: 45, bigBudget: 20, secondsPerYear: 6, smallTimeoutSec: null, interludeEveryYears: 10 },
+  "2x": { smallBudget: 30, bigBudget: 10, secondsPerYear: 4, smallTimeoutSec: 12, interludeEveryYears: 10 },
+  "4x": { smallBudget: 15, bigBudget: 5, secondsPerYear: 2, smallTimeoutSec: 10, interludeEveryYears: null },
   auto: { smallBudget: 0, bigBudget: 5, secondsPerYear: 1.5, smallTimeoutSec: null, interludeEveryYears: null },
 };
 

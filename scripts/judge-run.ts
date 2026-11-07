@@ -14,7 +14,7 @@
  */
 import { applyServerMsg, agentPath, isServerMsg, type AgentState, type AnswerInput } from "../worker/agent/protocol";
 import { SPEED_CONFIG, type SimYear, type StartInput } from "../shared/sim";
-import { cutSecondsFor, FORK_MOMENT_S, MOMENT_RULES, playableMoments, SMALL_DECISION_SCALE } from "../src/ui/pacing";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, cutSecondsFor, FORK_MOMENT_S, MOMENT_RULES, playableMoments, SMALL_DECISION_SCALE } from "../src/ui/pacing";
 
 const args = process.argv.slice(2);
 const flag = (name: string, dflt: string) => {
@@ -99,6 +99,14 @@ interface Fork {
 const forks: Fork[] = [];
 let firstCard: number | null = null;
 let starvedS = 0;
+/** Starved stretches: the playhead waiting at a year for the agent (buffer behind, gate, ending). */
+const starves: { at: number; year: number; s: number; why: string }[] = [];
+const starve = (year: number, dt: number, why: string) => {
+  starvedS += dt;
+  const cur = starves.at(-1);
+  if (cur && cur.year === year && T() - (cur.at + cur.s) < 0.2) cur.s += dt;
+  else starves.push({ at: T(), year, s: dt, why });
+};
 let momentsPlayed = 0;
 let momentHoldS = 0;
 let ended: number | null = null;
@@ -183,7 +191,7 @@ function frame() {
   const held = now < forkUntil || now < momentUntil;
   const playing = s.phase === "playing" && !s.playhead.paused && !held;
   const target = playing ? (smallPending ? (legacy ? 0.25 : SMALL_DECISION_SCALE) : 1) : 0;
-  const k = Math.min(1, dt / (target < scale ? 260 : 600));
+  const k = Math.min(1, dt / (target < scale ? (legacy ? 260 : CLOCK_EASE_OUT_MS) : legacy ? 600 : CLOCK_EASE_IN_MS));
   scale += (target - scale) * k;
   if (Math.abs(scale - target) < 0.002) scale = target;
   if (s.phase !== "playing" && awaiting === null) progress = 0;
@@ -197,7 +205,7 @@ function frame() {
         void call("tick", next).catch(() => {});
       } else {
         progress = 1;
-        if (playing && !buffered) starvedS += dt / 1000;
+        if (playing && !buffered) starve(year, dt / 1000, `buffer ${s.bufferedTo}`);
       }
     } else {
       progress = Math.min(progress, 1.5);
@@ -205,7 +213,7 @@ function frame() {
         sentAt = now;
         void call("tick", awaiting).catch(() => {});
       }
-      if (playing && now - sentAt > 300) starvedS += dt / 1000;
+      if (playing && now - sentAt > 300) starve(year, dt / 1000, s.thinking ? "agent thinking" : "tick unconfirmed");
     }
   }
 }
@@ -252,6 +260,7 @@ async function main() {
     const fy = f.firstYear !== null && f.answered !== null ? f.firstYear - f.answered : null;
     console.log(`${String(i + 1).padStart(4)} ${String(f.age).padStart(4)} ${fmt(f.shown)} ${fmt(f.answered)}  ${fmt(f.cuts)}  ${fmt(f.ilStart)}  ${fmt(f.ilEnd)}  ${fmt(f.resumed)}     ${fmt(ac)}        ${fmt(ar)}      ${fmt(fy)}${f.skipped ? "  (interlude skipped)" : ""}  ${f.choice}`);
   }
+  for (const x of starves.filter((x) => x.s >= 0.4)) console.log(`  starved ${x.s.toFixed(1)} s at ${x.at.toFixed(1)} s, year ${x.year} (${x.why})`);
   const end = s.profile!.birthYear + s.endAge;
   const lives = [
     { title: "Your life", y: lastOf(s.years) },

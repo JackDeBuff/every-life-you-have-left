@@ -46,13 +46,15 @@ The life runs from the user's current age to `endAge` (70, or current age + 15 i
 
 | Speed | Small decisions (whole life) | Big decisions | Pace (target) |
 |---|---|---|---|
-| 1× | ~200 | ~20 | ~6 s per year + decisions (a long, deep session) |
-| 2× | ~100 | ~10 | ~4 s per year |
-| 4× | ~50 | ~5 | ~2 s per year |
+| 1× | ~45 (about 1 a year) | ~20 | ~6 s per year + decisions (a long, deep session) |
+| 2× | ~30 (1 every ~1.5 years) | ~10 | ~4 s per year |
+| 4× | ~15 (1 every ~3 years) | ~5 | ~2 s per year |
 | **Auto (judge mode)** | **0** | **5** | ~1.5 s per year. The whole run takes **≤3 min**, decisions included |
 
-- **Small decisions** don't stop time. They slide into the chat and the clock slows to 0.25×. If
-  there's no answer within ~12 s at 2×/4× (no limit at 1×), the decision fades as "let it slide".
+- **Small decisions** don't stop time. They slide into the chat and the clock slows to 0.5×. If
+  there's no answer within ~12 s (2×) / ~10 s (4×) of idle time (no limit at 1×), the decision
+  fades as "let it slide". One small card at a time; none next to a fork. (Numbers amended Sat
+  Nov 7, see D-081.)
   That is logged, and the life follows its inertia. They are spread across the life and **weighted
   toward the domains the user worries about**. Their job is to learn who the user is, so each one
   should cover a gap in the profile.
