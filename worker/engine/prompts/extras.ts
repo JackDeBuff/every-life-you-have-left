@@ -59,6 +59,11 @@ export const ENDING_SYSTEM = `You write the ending of "Every Life You Have Left"
 2. fiveYear: their answer to the interview question "Where do you see yourself in five years?", as they could say it at the START of that life (today for the chosen life, or the fork age for the others). 3-4 first-person sentences a real interviewee could say out loud in 30 seconds: built from the real milestones of that life's next five years and their own words (reuse a phrase of theirs if it fits). Confident but honest, no fortune-telling ("I'll definitely..."), nothing too private for an interview.
    Good: "In five years I see myself leading a small analytics team, probably in Singapore. I want work where the numbers end up somewhere real. I'll have paid off my loans, which matters to me more than it sounds. And I'll still call my mom every Sunday."
 
+3. postcard (once, for the chosen life): 1-2 sentences they write at the end age to themselves today, about one concrete thing only THIS life had (a person, a place, a year, an object). Hindsight, not advice: no "should", no lessons.
+   Good: "The four o'clock walks home were the best thing you ever said yes to. The drawings you kept are on my fridge."
+
+People: only the people listed in each life's AT THE END block exist in that life, at exactly those ages.
+
 ${VOICE}
 
 ${CONTENT_LINE}`;

@@ -10,6 +10,8 @@ ${VOICE}
 
 THE CARD
 - prompt: the question, set in the moment, <= 30 words. Start with the moment, concretely ("It's 2029. Singapore wants an answer by Friday."), name the real people and places of THIS life, and end with one direct question. Present tense, second person.
+- Write it from the NOW block: where they live now, what they do now (retired means retired), who is in their life now and their exact ages. Never put them back in a place or job they've left, never give them a partner, child or pet the NOW block doesn't list, never compute an age yourself. Today's date is given: a card in the current year never happens in a month or season that has already passed.
+- Each fork is about something new. Don't make this card about the subject of an earlier fork (the same offer, city, person or question) unless the life genuinely comes back to it years later, and then say so ("Amsterdam asks again, six years on").
 - whyAsking: one line, <= 20 words, that cites what they said, in their words where possible ("You said money scares you; this is the first big money move."). whyQuoteId = the id of the quote you cite (or null if none fits).
 - options: exactly 4 forks. Each has:
   - label: <= 10 words, first person, a concrete choice ("Take Singapore, call Mom every Sunday").
@@ -36,11 +38,17 @@ export function bigDecisionPrompt(o: {
   startLine: string;
   stage: string;
   world: string;
+  /** The NOW block (context.ts nowContext). */
+  now?: string;
+  /** Earlier forks in this life: what was asked and what they chose. */
+  earlier?: string;
+  /** Problems with the previous draft, to fix in this one. */
+  feedback?: string;
 }): string {
   const moment = o.isFirst
     ? `This is the FIRST decision, today (${o.year}, age ${o.age}), right after they told us what's on their mind:\n"${o.startLine}"\nMake it about exactly that: the crossroads they named or implied. If they didn't name one, find the real tension in their words and make it a choice they could actually face this month.`
     : `This decision comes in ${o.year}, at ${o.age}. The life-stage moment: ${o.stage}.\nMake it grow out of THIS life as it stands now (the years so far, the people in it, the money). It must not repeat an earlier decision.`;
-  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nTHE LIFE SO FAR\n${o.lifeSoFar}\n\nDECISIONS SO FAR\n${o.decisions}\n\nWORLD\n${o.world}\n\nTHE MOMENT\n${moment}\n\nWrite the decision card JSON.`;
+  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nTHE LIFE SO FAR\n${o.lifeSoFar}\n\nDECISIONS SO FAR\n${o.decisions}\n\n${o.now ? `${o.now}\n\n` : ""}${o.earlier ? `EARLIER FORKS (each new fork is about something else, unless it is framed as that subject coming back)\n${o.earlier}\n\n` : ""}WORLD\n${o.world}\n\nTHE MOMENT\n${moment}\n\n${o.feedback ? `YOUR LAST DRAFT BROKE THE FACTS OF THIS LIFE. Fix all of these:\n${o.feedback}\n\n` : ""}Write the decision card JSON.`;
 }
 
 export const SMALL_DECISION_SYSTEM = `You write SMALL decision cards for "Every Life You Have Left". A small decision slides into the chat while the person's simulated life keeps playing. It doesn't split the life; it teaches us who they are, so later years feel like theirs.
@@ -48,8 +56,10 @@ export const SMALL_DECISION_SYSTEM = `You write SMALL decision cards for "Every 
 ${VOICE}
 
 THE CARD
-- Aim at the gap you are given: something we don't know yet. The best ones are the things people never tell their AI: what their family expects, the 2am money thought, what they're afraid of, who they'd call, what they'd do if nobody judged.
-- prompt: a tiny, concrete scene in this year of their life + one question, <= 30 words. ("It's a Sunday in March. Your mom asks when you're moving back. What do you say?")
+- Aim at the gap you are given: something we don't know yet. The best ones are the things people never tell their AI: what their family expects, the money worry they keep to themselves, what they're afraid of, who they'd call, what they'd do if nobody judged.
+- prompt: a tiny, concrete scene in this year of their life + one question, <= 30 words. ("Your mom asks, again, when you're moving back. What do you say?")
+- Set it in THIS life as it is now (the NOW block): their real place, work, people and ages. Never a partner, child or pet the NOW block doesn't list; never an age you worked out yourself.
+- Vary the moment. Most cards need no time of day at all; never reuse a time of day, setting or device from the recent cards (no late-night/2am scenes back to back, not every card on the phone or at the kitchen table).
 - whyAsking: <= 20 words, why this matters for their life, citing their words when you can. whyQuoteId = the quote id you cite, or null.
 - options: exactly 4 short answers (<= 10 words, first person), each revealing something different about the person. Not right/wrong, not a scale of the same thing. hint null unless a 6-word trade-off helps. branchTitle null. lean: tag each with the direction it shows (path, leap, careful, unjudged), each once.
 - placeholder: invites a sentence of their own ("Or say it your way...").
@@ -64,8 +74,12 @@ export function smallDecisionPrompt(o: {
   domain: string;
   gap: string;
   asked: string;
+  now?: string;
+  /** Framings the recent cards used (time of day, setting, device): don't reuse. */
+  avoid?: string;
+  feedback?: string;
 }): string {
-  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nRECENT YEARS OF THIS LIFE\n${o.recent}\n\nALREADY ASKED (don't repeat)\n${o.asked || "(nothing yet)"}\n\nTHE MOMENT\n${o.year}, age ${o.age}. Domain: ${o.domain}. Gap to fill: ${o.gap}\n\nWrite the small decision card JSON.`;
+  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nRECENT YEARS OF THIS LIFE\n${o.recent}\n\n${o.now ? `${o.now}\n\n` : ""}ALREADY ASKED (don't repeat)\n${o.asked || "(nothing yet)"}\n\n${o.avoid ? `RECENT CARDS ALREADY USED THESE MOMENTS (pick a different one): ${o.avoid}\n\n` : ""}THE MOMENT\n${o.year}, age ${o.age}. Domain: ${o.domain}. Gap to fill: ${o.gap}\n\n${o.feedback ? `YOUR LAST DRAFT HAD THESE PROBLEMS. Fix all of them:\n${o.feedback}\n\n` : ""}Write the small decision card JSON.`;
 }
 
 export const ANSWER_SYSTEM = `You fold one answer into a person's profile for a life simulator. They answered a decision card by tapping an option and/or writing in their own words.
