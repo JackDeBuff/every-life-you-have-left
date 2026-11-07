@@ -210,7 +210,9 @@ export function createSmallKit(call: Caller, today: () => Date, at: () => string
   function quoteAnswer(state: SessionState, decision: Decision, answer: DecisionAnswer): { profile: Profile; quote: Quote | null } {
     const profile = state.profile!;
     const text = answer.text?.trim() ?? "";
-    const answered = state.answers.filter((a) => a.decisionId !== decision.id).length + 1;
+    // The warm-up's answers count too (D-090): they were in the score the user saw before this one.
+    const warm = (state as SessionState & { warmup?: { questions: { status: string }[] } | null }).warmup;
+    const answered = state.answers.filter((a) => a.decisionId !== decision.id).length + 1 + (warm?.questions.filter((q) => q.status === "answered").length ?? 0);
     const quote: Quote | null =
       wordCount(text) >= 2 ? { id: `q${nextQuoteIndex(profile.quotes)}`, text, questionId: decision.id, source: "answer", shortForm: truncateWords(text, 12) } : null;
     const next: Profile = { ...profile, quotes: quote ? [...profile.quotes, quote] : profile.quotes, profileVersion: profile.profileVersion + 1, updatedAt: at() };
