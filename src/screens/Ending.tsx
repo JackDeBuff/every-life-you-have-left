@@ -9,6 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
+import { YourWords } from "../ui/ending/YourWords";
+import { yourWords } from "../ui/ending/influence";
 import { CURRENCIES, RATES_AS_OF } from "../../shared/currency";
 import { money, moneyHint, ROMAN, useCurrency } from "../ui/format";
 import { Icon } from "../ui/icons";
@@ -70,6 +72,7 @@ export default function Ending() {
   }, []);
 
   const quotes = p.quotes;
+  const hasWords = useMemo(() => yourWords(s, 1).length > 0, [s.profile, s.years, s.decisions, s.answers]); // eslint-disable-line react-hooks/exhaustive-deps
   // The postcard quotes the most "you" sentence: a want or a fear, not a job title.
   const heartQuote =
     [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
@@ -146,9 +149,11 @@ export default function Ending() {
         <p className="lives-note small faint">Side by side, not ranked. Money is a projection in today's {CURRENCIES[cur].noun}, not a prediction{cur === "USD" ? "" : ` ($1 = ${CURRENCIES[cur].symbol}${CURRENCIES[cur].perUsd}, ${RATES_AS_OF})`}.</p>
       </section>
 
+      <YourWords label="Two" />
+
       <section className="end-sec post-sec">
         <div className="sec-head">
-          <p className="label">Two</p>
+          <p className="label">{hasWords ? "Three" : "Two"}</p>
           <h2>A postcard from {s.endAge}</h2>
         </div>
         <Postcard
@@ -167,7 +172,7 @@ export default function Ending() {
 
       <section className="end-sec">
         <div className="sec-head">
-          <p className="label">Three</p>
+          <p className="label">{hasWords ? "Four" : "Three"}</p>
           <h2>Where do you see yourself in five years?</h2>
           <p className="muted">Every interview asks. Here's your answer, in your words, for each life.</p>
         </div>
@@ -176,7 +181,7 @@ export default function Ending() {
 
       <section className="end-sec" ref={talkRef}>
         <div className="sec-head">
-          <p className="label">Four</p>
+          <p className="label">{hasWords ? "Five" : "Four"}</p>
           <h2>Talk to any version of you</h2>
           <p className="muted">
             {p.knowMeScore >= TWIN_THRESHOLD
