@@ -12,7 +12,7 @@ import * as Slider from "@radix-ui/react-slider";
 import * as Switch from "@radix-ui/react-switch";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { LiveSetting } from "../../../shared/sim";
+import { SPEED_CONFIG, type LiveSetting, type SpeedMode } from "../../../shared/sim";
 import { Icon } from "../icons";
 import { gsap, reducedMotion } from "../motion";
 import { sim, useSim } from "../session";
@@ -20,8 +20,12 @@ import { sim, useSim } from "../session";
 /** The open decision the right pane is showing, if any. */
 export type PendingCard = { id: string; big: boolean } | null;
 
-/** After a card resolves, wait a beat before re-opening: at 2×/4× the next small card is often seconds away. */
-const REOPEN_MS = 1400;
+/**
+ * After a card resolves, wait for a quiet stretch before re-opening: at 1×/2×/4× the next small
+ * card is often only seconds away, and the panel shouldn't flap open and shut between them.
+ * About a year and a half of play time (2.25 s in Auto, 6 s at 2×), never under 1.4 s.
+ */
+const reopenMs = (speed: SpeedMode) => Math.max(1400, SPEED_CONFIG[speed].secondsPerYear * 1500);
 
 /**
  * `pending` drives the right pane's auto-collapse (undefined = a plain panel, e.g. the phone's
@@ -54,7 +58,7 @@ export function LiveSettings({ pending, collapsed = false }: { pending?: Pending
       setIdleOpen(true);
       return;
     }
-    const id = window.setTimeout(() => setIdleOpen(true), REOPEN_MS);
+    const id = window.setTimeout(() => setIdleOpen(true), reopenMs(sim().speed));
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, key]);
