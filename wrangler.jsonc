@@ -24,7 +24,13 @@
     // Session engine: "real" = worker/engine/index.ts (falls back to mock if missing), "mock" = engine-mock.ts.
     "ENGINE": "real",
     // Kill switch (D-032): "false" turns all Gemini calls off and forces the mock engine.
-    "GENERATION_ENABLED": "true"
+    "GENERATION_ENABLED": "true",
+    // Spend caps (worker/spend.ts). App-wide, since the ledger started (Sat Nov 7 ~5pm EST, when
+    // $58.76 of the $100 hackathon credit was left): at the cap every model call stops like the
+    // kill switch. Per session: past the soft cap no more small cards; past the hard cap no more calls.
+    "SPEND_CAP_USD": "30",
+    "SESSION_SOFT_CAP_USD": "2.5",
+    "SESSION_HARD_CAP_USD": "5"
   },
   // One SessionAgent (Agents SDK, SQLite-backed Durable Object) per session: /agents/session-agent/<id>
   "durable_objects": {

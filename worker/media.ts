@@ -14,6 +14,7 @@
 import { getAgentByName } from "agents";
 import { Hono } from "hono";
 import { Appearance, PortraitAgeBand, type Portrait } from "../shared/sim";
+import { MEDIA_USD, recordSpend } from "./spend";
 import { GeminiError, GenerationDisabledError, VOICES, b64ToBytes, bindLlm, bytesToB64, generateImage, generateText, transcribe, tts, type LlmEnv } from "./llm";
 
 type AppEnv = { Bindings: Env };
@@ -76,6 +77,7 @@ media.post("/api/transcribe", async (c) => {
   try {
     const t0 = Date.now();
     const text = await transcribe({ mimeType: mime, data: bytesToB64(bytes) }, { signal: c.req.raw.signal });
+    await recordSpend(c.env, MEDIA_USD.transcribe, { now: true });
     return c.json({ ok: true, text, ms: Date.now() - t0 });
   } catch (e) {
     const f = fail(e);
@@ -181,6 +183,7 @@ media.post("/api/portrait", async (c) => {
       }
     }
     const img = await generateImage(prompt, { image, aspectRatio: "1:1", signal: c.req.raw.signal });
+    await recordSpend(c.env, MEDIA_USD.image, { now: true });
     const ext = img.mimeType.includes("jpeg") ? "jpg" : img.mimeType.split("/")[1] ?? "png";
     const unique = `portraits/${sessionId}/${band.data}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
     const meta = { httpMetadata: { contentType: img.mimeType } };
@@ -224,6 +227,7 @@ media.post("/api/tts", async (c) => {
   if (hit) return new Response(hit.body, { headers: { "content-type": "audio/wav", "cache-control": "public, max-age=31536000, immutable", "x-media-url": `/media/${key}` } });
   try {
     const audio = await tts(text, { voice, style, signal: c.req.raw.signal });
+    await recordSpend(c.env, MEDIA_USD.tts, { now: true });
     await c.env.UPLOADS.put(key, audio.bytes, { httpMetadata: { contentType: "audio/wav" } });
     void noteMedia(c.env, key, safeId(body.sessionId), "tts", voice, audio.model);
     return new Response(audio.bytes, { headers: { "content-type": "audio/wav", "cache-control": "no-store", "x-media-url": `/media/${key}`, "x-model": audio.model } });
@@ -273,6 +277,7 @@ media.post("/api/upload", async (c) => {
         const r = await generateText("fast", [
           { role: "user", parts: [{ inlineData: { mimeType: "application/pdf", data: bytesToB64(bytes) } }, { text: "Extract all the text of this document as plain text. No commentary." }] },
         ], { timeoutMs: 45_000 });
+        await recordSpend(c.env, MEDIA_USD.image, { now: true }); // a PDF read: about an image's worth
         text = r.text;
       }
     }

@@ -18,6 +18,7 @@ import { GeminiError, GenerationDisabledError, generate, generationEnabled, stre
 import { bindLlm, type LlmEnv } from "./llm";
 import { media } from "./media";
 import { share } from "./share";
+import { spendStatus } from "./spend";
 import { sseResponse } from "./sse";
 
 export { SessionAgent } from "./agent/session-agent";
@@ -46,6 +47,8 @@ app.get("/api/health", async (c) => {
     engineVar: env.ENGINE ?? "real",
     realEngineBuilt: HAS_REAL_ENGINE,
     db,
+    // App-wide spend since the ledger started (worker/spend.ts); at the cap, model calls stop.
+    spend: await spendStatus(c.env as Env & { SPEND_CAP_USD?: string }),
     models: {
       heavy: c.env.MODEL_HEAVY,
       fast: c.env.MODEL_FAST,

@@ -3,11 +3,13 @@
  * Thinking tokens bill as output. gpt-oss-120b MaaS price is our estimate (not in research/04).
  * Shared by the eval (scripts/eval/pricing.ts) and the session agent's per-session cost tally.
  */
+// Checked against GCP Billing (SKU report, Sat Nov 7): 3.8/3.6 Flash and Argon bill at twice the
+// research/04 figures we started with, so per-session costs before this date read ~half the truth.
 export const PRICES: Record<string, { in: number; out: number; note?: string }> = {
-  "gemini-3.8-flash": { in: 0.75, out: 3.75 },
-  "gemini-3.6-flash": { in: 0.75, out: 3.75 },
+  "gemini-3.8-flash": { in: 1.5, out: 7.5 },
+  "gemini-3.6-flash": { in: 1.5, out: 7.5 },
   "gemini-3.5-flash-lite": { in: 0.3, out: 2.5 },
-  "gemini-4-argon": { in: 2.0, out: 10.0, note: "until Nov 30, then double" },
+  "gemini-4-argon": { in: 4.0, out: 20.0 },
   "openai/gpt-oss-120b-maas": { in: 0.15, out: 0.6, note: "estimate" },
 };
 

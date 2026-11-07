@@ -18,13 +18,14 @@ import { createMockEngine } from "./engine-mock";
 import type { SmallDecisionKit } from "./engine/smalls";
 import type { WarmupPort } from "./engine/warmup";
 import type { YearMetric } from "./engine/years";
-import { bindLlm, generationEnabled, type LlmEnv } from "./llm";
+import { bindLlm, generationEnabled, GenerationDisabledError, type LlmEnv } from "./llm";
+import { overCap } from "./spend";
 
 export type EngineKind = "mock" | "real";
 
 type EngineModule = {
   createEngine?: (arg: never) => Engine;
-  createFetchLlm?: (cfg: { apiKey: string; project: string; location?: string }) => unknown;
+  createFetchLlm?: (cfg: { apiKey: string; project: string; location?: string; fetchImpl?: typeof fetch }) => unknown;
   provisionalProfile?: (input: StartInput) => Profile;
   createWarmup?: (d: { llm: unknown; onUsage?: UsageSink }) => WarmupPort;
   engine?: Engine;
@@ -62,16 +63,30 @@ export type UsageSink = (u: { purpose: string; model: string; inputTokens: numbe
 /** Year-writer outcomes (repaired, fallback, filler): the session agent logs the bad ones for /admin. */
 export type MetricSink = (m: YearMetric) => void;
 
-export async function loadEngine(env: Env, onUsage?: UsageSink, onMetric?: MetricSink): Promise<LoadedEngine> {
+/**
+ * `blocked` (the session agent's per-session hard cap) is checked before every model request, with
+ * the app-wide spend cap (worker/spend.ts). Either one throws GenerationDisabledError, which the
+ * resilient wrapper answers with the offline engine.
+ */
+export async function loadEngine(env: Env, onUsage?: UsageSink, onMetric?: MetricSink, blocked?: () => boolean): Promise<LoadedEngine> {
   bindLlm(env as unknown as LlmEnv);
   if (!wantsReal(env)) return { engine: createMockEngine(), kind: "mock", reason: generationEnabled(env) ? "ENGINE=mock" : "generation_disabled" };
+  if (await overCap(env)) return { engine: createMockEngine(), kind: "mock", reason: "spend_cap" };
   const load = REAL["./engine/index.ts"];
   if (!load) return { engine: createMockEngine(), kind: "mock", reason: "engine_missing" };
   try {
     const mod = await load();
     const llm =
       typeof mod.createFetchLlm === "function"
-        ? mod.createFetchLlm({ apiKey: env.GCP_API_KEY, project: env.GCP_PROJECT, location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global" })
+        ? mod.createFetchLlm({
+            apiKey: env.GCP_API_KEY,
+            project: env.GCP_PROJECT,
+            location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global",
+            fetchImpl: async (input: RequestInfo | URL, init?: RequestInit) => {
+              if (blocked?.() || (await overCap(env))) throw new GenerationDisabledError();
+              return fetch(input, init);
+            },
+          })
         : null;
     type Create = (d: { llm: unknown; models?: Record<string, unknown>; onUsage?: UsageSink; onMetric?: MetricSink }) => Engine;
     const made =

@@ -17,6 +17,8 @@
  */
 import { createParser } from "eventsource-parser";
 
+import { overCap, type SpendEnv } from "./spend";
+
 export type GeminiEnv = Pick<
   Env,
   | "GCP_PROJECT" | "GCP_LOCATION" | "GCP_API_KEY" | "MODEL_HEAVY" | "MODEL_FAST" | "MODEL_QUALITY"
@@ -133,6 +135,8 @@ async function call(
   stream: boolean,
 ): Promise<{ res: Response; model: string; clear: () => void }> {
   if (!generationEnabled(env)) throw new GenerationDisabledError();
+  // App-wide spend cap (worker/spend.ts): at the cap every call behaves like the kill switch.
+  if (await overCap(env as SpendEnv)) throw new GenerationDisabledError();
   if (!env.GCP_API_KEY) throw new GeminiError("GCP_API_KEY is not set", 500, "", false);
   const models = o.models?.length ? o.models : modelChain(env, o.tier ?? "heavy");
   const attempts = o.attempts ?? 2;

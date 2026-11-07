@@ -77,6 +77,7 @@ import {
 } from "../engine/warmup";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
+import { recordSpend } from "../spend";
 import {
   diffState,
   type AgentState,
@@ -321,7 +322,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.knowFloor = this.cur.profile?.knowMeScore ?? 0;
     if (this.cur.phase !== "start" && this.cur.profile) {
       const ph = this.cur.playhead.year;
-      this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => (this.cur!.phase === "warmup" ? sl.year >= ph : sl.year > ph));
+      this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => (this.cur!.phase === "warmup" ? sl.year >= ph : sl.year > ph)); this.checkSoftCap();
     }
     // A cold start mid-warm-up: pick it up from the stored state.
     if (this.cur.phase === "warmup") this.resumeWarmup();
@@ -345,8 +346,31 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   /** Session cost tally (admin + timing runs). Published at most every few seconds. */
   private spend = freshSpend();
   private spendTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Per-session caps (worker/spend.ts): past the soft cap the rest of this life gets no small cards;
+   * past the hard cap the engine's model calls stop (the offline engine finishes the life).
+   */
+  private softCapped = false;
+  private capOf(k: "SESSION_SOFT_CAP_USD" | "SESSION_HARD_CAP_USD", dflt: number): number {
+    const n = Number((this.env as Env & Record<string, string | undefined>)[k]);
+    return Number.isFinite(n) && n > 0 ? n : dflt;
+  }
+  private hardCapped = (): boolean => this.spend.usd >= this.capOf("SESSION_HARD_CAP_USD", 5);
+  private checkSoftCap(): void {
+    if (this.spend.usd < this.capOf("SESSION_SOFT_CAP_USD", 2.5) || !this.slots.some((sl) => sl.kind === "small")) return;
+    // Every slot plan rebuild (speed change, fork, cold start) comes back through here.
+    this.slots = this.slots.filter((sl) => sl.kind !== "small");
+    this.smallQ = [];
+    if (!this.cur) return;
+    this.updateBudgets();
+    this.syncSmallHold();
+    if (this.softCapped) return;
+    this.softCapped = true;
+    void this.mirror.engineLog("warn", "spend.session_soft_cap", `${this.spend.usd.toFixed(2)} USD: no more small cards`);
+  }
   private onUsage: UsageSink = (u) => {
     const c = costOf(u);
+    void recordSpend(this.env, c);
     // Latency trail for timing runs (no personal data): purpose, model, first token, total, cache hits.
     console.log(`[llm] ${u.purpose} ${u.model.replace("gemini-", "")} ft=${u.firstTokenMs ?? "-"} ms=${u.ms} in=${u.inputTokens} cached=${u.cachedTokens ?? 0}${u.hedged ? " hedged" : ""}`);
     this.spend.usd += c;
@@ -361,6 +385,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     d.cachedTok += u.cachedTokens ?? 0;
     d.outTok += u.outputTokens + u.thoughtTokens;
     this.publishSpend();
+    this.checkSoftCap();
   };
   /** Year-writer warnings (a repaired, fallback or filler year) for /admin's Health tab. */
   private onMetric: MetricSink = (m) => {
@@ -389,7 +414,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   private engInfo(): Promise<LoadedEngine> {
     if (!this.enginePromise) {
-      this.enginePromise = loadEngine(this.env, this.onUsage, this.onMetric).then((r) => {
+      this.enginePromise = loadEngine(this.env, this.onUsage, this.onMetric, this.hardCapped).then((r) => {
         this.engineSync = r.engine;
         // SMALL_BATCH=off restores the old small-card path (one card per call, a fold and a
         // re-written future per answer); kept for before/after measurements.
@@ -553,7 +578,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       run.base = base;
       run.rev++;
       this.recomputeWarmProfile(run);
-      this.slots = engine.planSlots(this.s);
+      this.slots = engine.planSlots(this.s); this.checkSoftCap();
       this.updateBudgets();
       this.persistNow();
       void this.mirror.session(this.s, parsed);
@@ -861,7 +886,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (engine) {
       // The answers moved the worries: plan the rest of the life from the final profile.
       try {
-        this.slots = engine.planSlots(this.s);
+        this.slots = engine.planSlots(this.s); this.checkSoftCap();
       } catch {
         /* keep the plan we have */
       }
@@ -1130,7 +1155,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const ph = this.s.playhead.year;
     // (During the warm-up the first fork, at the playhead, is still to come.)
     const warming = !!this.warm && !this.warm.placed;
-    this.slots = engine.planSlots(this.s).filter((sl) => (warming ? sl.year >= ph : sl.year > ph));
+    this.slots = engine.planSlots(this.s).filter((sl) => (warming ? sl.year >= ph : sl.year > ph)); this.checkSoftCap();
     this.skippedSmall.clear();
     this.newContext();
     // Drop future decisions that haven't been reached; the new plan replaces them.
