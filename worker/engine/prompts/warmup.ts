@@ -29,7 +29,8 @@ export const WARM_BANK: WarmBankItem[] = [
     options: [
       ["Studying, with a part-time job. Money's tight", null],
       ["A full-time job I'm unsure about. Money's okay", null],
-      ["Between jobs, and watching every dollar", null],
+      // {unit}: their currency's unit ("every naira"), filled in by warmQuestions()
+      ["Between jobs, and watching every {unit}", null],
       ["A busy career. Money's fine, time isn't", null],
     ],
     domains: ["career", "wealth"],

@@ -197,9 +197,14 @@ const SCALE: Record<string, number> = { k: 1e3, thousand: 1e3, m: 1e6, mn: 1e6, 
 
 const NUM = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)`;
 const SC = String.raw`(?:\s?(k|m|mn|mil|millions?|b|bn|billion|thousand|lakhs?|crores?)\b)?`;
-const CUR_WORD = String.raw`(baht|thb|euros?|eur|pounds?|quid|gbp|yen|jpy|yuan|rmb|renminbi|cny|rupees?|inr|won|krw|sgd|singapore dollars?|dong|vnd|rupiah|idr|pesos?|php|mxn|reais|real|brl|cad|canadian dollars?|aud|australian dollars?|usd|us dollars?|dollars?|bucks)\b`;
-const SYM = String.raw`(CA\$|C\$|A\$|S\$|MX\$|R\$|CN¥|US\$|฿|€|£|₹|₩|₫|₱|Rp|¥|\$)`;
-const CODE_FIRST = String.raw`\b(THB|EUR|GBP|JPY|CNY|INR|KRW|SGD|VND|IDR|PHP|MXN|BRL|CAD|AUD|USD)\s?`;
+// (The words, symbols and codes below cover every currency in WORDS / SYMBOLS / CURRENCY_CODES: "₦600k",
+// "600,000 naira" and "NGN 600k" used to read as nothing, so a Lagos salary was never anchored. QA, Sat Nov 7.)
+const CUR_WORD = String.raw`(baht|thb|euros?|eur|pounds?|quid|gbp|yen|jpy|yuan|rmb|renminbi|cny|rupees?|inr|won|krw|sgd|singapore dollars?|dong|vnd|rupiah|idr|pesos?|php|mxn|reais|real|brl|cad|canadian dollars?|aud|australian dollars?|usd|us dollars?|dollars?|bucks|naira|ngn|cedis?|ghs|rand|zar|ksh|kes|kenyan shillings?|ringgit|myr|lira|shekels?|nis|ils|dirhams?|aed|riyals?|egp|egyptian pounds?|francs?|chf|kronor|krona|sek|nok|dkk|norwegian kroner?|danish kroner?|zloty|złoty|zlotys|pln|koruna|korun|czk|forints?|huf|taka|bdt|pkr|pakistani rupees?|lkr|twd|ntd|hkd|nzd|hryvnias?|uah)\b`;
+const SYM = `(${SYMBOLS.map(([s]) => s)
+  .sort((a, b) => b.length - a.length)
+  .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  .join("|")})`;
+const CODE_FIRST = String.raw`\b(` + CURRENCY_CODES.join("|") + String.raw`)\s?`;
 
 export interface StatedAmount {
   /** The words as written: "3 million baht" */
