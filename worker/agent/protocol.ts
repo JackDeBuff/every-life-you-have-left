@@ -16,8 +16,76 @@
  *
  * RPC: the SDK's standard { type: "rpc", id, method, args } → { type: "rpc", id, success, result | error }.
  */
-import type { Ending, InterludeCut, SafetyResult } from "../../shared/engine";
-import type { SessionState } from "../../shared/sim";
+import type { DocKind, Ending, InterludeCut, SafetyResult } from "../../shared/engine";
+import type { DomainKey } from "../../shared/domains";
+import type { DecisionOption, SessionState } from "../../shared/sim";
+
+// ---------------------------------------------------------------------------------------------
+// The warm-up (D-090): up to 5 questions between Start and the first fork, in every mode.
+// ---------------------------------------------------------------------------------------------
+
+/** The research fast-path set (research/03 §1.2), in ask order. */
+export const WARM_KEYS = ["now", "crossroads", "people", "fear", "unjudged"] as const;
+export type WarmKey = (typeof WARM_KEYS)[number];
+
+/** Where a covered answer came from: the start line or one of the uploads. */
+export type WarmSource = "start" | DocKind;
+
+export interface WarmQuestion {
+  /** "w-<key>" */
+  id: string;
+  key: WarmKey;
+  prompt: string;
+  whyAsking: string;
+  /** Quote the whyAsking line cites (personalized questions only). */
+  whyQuoteId: string | null;
+  /** 4 quick answers, first person (pre-written; later ones may be personalized in the background). */
+  options: DecisionOption[];
+  placeholder: string;
+  domains: DomainKey[];
+  /**
+   * queued   not shown yet (will be asked)
+   * asking   on screen now (warmup.current)
+   * answered tapped and/or said
+   * skipped  the user skipped it
+   * covered  the start line or an upload already answers it: never asked
+   */
+  status: "queued" | "asking" | "answered" | "skipped" | "covered";
+  covered: { by: WarmSource; confidence: number; evidence: string } | null;
+  answer: { optionId: string | null; text: string | null; via: "text" | "voice" | "tap"; quoteId: string | null; at: string } | null;
+  /** The options were rewritten for this person (fast model, before it was shown). */
+  personal: boolean;
+}
+
+export interface WarmupState {
+  /**
+   * checking   reading the start line + uploads to see what's already answered (nothing on screen yet)
+   * asking     a question is on screen (current)
+   * finishing  all answered; the first fork is being written / refreshed
+   * done       the first fork exists (phase moves to "deciding")
+   */
+  status: "checking" | "asking" | "finishing" | "done";
+  questions: WarmQuestion[];
+  current: string | null;
+  /** The coverage check (one fast-model call) has landed, or failed (then everything is asked). */
+  checked: boolean;
+  /** Upload kinds they gave us (labels the "Here's what I learned" items). */
+  docKinds: DocKind[];
+  startedAt: string;
+  doneAt: string | null;
+}
+
+/** answerWarmup(): a tap, words, or both; `skip` moves on without an answer. */
+export interface WarmAnswerInput {
+  questionId: string;
+  optionId: string | null;
+  text: string | null;
+  via: "text" | "voice" | "tap";
+  skip?: boolean;
+}
+
+/** forget(): remove one learned item from the profile ("warm" = a covered warm-up answer; it is asked instead). */
+export type ForgetKind = "quote" | "fact" | "person" | "fear" | "value" | "plan" | "warm";
 
 export interface ChatMessage {
   id: string;
@@ -53,6 +121,8 @@ export interface SessionExtras {
   error: string | null;
   /** Model spend so far in this session (USD, list prices; hedge losers that were aborted aren't counted). */
   usage?: { usd: number; calls: number; byPurpose: Record<string, number> } | null;
+  /** The warm-up (phase "warmup"); kept after it ends for the dialogue. null = none (offline demo, old sessions). */
+  warmup?: WarmupState | null;
 }
 
 export type AgentState = SessionState & SessionExtras;

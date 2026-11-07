@@ -233,7 +233,8 @@ export type Portrait = z.infer<typeof Portrait>;
 // ---------------------------------------------------------------------------------------------
 // Session state (the Durable Object's state, synced to the client) — SPEC §8
 // ---------------------------------------------------------------------------------------------
-export const Phase = z.enum(["start", "playing", "deciding", "interlude", "ended"]);
+/** "warmup" (D-090): the adaptive questions between the start screen and the first fork; the clock does not run. */
+export const Phase = z.enum(["start", "warmup", "playing", "deciding", "interlude", "ended"]);
 export type Phase = z.infer<typeof Phase>;
 
 export const Playhead = z.object({ year: int(), age: int(), paused: z.boolean() });

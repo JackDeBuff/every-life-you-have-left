@@ -20,10 +20,24 @@
  *   nudge   → SettingNudge from next year, invalidate, regenerate.
  *   setSpeed→ re-plan slots for the rest of the life (budgets rescale with years left).
  *   endAge  → step branches to the end, ending(), phase ended.
+ *
+ * The warm-up (D-090), between start and the first fork, in every mode:
+ *   start(input, docs) → code-only profile + the first question at once (pre-written answers; a
+ *             keyword guess picks which one), phase "warmup". In the background, IN PARALLEL: the
+ *             coverage check (fast model: which of the five the line + uploads already answer),
+ *             the start profile (heavy), the first year's scene.
+ *   answerWarmup → the answer is a verbatim quote at once (in code), the fast model folds it into
+ *             the profile (facts, people, fears, money, the seed it feeds), and the next question
+ *             shows (its answers personalized meanwhile, when that lands first). Once the
+ *             crossroads is known, the first fork is written in the background from the profile so
+ *             far, and again whenever more answers have come in.
+ *   last answer → if the newest card hasn't seen every answer, a fast-model refresh gets 3 s;
+ *             otherwise the card we have stands. Then phase "deciding", as before.
+ *   forget(kind, id) → removes a learned item from the profile (and keeps it out of later folds).
  */
 import { Agent, callable, type Connection, type ConnectionContext } from "agents";
-import type { DecisionSlot, DocInput, Engine, Ending, PreparedFork, SafetyResult } from "../../shared/engine";
-import { endAgeFor } from "../../shared/schema";
+import type { DecisionSlot, DocInput, DocKind, Engine, Ending, PreparedFork, SafetyResult } from "../../shared/engine";
+import { endAgeFor, type Quote } from "../../shared/schema";
 import {
   SPEED_CONFIG,
   SpeedMode,
@@ -39,9 +53,94 @@ import {
 import type { Profile } from "../../shared/schema";
 import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
 import { costOf } from "../engine/pricing";
+import {
+  applyWarmDelta,
+  COVERED_AT,
+  coverageFacts,
+  mergeQuotes,
+  quickCoverage,
+  waitsForCheck,
+  warmKnowMe,
+  warmProvisional,
+  warmQuestions,
+  warmQuote,
+  type Coverage,
+  type WarmDelta,
+  type WarmKey,
+} from "../engine/warmup";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
-import { diffState, type AgentState, type AnswerInput, type ChatMessage, type SnapshotMsg } from "./protocol";
+import {
+  diffState,
+  type AgentState,
+  type AnswerInput,
+  type ChatMessage,
+  type ForgetKind,
+  type SnapshotMsg,
+  type WarmAnswerInput,
+  type WarmQuestion,
+  type WarmupState,
+} from "./protocol";
+
+/** The warm-up's working memory (not persisted: rebuilt from state after a cold start). */
+interface WarmRun {
+  input: StartInput;
+  /** The code-only profile from the start screen (the base until the start profile lands). */
+  p0: Profile;
+  /** startProfile(line + docs), once it lands. */
+  base: Profile | null;
+  /** The keyword guess (only orders the first questions while the model check is in flight). */
+  guess: Record<WarmKey, boolean>;
+  /** Each answer's verbatim quote, by question id. */
+  quotes: Map<string, Quote>;
+  /** Each answer's fold (re-applied over the start profile when it lands late). */
+  deltas: Map<string, WarmDelta>;
+  folds: Set<Promise<unknown>>;
+  /** Bumps whenever the first fork's inputs change (an answer, the start profile, a removal). */
+  rev: number;
+  inflight: { rev: number; p: Promise<Decision | null> } | null;
+  best: { rev: number; d: Decision } | null;
+  personalizing: Set<string>;
+  finishing: boolean;
+  /** The first fork is in state.decisions. */
+  placed: boolean;
+  /** Start profile + every fold applied, warm-up over: the normal loop owns the profile again. */
+  settled: boolean;
+  t0: number;
+}
+
+/** After the last answer, a refresh of the first fork gets this long; otherwise the card we have stands. */
+const WARM_REFRESH_MS = 3000;
+/** With long uploads the first question waits this long for the coverage check, then the keyword guess picks it. */
+const WARM_CHECK_WAIT_MS = 2500;
+const normText = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, " ").trim();
+const wordsIn = (s: string | null | undefined) => (s ? s.trim().split(/\s+/).filter(Boolean).length : 0);
+/** Cheap text fingerprint (dedupes an upload sent with start() and again by /api/upload). */
+function docKey(kind: string, text: string): string {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return `${kind}:${text.length}:${h}`;
+}
+/** The engine's code-only fallback card (both model tries failed): never preferred over a written one. */
+const isGenericCard = (d: Decision) => d.whyAsking === "This is one of the moments a life turns on.";
+
+/** The first non-null result, or null when all are null. */
+function firstValue<T>(ps: Promise<T | null>[]): Promise<T | null> {
+  return new Promise((resolve) => {
+    let left = ps.length;
+    if (!left) resolve(null);
+    for (const p of ps)
+      p.then(
+        (v) => {
+          if (v) resolve(v);
+          else if (--left === 0) resolve(null);
+        },
+        () => {
+          if (--left === 0) resolve(null);
+        },
+      );
+  });
+}
 
 const BUFFER_AHEAD = 4; // keep at least this many years generated past the playhead (target ≥2)
 const CHUNK = 4; // generateYears chunk size (3–5)
@@ -104,6 +203,7 @@ export function initialAgentState(sessionId: string): AgentState {
     engine: "mock",
     error: null,
     usage: null,
+    warmup: null,
   };
 }
 
@@ -117,9 +217,22 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private enginePromise: Promise<LoadedEngine> | null = null;
-  /** Resolves when the full profile is in (answers wait for it; the first card may come sooner). */
+  /**
+   * Resolves when the full profile is in: the start profile and, with the warm-up, every warm-up
+   * answer folded (answers to the first fork wait for it; the first card may come sooner).
+   */
   private profileReady: Promise<void> = Promise.resolve();
+  private profileReadyDone: (() => void) | null = null;
   private engineSync: Engine | null = null;
+  private loadedSync: LoadedEngine | null = null;
+  /** The warm-up in progress (D-090); null before start, in the offline demo, and after a reset. */
+  private warm: WarmRun | null = null;
+  /** Learned items the user removed (forget): kept out of every later profile. */
+  private forgotten: { kind: ForgetKind; id: string; text: string }[] = [];
+  /** Know-me never drops because a later fold counts answers differently (only forget lowers it). */
+  private knowFloor = 0;
+  /** Uploads already folded in (start() and /api/upload both deliver the same text). */
+  private seenDocs = new Set<string>();
   private interludeSeq = 0;
   private epoch = 0;
   private genRunning: number | null = null;
@@ -148,8 +261,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.cur.usage) this.spend = { usd: this.cur.usage.usd, calls: this.cur.usage.calls, byPurpose: { ...this.cur.usage.byPurpose } };
     if (this.cur.phase !== "start" && this.cur.profile) {
       const ph = this.cur.playhead.year;
-      this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => sl.year > ph);
+      this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => (this.cur!.phase === "warmup" ? sl.year >= ph : sl.year > ph));
     }
+    // A cold start mid-warm-up: pick it up from the stored state.
+    if (this.cur.phase === "warmup") this.resumeWarmup();
   }
 
   onConnect(connection: Connection, _ctx: ConnectionContext): void {
@@ -190,6 +305,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!this.enginePromise) {
       this.enginePromise = loadEngine(this.env, this.onUsage).then((r) => {
         this.engineSync = r.engine;
+        this.loadedSync = r;
         return r;
       });
     }
@@ -266,53 +382,496 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   // SessionCalls
   // -------------------------------------------------------------------------------------------
 
-  async start(input: StartInput): Promise<void> {
+  /**
+   * `docs`: the uploads from the start screen (CV / LinkedIn / AI export text), so the warm-up's
+   * coverage check and the start profile see them. The raw files still go to /api/upload (R2);
+   * that path's addDocument() recognises the same text and doesn't fold it in twice.
+   */
+  async start(input: StartInput, docs?: DocInput[]): Promise<void> {
     const parsed = StartInput.parse(input);
     if (this.s.phase !== "start" || this.s.profile || this.s.thinking) return; // idempotent
-    const { engine, kind, provisional } = await this.engInfo();
-    this.update({ thinking: true, speed: parsed.speed, appearance: parsed.appearance, engine: kind, error: null });
-    let ready!: () => void;
-    this.profileReady = new Promise<void>((r) => (ready = r));
-    // The first card ("today") from a code-only profile, in parallel with the full profile
-    // (~5 s vs ~10 s). The UI shows Play as soon as the card exists.
-    if (provisional) {
-      try {
-        const p = this.withId(provisional(parsed));
-        this.update({ profile: p, endAge: p.endAge || endAgeFor(parsed.age), playhead: { year: p.startYear, age: p.age, paused: true } });
-        const slot0 = engine.planSlots(this.s).find((sl) => sl.kind === "big" && sl.year === p.startYear) ?? { year: p.startYear, age: p.age, kind: "big" as const, reason: "today" };
-        this.queueDecision(slot0, this.slotKey(slot0, 0), { ...this.s, profile: p });
-      } catch (e) {
-        console.error("provisional start failed", e instanceof Error ? e.name : "error");
-      }
+    for (const d of Array.isArray(docs) ? docs : []) {
+      const kind = d && (d.kind === "cv" || d.kind === "linkedin" || d.kind === "ai_export") ? d.kind : null;
+      const text = kind ? String(d.text ?? "").slice(0, 60_000) : "";
+      if (!kind || !text.trim() || this.seenDocs.has(docKey(kind, text))) continue;
+      this.seenDocs.add(docKey(kind, text));
+      this.pendingDocs.push({ kind, text });
+      void this.mirror.upload(`u-${crypto.randomUUID().slice(0, 8)}`, kind, null, null, text);
     }
+    const loaded = await this.engInfo();
+    if (this.s.phase !== "start" || this.s.profile) return; // a second start() meanwhile
+    const { engine, kind, provisional } = loaded;
+    const docsNow = [...this.pendingDocs];
+    this.pendingDocs = [];
+    this.profileReady = new Promise<void>((r) => (this.profileReadyDone = r));
+
+    // The code-only profile and the first question, at once: the Play screen and a card with four
+    // pre-written answers are up before any model call. A keyword guess picks the first question;
+    // with long uploads it waits (briefly) for the coverage check instead.
+    const p0 = this.withId(provisional ? provisional(parsed) : warmProvisional(parsed));
+    const guess = quickCoverage(parsed.line, docsNow);
+    const questions = warmQuestions();
+    const run: WarmRun = {
+      input: parsed, p0, base: null, guess, quotes: new Map(), deltas: new Map(), folds: new Set(), rev: 0,
+      inflight: null, best: null, personalizing: new Set(), finishing: false, placed: false, settled: false, t0: Date.now(),
+    };
+    this.warm = run;
+    const first = waitsForCheck(docsNow) ? null : this.pickNext(questions, false, guess);
+    const warmup: WarmupState = {
+      status: first ? "asking" : "checking",
+      questions: questions.map((q) => (q.id === first?.id ? { ...q, status: "asking" } : q)),
+      current: first?.id ?? null,
+      checked: false,
+      docKinds: [...new Set(docsNow.map((d) => d.kind))] as DocKind[],
+      startedAt: nowIso(),
+      doneAt: null,
+    };
+    this.update({
+      speed: parsed.speed, appearance: parsed.appearance, engine: kind, error: null, thinking: false,
+      profile: p0, endAge: p0.endAge || endAgeFor(parsed.age), playhead: { year: p0.startYear, age: p0.age, paused: true },
+      phase: "warmup", warmup,
+    });
+    this.persistNow();
+    console.log(`[warmup] start docs=${docsNow.length} first=${first?.key ?? "(waits for the check)"}`);
+
+    // In parallel: the coverage check (fast), the start profile (heavy), the first year's scene.
+    this.bg("warmup.check", () => this.runCoverage(run, docsNow));
+    if (!first)
+      setTimeout(() => {
+        const w = this.s.warmup;
+        if (this.warm !== run || !w || w.checked || w.current || run.finishing) return;
+        const nx = this.pickNext(w.questions, false, guess);
+        if (nx) this.showWarm(nx.id, "checking-late");
+      }, WARM_CHECK_WAIT_MS);
     this.bg("start", async () => {
+      const safety = parsed.line.trim() ? await this.screen(engine, parsed.line, `Asked "What's on your mind lately?"`).catch(() => null) : null;
+      if (safety?.flagged) this.update({ safety });
+      let base: Profile;
       try {
-        const safety = parsed.line.trim() ? await this.screen(engine, parsed.line, `Asked "What's on your mind lately?"`) : null;
-        if (safety?.flagged) this.update({ safety });
-        const profile = this.withId(await engine.startProfile(parsed, this.pendingDocs));
-        this.pendingDocs = [];
-        const endAge = profile.endAge || endAgeFor(parsed.age);
-        this.update((s) => ({
-          profile,
-          endAge,
-          playhead: s.phase === "start" ? { year: profile.startYear, age: profile.age, paused: true } : s.playhead,
-        }));
-      } finally {
-        ready();
+        base = this.withId(await engine.startProfile(parsed, docsNow));
+      } catch (e) {
+        // Never leave the warm-up without a base (the first fork's answer waits for it).
+        console.error("startProfile failed", e instanceof Error ? e.name : "error");
+        base = run.p0;
       }
+      if (this.warm !== run) return; // reset meanwhile
+      run.base = base;
+      run.rev++;
+      this.recomputeWarmProfile(run);
       this.slots = engine.planSlots(this.s);
       this.updateBudgets();
       this.persistNow();
       void this.mirror.session(this.s, parsed);
-      // In parallel: settings, the buffer (first year gives the world a scene), the first fork.
+      console.log(`[warmup] start profile in ${((Date.now() - run.t0) / 1000).toFixed(1)}s`);
+      // The first year gives the world a scene ("today") behind the questions; the fork rewrites it.
+      this.ensureBuffer();
+      this.maybeRollCard(run);
+      this.settleWarm(run);
+    });
+    if (first) this.personalizeAhead(run);
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // The warm-up (D-090)
+  // -------------------------------------------------------------------------------------------
+
+  /** The next question to ask, in order. Before the model check lands, the keyword guess skips what the line plainly answers. */
+  private pickNext(questions: WarmQuestion[], checked: boolean, guess: Record<WarmKey, boolean>): WarmQuestion | null {
+    return questions.find((q) => q.status === "queued" && (checked || !guess[q.key])) ?? null;
+  }
+
+  /** Put a question on screen. */
+  private showWarm(id: string, why: string): void {
+    this.update((s) => {
+      const w = s.warmup;
+      if (!w) return {};
+      return { warmup: { ...w, status: "asking", current: id, questions: w.questions.map((q) => (q.id === id ? { ...q, status: "asking" } : q)) } };
+    });
+    console.log(`[warmup] ask ${id} (${why}) at ${this.warm ? ((Date.now() - this.warm.t0) / 1000).toFixed(1) : "?"}s`);
+  }
+
+  /** One fast-model call: which questions the start line + uploads already answer. Errors ask everything. */
+  private async runCoverage(run: WarmRun, docs: DocInput[]): Promise<void> {
+    const port = (await this.engInfo()).warmup;
+    let cov: Coverage | null = null;
+    const t = Date.now();
+    if (port) {
+      try {
+        cov = await port.coverage(run.input, docs);
+      } catch (e) {
+        console.error("warmup coverage failed", e instanceof Error ? e.name : "error");
+      }
+    } else {
+      // The mock engine (no model): the keyword guess is all we have.
+      cov = Object.fromEntries(
+        (Object.keys(run.guess) as WarmKey[]).map((k) => [k, { covered: run.guess[k], confidence: run.guess[k] ? 0.7 : 0, evidence: run.guess[k] ? "You said it at the start" : null, by: "start" as const }]),
+      ) as Coverage;
+    }
+    if (this.warm !== run || !this.s.warmup) return;
+    const w = this.s.warmup;
+    const questions = w.questions.map((q): WarmQuestion => {
+      const c = cov?.[q.key];
+      // Only questions not shown yet: the one on screen stays (they may already be typing).
+      if (q.status !== "queued" || !c || !c.covered || c.confidence < COVERED_AT || !c.by || !c.evidence) return q;
+      return { ...q, status: "covered", covered: { by: c.by, confidence: c.confidence, evidence: c.evidence } };
+    });
+    const covered = questions.filter((q) => q.status === "covered").map((q) => `${q.key}(${q.covered!.by} ${q.covered!.confidence.toFixed(2)})`);
+    console.log(`[warmup] coverage in ${((Date.now() - t) / 1000).toFixed(1)}s ${cov ? `covered: ${covered.join(" ") || "none"}` : "failed: ask everything"}`);
+    this.update({ warmup: { ...w, questions, checked: true } });
+    run.rev++;
+    this.recomputeWarmProfile(run);
+    const cur = this.s.warmup!;
+    if (!cur.current) {
+      const nx = this.pickNext(cur.questions, true, run.guess);
+      if (nx) this.showWarm(nx.id, "checked");
+      else this.finishWarmup(run);
+    }
+    if (!run.finishing) {
+      this.personalizeAhead(run);
+      this.maybeRollCard(run);
+    }
+  }
+
+  /** answerWarmup(): the answer is a verbatim quote at once; the fold lands in the background. */
+  async answerWarmup(a: WarmAnswerInput): Promise<void> {
+    const run = this.warm ?? this.resumeWarmup();
+    const w = this.s.warmup;
+    if (!run || !w || this.s.phase !== "warmup" || run.finishing || w.current !== a?.questionId) return;
+    const q = w.questions.find((x) => x.id === a.questionId);
+    const profile = this.s.profile;
+    if (!q || !profile) return;
+    const text = typeof a.text === "string" && a.text.trim() ? a.text.trim().slice(0, 4000) : null;
+    const opt = a.optionId ? q.options.find((o) => o.id === a.optionId) : undefined;
+    const skip = !!a.skip || (!opt && !text);
+    // Their own words when they wrote some; a tap alone keeps the sentence they picked (first person).
+    const said = text && wordsIn(text) >= 2 ? text : (opt?.label ?? text);
+    const quote = !skip && said ? warmQuote(profile, said) : null;
+    if (quote) run.quotes.set(q.id, quote);
+    const via = a.via === "voice" || a.via === "text" ? a.via : "tap";
+    const done: WarmQuestion = {
+      ...q,
+      status: skip ? "skipped" : "answered",
+      answer: skip ? null : { optionId: opt?.id ?? null, text, via: text ? via : "tap", quoteId: quote?.id ?? null, at: nowIso() },
+    };
+    const questions = w.questions.map((x) => (x.id === q.id ? done : x));
+    const next = this.pickNext(questions, w.checked, run.guess);
+    this.update({
+      warmup: {
+        ...w,
+        questions: questions.map((x) => (x.id === next?.id ? { ...x, status: "asking" } : x)),
+        current: next?.id ?? null,
+        status: next ? "asking" : w.checked ? "finishing" : "checking",
+      },
+    });
+    run.rev++;
+    this.recomputeWarmProfile(run);
+    console.log(`[warmup] answered ${q.key} (${skip ? "skip" : text ? `${wordsIn(text)} words` : "tap"}) at ${((Date.now() - run.t0) / 1000).toFixed(1)}s → ${next?.key ?? (w.checked ? "done" : "waiting for the check")}`);
+    if (quote) {
+      void this.mirror.answer({ decisionId: q.id, optionId: opt?.id ?? null, text, via: text ? via : "tap", quoteId: quote.id, answeredAt: done.answer!.at }, false);
+      const port = this.loadedSync?.warmup;
+      if (port) {
+        const p = port
+          .fold(this.s.profile!, done, quote, opt?.label ?? null)
+          .then((d) => {
+            if (!d || this.warm !== run) return;
+            run.deltas.set(q.id, d);
+            this.recomputeWarmProfile(run);
+          })
+          .catch((e) => console.error("warmup fold failed", e instanceof Error ? e.name : "error"));
+        run.folds.add(p);
+        void p.finally(() => {
+          run.folds.delete(p);
+          this.settleWarm(run);
+        });
+        this.ctx.waitUntil(p);
+      }
+    }
+    if (text) {
+      this.bg("warmup.safety", async () => {
+        const safety = await this.screen(await this.eng(), text, `Asked "${q.prompt}"`);
+        if (safety.flagged) this.update({ safety });
+      });
+    }
+    if (next) {
+      this.personalizeAhead(run);
+      this.maybeRollCard(run);
+    } else if (w.checked) this.finishWarmup(run);
+  }
+
+  /**
+   * The profile during the warm-up: the start profile (or the code-only one until it lands), plus
+   * every answer's quote, plus every fold, re-applied in order. Pure recompute, so a start profile
+   * that lands after the answers loses nothing.
+   */
+  private recomputeWarmProfile(run: WarmRun): void {
+    const w = this.s.warmup;
+    const cur = this.s.profile;
+    if (this.warm !== run || run.settled || !w || !cur) return;
+    const base = run.base ?? run.p0;
+    let p: Profile = { ...base, quotes: mergeQuotes(base.quotes, [...run.quotes.values()]) };
+    // What the coverage check read in the uploads, for the first card until the start profile has it.
+    if (!run.base) p.facts = [...p.facts, ...coverageFacts(w.questions)];
+    for (const q of w.questions) {
+      const d = run.deltas.get(q.id);
+      if (d) p = applyWarmDelta(p, q.key, q.answer?.quoteId ?? null, d);
+    }
+    const answered = w.questions.filter((q) => q.status === "answered").length;
+    p = { ...p, profileVersion: Math.max(cur.profileVersion, base.profileVersion) + 1, updatedAt: nowIso() };
+    p.knowMeScore = warmKnowMe(p, answered);
+    this.update({ profile: this.withId(p) });
+  }
+
+  /** Personalize the question after the one on screen (fast model). Used only if it lands before that one shows. */
+  private personalizeAhead(run: WarmRun): void {
+    const port = this.loadedSync?.warmup;
+    const w = this.s.warmup;
+    if (!port || !w || this.warm !== run || run.finishing || !this.s.profile) return;
+    const target = this.pickNext(w.questions, w.checked, run.guess);
+    if (!target || target.personal || run.personalizing.has(target.id)) return;
+    run.personalizing.add(target.id);
+    const p = port
+      .personalize(this.s.profile, target)
+      .then((res) => {
+        if (!res || this.warm !== run) return;
+        this.update((s) => {
+          const ww = s.warmup;
+          const q = ww?.questions.find((x) => x.id === target.id);
+          if (!ww || !q || q.status !== "queued") return {};
+          return { warmup: { ...ww, questions: ww.questions.map((x) => (x.id === q.id ? { ...x, ...res, personal: true } : x)) } };
+        });
+      })
+      .catch((e) => console.error("warmup personalize failed", e instanceof Error ? e.name : "error"))
+      .finally(() => run.personalizing.delete(target.id));
+    this.ctx.waitUntil(p);
+  }
+
+  /** The first fork's slot ("today"). */
+  private firstSlot(): DecisionSlot {
+    const p = this.s.profile!;
+    const planned = this.slots.find((sl) => sl.kind === "big" && sl.year === p.startYear);
+    if (planned) return planned;
+    try {
+      const sl = this.engineSync?.planSlots(this.s).find((x) => x.kind === "big" && x.year === p.startYear);
+      if (sl) return sl;
+    } catch {
+      /* fall through */
+    }
+    return { year: p.startYear, age: p.age, kind: "big", reason: "today" };
+  }
+
+  /**
+   * Write the first fork in the background from the profile so far, once the crossroads is known
+   * (answered, covered by the line/uploads, or skipped), and again whenever answers came in since.
+   * One at a time; the newest finished card is kept.
+   */
+  private maybeRollCard(run: WarmRun): void {
+    const w = this.s.warmup;
+    if (this.warm !== run || run.finishing || run.inflight || !w || !this.s.profile) return;
+    if ((run.best?.rev ?? -1) >= run.rev) return;
+    const cross = w.questions.find((q) => q.key === "crossroads");
+    if (cross && (cross.status === "queued" || cross.status === "asking")) return;
+    const rev = run.rev;
+    const slot = this.firstSlot();
+    const state: AgentState = { ...this.s, decisions: [] };
+    const t = Date.now();
+    const p = this.eng()
+      .then((engine) => engine.makeDecision(state, slot))
+      .catch((e: unknown) => {
+        console.error("warmup first card failed", e instanceof Error ? e.name : "error");
+        return null;
+      });
+    run.inflight = { rev, p };
+    this.ctx.waitUntil(p);
+    void p.then((d) => {
+      if (this.warm !== run) return;
+      if (run.inflight?.p === p) run.inflight = null;
+      if (d && (!run.best || rev > run.best.rev)) run.best = { rev, d };
+      console.log(`[warmup] first card v${rev} written in ${((Date.now() - t) / 1000).toFixed(1)}s (now rev ${run.rev})`);
+      if (!run.finishing) this.maybeRollCard(run);
+    });
+  }
+
+  /** Every question answered or covered: the first fork goes up (refreshed if that takes <= 3 s). */
+  private finishWarmup(run: WarmRun): void {
+    if (this.warm !== run || run.finishing) return;
+    run.finishing = true;
+    this.update((s) => (s.warmup ? { warmup: { ...s.warmup, status: "finishing", current: null, doneAt: nowIso() } } : {}));
+    this.bg("warmup.finish", async () => {
+      const t = Date.now();
+      const card = await this.finalCard(run);
+      if (this.warm !== run) return;
+      console.log(`[warmup] first fork up ${((Date.now() - t) / 1000).toFixed(1)}s after the last answer (${((Date.now() - run.t0) / 1000).toFixed(1)}s after start)`);
+      this.placeFirstCard(run, card);
+    });
+  }
+
+  private async finalCard(run: WarmRun): Promise<Decision> {
+    const rev = run.rev;
+    if (run.best && run.best.rev >= rev) return run.best.d; // already written from everything they said
+    if (run.inflight && run.inflight.rev >= rev) {
+      const d = await run.inflight.p;
+      if (d) return d;
+    }
+    const { engine, quick } = await this.engInfo();
+    const slot = this.firstSlot();
+    const state: AgentState = { ...this.s, decisions: [] };
+    const answered = this.s.warmup?.questions.some((q) => q.status === "answered") ?? false;
+    // Nothing was asked (the uploads covered it all): the heavy writer, as before the warm-up.
+    if (!answered && !run.best && !run.inflight) return engine.makeDecision(state, slot);
+    const t = Date.now();
+    const refresh = (quick ?? engine).makeDecision(state, slot).catch(() => null);
+    this.ctx.waitUntil(refresh);
+    if (run.best) {
+      const fresh = await before(refresh.then((d) => (d && !isGenericCard(d) ? d : null)), t + WARM_REFRESH_MS);
+      console.log(`[warmup] refresh ${fresh ? `used (${((Date.now() - t) / 1000).toFixed(1)}s)` : `too slow, kept v${run.best.rev}`}`);
+      return fresh ?? run.best.d;
+    }
+    // A quick warm-up (nothing written yet): whichever lands first, the refresh or the one in flight.
+    const written = (p: Promise<Decision | null>) => p.then((d) => (d && !isGenericCard(d) ? d : null));
+    const d = await firstValue([written(refresh), ...(run.inflight ? [written(run.inflight.p)] : [])]);
+    return d ?? (run.best as { d: Decision } | null)?.d ?? engine.makeDecision(state, slot);
+  }
+
+  private placeFirstCard(run: WarmRun, made: Decision): void {
+    const slot = this.firstSlot();
+    let id = made.id;
+    while (this.s.decisions.some((d) => d.id === id)) id = `${made.id}-${crypto.randomUUID().slice(0, 4)}`;
+    const d: Decision = { ...made, id, kind: "big", year: slot.year, age: slot.age, status: "pending" };
+    run.placed = true;
+    this.update((s) => ({ decisions: [...s.decisions, d], warmup: s.warmup ? { ...s.warmup, status: "done" } : s.warmup }));
+    this.updateBudgets();
+    void this.mirror.decisions([d]);
+    this.gateCheck();
+    this.settleWarm(run);
+  }
+
+  /** The start profile is in, every fold has landed and the first fork is up: back to the normal loop. */
+  private settleWarm(run: WarmRun): void {
+    if (this.warm !== run || run.settled || !run.base || !run.placed || run.folds.size) return;
+    this.recomputeWarmProfile(run);
+    run.settled = true;
+    const engine = this.engineSync;
+    if (engine) {
+      // The answers moved the worries: plan the rest of the life from the final profile.
+      try {
+        this.slots = engine.planSlots(this.s);
+      } catch {
+        /* keep the plan we have */
+      }
+      this.updateBudgets();
+    }
+    this.profileReadyDone?.();
+    this.profileReadyDone = null;
+    this.persistNow();
+    void this.mirror.session(this.s);
+    console.log(`[warmup] settled ${((Date.now() - run.t0) / 1000).toFixed(1)}s after start`);
+    if (engine)
       this.bg("settings", async () => {
         const settings = await engine.settingsFor(this.s);
         this.update({ settings });
         void this.mirror.settings(settings);
       });
-      this.ensureBuffer();
-      this.ensureDecisions();
-    });
+    this.ensureBuffer();
+    this.ensureDecisions();
+  }
+
+  /** A cold start (or an old client) mid-warm-up: rebuild the run from the stored state. */
+  private resumeWarmup(): WarmRun | null {
+    if (this.warm) return this.warm;
+    const w = this.s.warmup;
+    const p = this.s.profile;
+    if (this.s.phase !== "warmup" || !w || !p) return null;
+    const input: StartInput = {
+      firstName: p.firstName ?? "", age: p.age, city: p.city ?? "", region: p.region, country: p.country,
+      line: p.quotes.filter((q) => q.questionId === "start").map((q) => q.text).join(" "), via: "text", speed: this.s.speed,
+      appearance: this.s.appearance, hasSelfie: false, currency: p.currency ?? null,
+    };
+    const quotes = new Map<string, Quote>();
+    for (const q of w.questions) {
+      const qt = q.answer?.quoteId ? p.quotes.find((x) => x.id === q.answer!.quoteId) : undefined;
+      if (qt) quotes.set(q.id, qt);
+    }
+    const run: WarmRun = {
+      input, p0: p, base: p, guess: quickCoverage("", []), quotes, deltas: new Map(), folds: new Set(), rev: 1,
+      inflight: null, best: null, personalizing: new Set(), finishing: false, placed: false, settled: false, t0: Date.now(),
+    };
+    this.warm = run;
+    this.profileReady = new Promise<void>((r) => (this.profileReadyDone = r));
+    if (!w.checked || w.status === "checking") this.update({ warmup: { ...w, checked: true } });
+    const cur = this.s.warmup!;
+    if (cur.status === "finishing" || (!cur.current && !this.pickNext(cur.questions, true, run.guess))) this.finishWarmup(run);
+    else if (!cur.current) this.showWarm(this.pickNext(cur.questions, true, run.guess)!.id, "resumed");
+    else this.maybeRollCard(run);
+    return run;
+  }
+
+  /**
+   * forget(): remove one learned item ("Here's what I learned" ×). It leaves the profile now and is
+   * filtered out of every later one. kind "warm" = a warm-up question the uploads covered: the
+   * evidence goes, and (while the warm-up is open) the question is asked after all.
+   */
+  async forget(kind: ForgetKind, id: string): Promise<void> {
+    const p = this.s.profile;
+    if (!p || typeof id !== "string") return;
+    const run = this.warm && !this.warm.settled ? this.warm : null;
+    if (kind === "warm") {
+      const w = this.s.warmup;
+      const q = w?.questions.find((x) => x.id === id && x.status === "covered");
+      if (!w || !q) return;
+      const open = !!run && !run.finishing && this.s.phase === "warmup";
+      const questions = w.questions.map((x): WarmQuestion => (x.id === id ? { ...x, status: open ? "queued" : "skipped", covered: null } : x));
+      this.update({ warmup: { ...w, questions } });
+      if (run && open) {
+        run.rev++;
+        this.recomputeWarmProfile(run);
+        if (!this.s.warmup!.current) {
+          const nx = this.pickNext(this.s.warmup!.questions, true, run.guess);
+          if (nx) this.showWarm(nx.id, "uncovered");
+        }
+      }
+      return;
+    }
+    const text =
+      kind === "quote" ? p.quotes.find((x) => x.id === id)?.text
+      : kind === "fact" ? (() => { const f = p.facts.find((x) => x.id === id); return f ? `${f.label}|${f.value}` : undefined; })()
+      : kind === "person" ? p.people.find((x) => x.id === id)?.label
+      : kind === "fear" ? p.fears.find((x) => x.id === id)?.text
+      : kind === "value" ? p.values.find((x) => x.id === id)?.label
+      : kind === "plan" ? (p.plans ?? []).find((x) => x.id === id)?.text
+      : undefined;
+    if (text === undefined) return;
+    this.forgotten.push({ kind, id, text });
+    if (run && kind === "quote") for (const [qid, qt] of run.quotes) if (qt.id === id) run.quotes.delete(qid);
+    this.knowFloor = 0;
+    const next = this.withId(p);
+    const answered = (this.s.warmup?.questions.filter((q) => q.status === "answered").length ?? 0) + this.s.decisions.filter((d) => d.status === "answered").length;
+    this.update({ profile: { ...next, knowMeScore: Math.min(next.knowMeScore, warmKnowMe(next, answered)), profileVersion: p.profileVersion + 1 } });
+    this.knowFloor = this.s.profile!.knowMeScore;
+    void this.mirror.session(this.s);
+    if (run && !run.placed) {
+      run.rev++;
+      this.recomputeWarmProfile(run);
+      this.maybeRollCard(run);
+    } else if (this.s.phase !== "warmup") this.invalidate();
+  }
+
+  /** Removed items stay out of every profile version (folds and enrich calls may re-extract them). */
+  private applyForgotten(p: Profile): Profile {
+    if (!this.forgotten.length) return p;
+    const gone = (kind: ForgetKind, text: string, id?: string) =>
+      this.forgotten.some((f) => f.kind === kind && ((id !== undefined && kind === "quote" && f.id === id) || normText(f.text) === normText(text)));
+    const quotes = p.quotes.filter((q) => !gone("quote", q.text, q.id));
+    const valid = new Set(quotes.map((q) => q.id));
+    const keep = (ids: string[]) => ids.filter((x) => valid.has(x));
+    return {
+      ...p,
+      quotes,
+      facts: p.facts.filter((f) => !gone("fact", `${f.label}|${f.value}`)).map((f) => ({ ...f, quoteIds: keep(f.quoteIds) })),
+      people: p.people.filter((x) => !gone("person", x.label)).map((x) => ({ ...x, quoteIds: keep(x.quoteIds) })),
+      fears: p.fears.filter((x) => !gone("fear", x.text)).map((x) => ({ ...x, quoteIds: keep(x.quoteIds) })),
+      values: p.values.filter((x) => !gone("value", x.label)).map((x) => ({ ...x, quoteIds: keep(x.quoteIds) })),
+      plans: p.plans?.filter((x) => !gone("plan", x.text)).map((x) => ({ ...x, quoteIds: keep(x.quoteIds) })),
+    };
   }
 
   async answer(a: AnswerInput): Promise<void> {
@@ -430,7 +989,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!this.s.profile) return;
     const engine = await this.eng();
     const ph = this.s.playhead.year;
-    this.slots = engine.planSlots(this.s).filter((sl) => sl.year > ph);
+    // (During the warm-up the first fork, at the playhead, is still to come.)
+    const warming = !!this.warm && !this.warm.placed;
+    this.slots = engine.planSlots(this.s).filter((sl) => (warming ? sl.year >= ph : sl.year > ph));
     // Drop future decisions that haven't been reached; the new plan replaces them.
     this.update((s) => ({ decisions: s.decisions.filter((d) => d.status !== "pending" || d.year <= ph) }));
     this.updateBudgets();
@@ -501,10 +1062,27 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   async addDocument(kind: "cv" | "linkedin" | "ai_export", text: string): Promise<void> {
     const doc: DocInput = { kind, text: String(text).slice(0, 60_000) };
     if (!doc.text.trim()) return;
+    // The same upload already came in with start() (the start screen sends the text there too).
+    const key = docKey(kind, doc.text);
+    if (this.seenDocs.has(key)) return;
+    this.seenDocs.add(key);
     const id = `u-${crypto.randomUUID().slice(0, 8)}`;
     void this.mirror.upload(id, kind, null, null, doc.text);
     if (!this.s.profile) {
       this.pendingDocs.push(doc);
+      return;
+    }
+    if (this.warm && !this.warm.settled) {
+      // Mid-warm-up: the start profile is being built from what they gave at Start. This one is
+      // folded in once that settles (the upload request doesn't wait for it).
+      this.bg("addDocument", async () => {
+        await this.profileReady;
+        const engine = await this.eng();
+        const { profile } = await engine.enrichProfile(this.s.profile!, [doc], null);
+        this.update({ profile: this.withId(profile) });
+        void this.mirror.session(this.s);
+        this.invalidate();
+      });
       return;
     }
     const engine = await this.eng();
@@ -564,6 +1142,14 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.making.clear();
     this.forking = false;
     this.ending = false;
+    this.warm = null;
+    this.forgotten = [];
+    this.knowFloor = 0;
+    this.seenDocs.clear();
+    this.pendingDocs = [];
+    this.profileReadyDone?.();
+    this.profileReadyDone = null;
+    this.profileReady = Promise.resolve();
     this.cur = initialAgentState(this.name);
     this.lastSent = null;
     this.update({});
@@ -608,6 +1194,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private ensureDecisions(): void {
     const s = this.s;
     if (!s.profile || s.phase === "ended") return;
+    // The warm-up writes the first fork itself (from every answer); nothing else is due before it.
+    if (this.warm && !this.warm.placed) return;
     const ph = s.playhead.year;
     let smallBusy =
       s.decisions.some((d) => d.kind === "small" && d.status === "pending") || [...this.making].some((k) => k.startsWith("small-"));
@@ -675,8 +1263,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
   /** The engine seeds the world timeline from profile.sessionId: always the real one. */
+  /**
+   * Every profile the agent stores goes through here: the real session id, the items the user
+   * removed kept out, and a know-me score that never drops just because a later fold counted
+   * answers differently (only forget lowers it).
+   */
   private withId(p: Profile): Profile {
-    return p.sessionId === this.name ? p : { ...p, sessionId: this.name };
+    let out = p.sessionId === this.name ? p : { ...p, sessionId: this.name };
+    out = this.applyForgotten(out);
+    if (out.knowMeScore < this.knowFloor) out = { ...out, knowMeScore: this.knowFloor };
+    this.knowFloor = out.knowMeScore;
+    return out;
   }
 
   /** interlude()/ending() write advanced branch years into state.branches in place. Give them a
@@ -728,7 +1325,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.maybePrepare();
     const s = this.s;
     if (!s.profile || this.forking || this.ending) return;
-    if (s.phase !== "playing" && s.phase !== "start") return;
+    if (s.phase !== "playing" && s.phase !== "start" && s.phase !== "warmup") return;
+    // The warm-up holds the first fork until its last answer (then placeFirstCard opens it).
+    if (this.warm && !this.warm.placed) return;
     const big = s.decisions.find((d) => d.kind === "big" && d.status === "pending" && d.year <= s.playhead.year);
     if (big) {
       // A fork preempts an open small card: it is shelved silently (status "slid" with no answer
@@ -774,9 +1373,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const lastGen = s.years.at(-1)?.year ?? this.startYear - 1;
     if (lastGen >= this.endYear) return;
     // Never write past a fork that isn't answered yet: everything after it is rewritten at the answer.
+    // (A slot at the playhead counts too: the warm-up's first fork "today" isn't written until its end.)
     const openFork = Math.min(
       ...s.decisions.filter((d) => d.kind === "big" && d.status === "pending").map((d) => d.year),
-      ...this.slots.filter((sl) => sl.kind === "big" && sl.year > s.playhead.year && !this.materialized(sl)).map((sl) => sl.year),
+      ...this.slots.filter((sl) => sl.kind === "big" && sl.year >= s.playhead.year && !this.materialized(sl)).map((sl) => sl.year),
       Infinity,
     );
     if (lastGen >= openFork) return;
@@ -1056,7 +1656,7 @@ function short(s: string, n: number): string {
 // `@callable()` without decorator syntax: Vite's Oxc transform doesn't support TC39 decorators,
 // and registration is just metadata on the method (agents/callable-decorator).
 const CALLABLE: (keyof SessionAgent & string)[] = [
-  "start", "answer", "nudge", "setSpeed", "tick", "pause", "peekBranch", "addDocument", "sayTo", "addPortrait", "reset",
+  "start", "answerWarmup", "forget", "answer", "nudge", "setSpeed", "tick", "pause", "peekBranch", "addDocument", "sayTo", "addPortrait", "reset",
 ];
 for (const name of CALLABLE) {
   const fn = SessionAgent.prototype[name] as unknown as (...a: unknown[]) => unknown;
