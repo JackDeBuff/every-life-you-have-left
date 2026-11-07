@@ -324,6 +324,8 @@ function Figure({ appearance: a, band, className }: { appearance: Appearance | n
   };
   const style: HairStyle = a?.hairStyle ?? "short";
   const s = band === "70" ? 3 : band === "50" ? 1.5 : 0; // the shoulders settle a little with age
+  const gender = a?.gender ?? null;
+  const w = gender === "woman" ? 0.9 : gender === "man" ? 1.05 : 0.97; // shoulder width
   const h = hairLayers(style, k);
   return (
     <svg className={className} viewBox="0 0 120 154" aria-hidden="true">
@@ -334,15 +336,29 @@ function Figure({ appearance: a, band, className }: { appearance: Appearance | n
       </defs>
       {h.back}
 
-      {/* shirt: crew neck, shaded on the far side */}
-      <path d={`M8 160 C9.6 ${128 + s} 28 ${111 + s} 60 ${110 + s} C92 ${111 + s} 110.4 ${128 + s} 112 160 Z`} fill="var(--portrait-shirt)" />
-      <path d={`M86 ${113.6 + s} C100 ${119.6 + s} 110 ${132 + s} 112 160 L97 160 C96.6 ${140 + s} 92.6 ${124 + s} 86 ${113.6 + s} Z`} fill="#000" opacity="0.14" />
-      <path d={`M17.6 ${129 + s} C25.6 ${119.6 + s} 35.6 ${114.4 + s} 45.6 ${112.6 + s}`} {...stroke("#fff", 1.6, 0.12)} />
+      {/* shirt, shaded on the far side. Shoulders and neckline follow the gender they gave: a scoop
+          neck (woman), a collar (man), a crew neck (non-binary or not set). */}
+      <path d={`M${60 - 52 * w} 160 C${60 - 50.4 * w} ${128 + s} ${60 - 32 * w} ${111 + s} 60 ${110 + s} C${60 + 32 * w} ${111 + s} ${60 + 50.4 * w} ${128 + s} ${60 + 52 * w} 160 Z`} fill="var(--portrait-shirt)" />
+      <path d={`M${60 + 26 * w} ${113.6 + s} C${60 + 40 * w} ${119.6 + s} ${60 + 50 * w} ${132 + s} ${60 + 52 * w} 160 L${60 + 37 * w} 160 C${60 + 36.6 * w} ${140 + s} ${60 + 32.6 * w} ${124 + s} ${60 + 26 * w} ${113.6 + s} Z`} fill="#000" opacity="0.14" />
+      <path d={`M${60 - 42.4 * w} ${129 + s} C${60 - 34.4 * w} ${119.6 + s} ${60 - 24.4 * w} ${114.4 + s} ${60 - 14.4 * w} ${112.6 + s}`} {...stroke("#fff", 1.6, 0.12)} />
 
       {/* neck */}
       <path d={`M51.6 80 L51.6 ${104 + s} C55 ${110 + s} 65 ${110 + s} 68.4 ${104 + s} L68.4 80 Z`} fill={k.skin} />
       <path d="M51.6 84 C55 91.6 65 91.6 68.4 84 L68.4 94 C64 97 56 97 51.6 94 Z" fill={k.shade} />
-      <path d={`M48.8 ${109.6 + s} C52.8 ${115.6 + s} 67.2 ${115.6 + s} 71.2 ${109.6 + s}`} {...stroke("var(--portrait-shirt-line)", 2.2)} />
+      {gender === "woman" ? (
+        <>
+          <path d={`M45.6 ${109 + s} C48.6 ${125 + s} 71.4 ${125 + s} 74.4 ${109 + s} Z`} fill={k.skin} />
+          <path d={`M45.6 ${109 + s} C48.6 ${125 + s} 71.4 ${125 + s} 74.4 ${109 + s}`} {...stroke("var(--portrait-shirt-line)", 1.8)} />
+        </>
+      ) : gender === "man" ? (
+        <>
+          <path d={`M51 ${107.4 + s} L58.6 ${118 + s} L47.4 ${116.4 + s} Z M69 ${107.4 + s} L61.4 ${118 + s} L72.6 ${116.4 + s} Z`} fill="var(--portrait-shirt)" />
+          <path d={`M51 ${107.4 + s} L58.6 ${118 + s} L47.4 ${116.4 + s} Z M69 ${107.4 + s} L61.4 ${118 + s} L72.6 ${116.4 + s} Z`} {...stroke("var(--portrait-shirt-line)", 1.4)} />
+          <path d={`M60 ${118 + s} L60 160`} {...stroke("var(--portrait-shirt-line)", 1, 0.8)} />
+        </>
+      ) : (
+        <path d={`M48.8 ${109.6 + s} C52.8 ${115.6 + s} 67.2 ${115.6 + s} 71.2 ${109.6 + s}`} {...stroke("var(--portrait-shirt-line)", 2.2)} />
+      )}
 
       {/* ears */}
       <ellipse cx="39.4" cy="63" rx="4" ry="6.2" fill={k.skin} />

@@ -20,7 +20,7 @@ You read what the person told us (their quotes, verbatim, with ids) and any docu
    - careful: the life where their fear decides every fork, protecting security and others' expectations.
    - unjudged: what they'd do if nobody judged them.
    If they only gave one line, infer the seeds from it, honestly, and cite the quote anyway.
-9. Never record, guess or use race, ethnicity, religion, sexual orientation, health diagnoses or immigration status. If they volunteered one, keep only their own framing, as an "other" or "background" fact sourced to their quote.
+9. Never record, guess or use race, ethnicity, religion, sexual orientation, gender, health diagnoses or immigration status (gender comes from the start screen, separately). If they volunteered one, keep only their own framing, as an "other" or "background" fact sourced to their quote.
 10. Facts use keys: occupation, education, location, living, relationship, children, background, health_habits, interests, other. Labels are 1-2 words ("Work", "Home", "Love").`;
 
 export function profilePrompt(input: StartInput, quotes: { id: string; text: string }[], docs: DocInput[], existing: Profile | null): string {

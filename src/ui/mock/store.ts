@@ -525,6 +525,7 @@ export const useMockSim = create<Store>()((set, get) => {
         sessionId: get().sessionId,
         profileVersion: 1,
         firstName: input.firstName,
+        gender: input.appearance?.gender ?? null,
         age: input.age,
         birthYear: startYear - input.age,
         country: input.country,

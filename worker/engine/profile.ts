@@ -13,7 +13,7 @@ import { PROFILE_SYSTEM, profilePrompt } from "./prompts/profile";
 import { AnswerDeltaLLM, ProfileLLM } from "./schemas";
 import { clamp, norm, sentences, shortId, truncateWords, wordCount } from "./util";
 
-const ETHNIC = /\b(race|racial|ethnic\w*|caucasian|white|black|asian|hispanic|latin[oax]|african[- ]american|arab|indigenous)\b/i;
+const ETHNIC = /\b(race|racial|ethnic\w*|caucasian|white|black|asian|hispanic|latin[oax]|african[- ]american|arab|indigenous|gender|pronouns?)\b/i;
 
 /** Split free text into verbatim quotes; tiny fragments are merged into a neighbour. */
 export function quotesFromText(text: string, startIndex: number, questionId: string | null, source: Quote["source"]): Quote[] {
@@ -161,6 +161,7 @@ export function emptyProfile(input: StartInput, startYear: number, sessionId: st
     sessionId,
     profileVersion: 1,
     firstName: input.firstName,
+    gender: input.appearance?.gender ?? null, // self-identified on the start screen; never inferred
     age: input.age,
     birthYear: startYear - input.age,
     country: input.country.toUpperCase(),

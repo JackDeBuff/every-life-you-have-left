@@ -10,7 +10,7 @@ const STYLES: NonNullable<Appearance["hairStyle"]>[] = ["short", "medium", "long
 const TONES = Object.keys(SKIN_SWATCHES) as NonNullable<Appearance["skinTone"]>[];
 const COLORS = Object.keys(HAIR) as NonNullable<Appearance["hairColor"]>[];
 
-const look = (a: Partial<Appearance>): Appearance => ({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null, ...a });
+const look = (a: Partial<Appearance>): Appearance => ({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null, gender: null, ...a });
 
 function Cell({ a, age = 25, caption, size = 120 }: { a: Appearance | null; age?: number; caption: string; size?: number }) {
   return (
@@ -54,6 +54,17 @@ export default function LookLab() {
             <Cell key={`g-${s}`} a={look({ hairStyle: s, skinTone: TONES[(i + 2) % 6], hairColor: COLORS[i % 8], glasses: true, facialHair: i % 2 === 0 })} caption={`${s} · glasses${i % 2 === 0 ? " · beard" : ""}`} />
           ))}
           <Cell a={null} caption="nothing picked" />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="label">Gender they gave (shoulders + neckline only; hair stays theirs)</h2>
+        <div className="ll-grid" style={{ gridTemplateColumns: `repeat(8, auto)` }}>
+          {([null, "woman", "man", "nonbinary"] as const).flatMap((g) =>
+            (["long", "short"] as const).map((s, i) => (
+              <Cell key={`${g}-${s}`} a={look({ gender: g, hairStyle: s, skinTone: i ? "tone5" : "tone2", hairColor: i ? "black" : "brown", facialHair: false })} caption={`${g ?? "not set"} · ${s}`} />
+            )),
+          )}
         </div>
       </section>
 

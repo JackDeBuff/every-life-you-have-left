@@ -115,6 +115,7 @@
 .ll-cell { margin: 0; display: grid; gap: 4px; justify-items: center; }
 .ll-cell figcaption { max-width: 120px; text-align: center; font-size: 10.5px; }
 .bio-name { font-size: 20px; font-weight: 650; font-stretch: var(--w-wide); letter-spacing: -0.01em; line-height: 1.1; }
+.bio-pron { margin-left: 8px; font-size: var(--fs-label); font-weight: 500; font-stretch: 100%; letter-spacing: 0.02em; color: var(--ink-3); vertical-align: 0.2em; }
 .bio-age { font-size: var(--fs-num); font-weight: 760; font-stretch: var(--w-wide); letter-spacing: -0.04em; line-height: 0.9; margin: 4px 0 6px; font-variant-numeric: tabular-nums; }
 .roll { position: relative; display: inline-block; overflow: hidden; vertical-align: bottom; padding-right: 0.04em; }
 .roll > span { display: inline-block; }

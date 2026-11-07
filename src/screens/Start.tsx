@@ -3,7 +3,7 @@
  * speed (Auto pre-selected for judges), optional look + selfie, optional "tell me more", consent.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { endAgeFor } from "../../shared/schema";
+import { endAgeFor, pronounsFor, type Gender } from "../../shared/schema";
 import type { Appearance, SpeedMode, StartInput } from "../../shared/sim";
 import { fastForward, jumpParams } from "../ui/devJump";
 import { HoldToTalk } from "../ui/HoldToTalk";
@@ -24,6 +24,7 @@ const SPEEDS: { id: SpeedMode; key: string; title: string; note: string }[] = [
 ];
 
 const HAIR_STYLES: NonNullable<Appearance["hairStyle"]>[] = ["short", "medium", "long", "curly", "coily", "shaved", "bun"];
+const GENDER_CHOICES: [Gender, string][] = [["woman", "Woman"], ["man", "Man"], ["nonbinary", "Non-binary"], ["undisclosed", "Prefer not to say"]];
 const COUNTRY_NAMES: Record<string, string> = {
   usa: "US", "united states": "US", us: "US", uk: "GB", "united kingdom": "GB", england: "GB", canada: "CA", india: "IN", japan: "JP", germany: "DE", france: "FR",
   spain: "ES", portugal: "PT", italy: "IT", mexico: "MX", brazil: "BR", singapore: "SG", australia: "AU", korea: "KR", "south korea": "KR", china: "CN", nigeria: "NG",
@@ -58,7 +59,7 @@ export default function Start() {
   const [line, setLine] = useState(demo ? SAMPLE.line : "");
   const [via, setVia] = useState<"text" | "voice">("text");
   const [speed, setSpeed] = useState<SpeedMode>("auto");
-  const [look, setLook] = useState<Appearance>({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null });
+  const [look, setLook] = useState<Appearance>({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null, gender: null });
   const [selfie, setSelfie] = useState<{ file: File; url: string } | null>(null);
   const [docs, setDocs] = useState<(AddedDoc & { text: string; file: File | null })[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -168,6 +169,28 @@ export default function Start() {
             <span className="label">Where you live</span>
             <input className="input" value={place} onChange={(e) => setPlace(e.target.value)} autoComplete="address-level2" placeholder="Durham, NC" maxLength={80} required />
           </label>
+        </div>
+
+        <div className="field">
+          <span className="label">
+            <span>Gender · optional</span>
+            <span className="faint">{look.gender ? `The story will say ${pronounsFor(look.gender)}` : "Not set: the story says they/them"}</span>
+          </span>
+          <div className="chips" role="radiogroup" aria-label="Gender">
+            {GENDER_CHOICES.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={look.gender === id}
+                className="chip"
+                data-on={look.gender === id}
+                onClick={() => setLook({ ...look, gender: look.gender === id ? null : id })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="field">

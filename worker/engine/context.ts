@@ -12,6 +12,7 @@ export function personBlock(p: Profile): string {
   const lines: string[] = [];
   const where = [p.city, p.region, p.country].filter(Boolean).join(", ");
   lines.push(`${p.firstName ?? "They"}, ${p.age}, born ${p.birthYear}, lives in ${where}. Today is ${p.startYear}.`);
+  lines.push(genderLine(p.gender));
   if (p.country.toUpperCase() !== "US")
     lines.push(`Not in the US: the base-rate table is US data, applied as approximate. Use local realities for money (in USD), housing, family norms and careers.`);
   for (const f of p.facts) lines.push(`- ${f.label}: ${f.value}${f.source === "inferred" ? " (our guess)" : ""}`);
@@ -39,6 +40,16 @@ export function personBlock(p: Profile): string {
     `Seeds: momentum = ${p.seeds.path.text}; the leap = ${p.seeds.leap.text}; fear wins = ${p.seeds.careful.text}; unjudged = ${p.seeds.unjudged.text}`,
   );
   return lines.join("\n");
+}
+
+/** Pronouns for the user, from the gender they picked themselves (never guessed). */
+export function genderLine(g: Profile["gender"]): string {
+  const how =
+    g === "woman" ? "a woman: others call them she/her (a daughter, a wife or partner, a mom to her kids)"
+    : g === "man" ? "a man: others call them he/him (a son, a husband or partner, a dad to his kids)"
+    : g === "nonbinary" ? "non-binary: others call them they/them, in neutral words (child, partner or spouse, parent)"
+    : "not given: others call them they/them, in neutral words (child, partner, parent). Never guess it from their name or anything else";
+  return `Gender (they chose it): ${how}. Narration still says "you".`;
 }
 
 export function topWorries(p: Profile, n: number): [DomainKey, number][] {

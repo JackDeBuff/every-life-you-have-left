@@ -174,10 +174,21 @@ export const Assumption = z.object({
   reason: z.string(),
 });
 
+/**
+ * Self-identified gender, picked on the start screen (Appearance.gender). Never inferred from a
+ * selfie, a name or anything the user wrote. Not set (null) or "undisclosed" = they/them.
+ */
+export const GENDERS = ["woman", "man", "nonbinary", "undisclosed"] as const;
+export const Gender = z.enum(GENDERS);
+export type Gender = z.infer<typeof Gender>;
+export const pronounsFor = (g: Gender | null | undefined): "she/her" | "he/him" | "they/them" =>
+  g === "woman" ? "she/her" : g === "man" ? "he/him" : "they/them";
+
 export const Profile = z.object({
   sessionId: z.string(),
   profileVersion: int().describe("Bumps on every answer or pause; lives record which version they used"),
   firstName: z.string().nullable(),
+  gender: Gender.nullable().optional().describe("Code-owned copy of Appearance.gender from the start screen; models never set it"),
   age: int().min(18).max(110),
   birthYear: int(),
   country: z.string().describe("ISO 3166-1 alpha-2, e.g. US. Base rates are US (approximate elsewhere)."),
@@ -207,6 +218,7 @@ export type Profile = z.infer<typeof Profile>;
 export const ProfileDraft = Profile.omit({
   sessionId: true,
   profileVersion: true,
+  gender: true,
   startYear: true,
   endAge: true,
   quotes: true,

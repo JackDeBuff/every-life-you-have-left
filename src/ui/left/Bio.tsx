@@ -1,5 +1,6 @@
 /** Left pane: portrait, bio (name, rolling age, place, work, people, net worth), the life rose, tell me more. */
 import { useEffect, useRef, useState } from "react";
+import { pronounsFor } from "../../../shared/schema";
 import { money } from "../format";
 import { gsap, reducedMotion } from "../motion";
 import { useSim } from "../session";
@@ -47,7 +48,10 @@ export function Bio() {
       <div className="bio-top">
         <Portrait appearance={appearance} age={age} progress={progress} portraits={portraits} size={96} label={`${p.firstName}, illustrated, at ${age}`} />
         <div className="bio-id">
-          <p className="bio-name">{p.firstName}</p>
+          <p className="bio-name">
+            {p.firstName}
+            {p.gender && p.gender !== "undisclosed" && <span className="bio-pron">{pronounsFor(p.gender)}</span>}
+          </p>
           <p className="bio-age" aria-label={`Age ${age}`}>
             <Roll value={age} />
           </p>

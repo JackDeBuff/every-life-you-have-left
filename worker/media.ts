@@ -92,8 +92,17 @@ const SKIN: Record<string, string> = {
   tone1: "very light skin", tone2: "light skin", tone3: "light-medium skin", tone4: "medium-tan skin", tone5: "brown skin", tone6: "deep brown skin",
 };
 
+/** Who to draw, from the gender they gave (never inferred). Not set / prefer not to say = no gendered styling. */
+const WHO: Record<string, string> = {
+  woman: "a woman",
+  man: "a man",
+  nonbinary: "a non-binary person with androgynous styling",
+  undisclosed: "a person",
+};
+
 function describe(app: Appearance | null): string {
   if (!app) return "a friendly, neutral-looking person";
+  const who = (app.gender && WHO[app.gender]) || "a person";
   const parts = [
     app.hairStyle ? HAIR[app.hairStyle] : null,
     app.hairColor ? `${app.hairColor.replace("_", " ")} hair colour` : null,
@@ -101,7 +110,16 @@ function describe(app: Appearance | null): string {
     app.glasses ? "glasses" : null,
     app.facialHair === true ? "a short beard" : app.facialHair === false ? "clean-shaven" : null,
   ].filter(Boolean);
-  return parts.length ? `a person with ${parts.join(", ")}` : "a friendly, neutral-looking person";
+  if (!parts.length) return who === "a person" ? "a friendly, neutral-looking person" : `${who}, friendly and natural-looking`;
+  return `${who} with ${parts.join(", ")}`;
+}
+
+/** For a selfie: the gender they gave, stated (never read from the photo). */
+function selfieWho(app: Appearance | null): string {
+  if (app?.gender === "woman") return " They identify as a woman.";
+  if (app?.gender === "man") return " They identify as a man.";
+  if (app?.gender === "nonbinary") return " They identify as non-binary; add no gendered styling.";
+  return "";
 }
 
 const STYLE =
@@ -148,7 +166,8 @@ media.post("/api/portrait", async (c) => {
         void noteMedia(c.env, key, sessionId, "selfie", null, null);
         prompt =
           `Turn the person in this photo into an illustration, about ${forAge} years old. Keep their real features, ` +
-          `face shape, hair and skin tone exactly as in the photo; do not change or guess their ethnicity. ${STYLE}`;
+          `face shape, hair and skin tone exactly as in the photo; do not change or guess their ethnicity or gender.` +
+          `${selfieWho(appearance?.success ? appearance.data : null)} ${STYLE}`;
       } else {
         prompt = `Draw ${describe(appearance?.success ? appearance.data : null)}, about ${forAge} years old. ${STYLE}`;
       }
