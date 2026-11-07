@@ -1,0 +1,86 @@
+/*
+ * Design tokens: NEUTRAL PLACEHOLDER. The theme (Paper / Night / wildcard) and fonts are still
+ * being chosen (D-051, D-052). Code must use these variables, never raw colours, so the theme
+ * can be swapped in one file. Life inks are referenced by shared/lives.ts (ARCHETYPES[k].ink).
+ * Rules: no purple gradients, no glassmorphism, not 1 in 8 Billion's charcoal + pink/mint.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* surface + text */
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --text-muted: #6b6a66;
+  --line: #d9d7d1;
+  --focus: #1d1d1b;
+
+  /* life inks (placeholder, deliberately plain) */
+  --ink-path: #2f4f6f;
+  --ink-leap: #a0522d;
+  --ink-careful: #5f6b5a;
+  --ink-unjudged: #8a6d1f;
+
+  /* tone */
+  --tone-up: #3d6b4f;
+  --tone-down: #8a3b33;
+  --tone-mixed: #6b6a66;
+
+  /* type */
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.6rem;
+  --step-3: 2.2rem;
+
+  /* space + shape */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --radius: 6px;
+  --measure: 38rem;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 300ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --surface: #1f1f1d;
+    --text: #ecebe7;
+    --text-muted: #a3a29d;
+    --line: #3a3936;
+    --focus: #ecebe7;
+    --ink-path: #8fb3d6;
+    --ink-leap: #e0956a;
+    --ink-careful: #a9b5a2;
+    --ink-unjudged: #d9b85c;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --surface: #1f1f1d;
+  --text: #ecebe7;
+  --text-muted: #a3a29d;
+  --line: #3a3936;
+  --focus: #ecebe7;
+  --ink-path: #8fb3d6;
+  --ink-leap: #e0956a;
+  --ink-careful: #a9b5a2;
+  --ink-unjudged: #d9b85c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+  }
+}
