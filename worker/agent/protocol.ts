@@ -126,6 +126,8 @@ export interface SessionExtras {
    * clock holds the year's end for it, for a few seconds at most.
    */
   smallDue?: boolean;
+  /** The ending is written (for the life as it stands): Auto plays its last years quicker then. */
+  endingReady?: boolean;
   engine: "mock" | "real";
   /** Last non-fatal engine error code, for debugging. */
   error: string | null;

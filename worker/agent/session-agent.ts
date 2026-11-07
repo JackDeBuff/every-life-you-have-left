@@ -1021,7 +1021,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         if (kit) {
           // D-089: the quote at once, in code; the fold takes this answer and any small answers
           // still waiting, in one call. A fork is a new context: the small-card queue goes.
-          this.newContext();
+          this.newContext("fork");
           const q = kit.quoteAnswer(this.s, answered, rec);
           this.update({ profile: this.withId(q.profile) });
           folded = { profile: q.profile, quote: q.quote };
@@ -1358,7 +1358,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         if (smallBusy || openFork <= sl.year) continue;
         if (s.speed === "1x") {
           if (sl.year < lastFork) continue;
-          if (sl.year === lastFork && (s.phase !== "playing" || Date.now() - this.resumedAt < FORK_QUIET_MS)) continue;
+          if (sl.year === lastFork && (s.phase !== "playing" || Date.now() - this.resumedAt < FORK_QUIET_MS)) {
+            // This year's cards come after the quiet moment: don't write next year's ahead of them.
+            smallBusy = true;
+            continue;
+          }
         } else if (sl.year <= lastFork + 1) continue;
         smallBusy = true;
         // D-089: served from the written-ahead queue (instant); a single card only when batches fail.
@@ -1406,7 +1410,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.s.smallDue) this.update({ smallDue: false });
   }
 
-  private newContext(): void {
+  private newContext(why = ""): void {
+    if (this.smallQ.length) console.log(`[small] queue of ${this.smallQ.length} dropped: ${why || "new context"}`);
     this.smallCtx++;
     this.spend.smalls.discarded += this.smallQ.length;
     this.smallQ = [];
@@ -1435,6 +1440,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         void this.mirror.decisions([d]);
         const sm = this.spend.smalls;
         sm.served++;
+        // Timing trail only (no personal data): which slot each card took, and where the playhead was.
+        console.log(`[small] served slot ${sl.year} at playhead ${ph} (queue ${this.smallQ.length})`);
         if (this.waitingSince === null) sm.fromQueue++;
         else {
           const w = Date.now() - this.waitingSince;
@@ -1494,6 +1501,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.batching = false;
         // Two empty batches in a row: single cards (queueDecision) for 30 s.
         this.batchMisses = got ? 0 : this.batchMisses + 1;
+        console.log(`[small] batch for ${want.map((w) => w.year).join(",")}: ${got} cards${ctx !== this.smallCtx ? " (context changed: dropped)" : ""}`);
         if (this.batchMisses >= 2)
           setTimeout(() => {
             this.batchMisses = 0;
@@ -1529,7 +1537,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // A new thread (a new person, a job quit, a move, love, a baby) changes the context: the
     // queued cards go, the fold runs now, and one follow-up is written for it.
     const thread = kit.newThread(this.s, d, finalRec);
-    if (thread) this.newContext();
+    if (thread) this.newContext("an answer opened a thread");
     if (thread || this.pendingFold.length >= FOLD_EVERY) void this.flushFold();
     if (thread || kit.begsFollowUp(finalRec)) {
       const ph = this.s.playhead.year;
@@ -1571,7 +1579,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.update((s) => (s.profile ? { profile: this.withId(res.apply(s.profile)) } : {}));
         void this.mirror.session(this.s);
         // The delta can show a thread the words alone didn't (a new person, job, home or plan).
-        if (res.thread && items.every((i) => i.decision.kind === "small")) this.newContext();
+        if (res.thread && items.every((i) => i.decision.kind === "small")) this.newContext("the fold found a thread");
       })
       .catch((e: unknown) => console.error("fold failed", e instanceof Error ? e.name : "error"));
     return this.foldChain;
@@ -1720,6 +1728,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
    */
   private invalidate(fromYear?: number): void {
     this.epoch++;
+    if (this.s.endingReady) this.update({ endingReady: false }); // that ending is stale now
     const from = Math.min(fromYear ?? this.s.playhead.year + 1, this.s.playhead.year + 1);
     this.update((s) => {
       const years = s.years.filter((y) => y.year < from);
@@ -2058,7 +2067,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const p = this.computeEnding();
     // Timing trail only: when the ending started (playhead vs the end) and how long it took.
     const ph = s.playhead.year;
-    p.then(() => console.log(`[ending] written in ${Date.now() - t} ms (started at playhead ${ph}, end ${this.endYear})`)).catch(() => {});
+    p.then(() => {
+      console.log(`[ending] written in ${Date.now() - t} ms (started at playhead ${ph}, end ${this.endYear})`);
+      // Auto plays its last years quicker once nothing is left to wait for (src/ui/pacing.ts).
+      if (this.endingPre?.p === p && this.epoch === epoch && this.s.phase === "playing") this.update({ endingReady: true });
+    }).catch(() => {});
     this.endingPre = { epoch, p };
   }
   private async computeEnding(): Promise<{ ending: Ending; copy: AgentState }> {

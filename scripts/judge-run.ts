@@ -18,7 +18,7 @@
  */
 import { applyServerMsg, agentPath, isServerMsg, type AgentState, type AnswerInput } from "../worker/agent/protocol";
 import { SPEED_CONFIG, type SimYear, type StartInput } from "../shared/sim";
-import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, cutSecondsFor, FORK_MOMENT_S, holdsYearEnd, MOMENT_RULES, playableMoments, SMALL_DECISION_SCALE } from "../src/ui/pacing";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, cutSecondsFor, FORK_MOMENT_S, holdsYearEnd, MOMENT_RULES, playableMoments, secondsPerYearNow, SMALL_DECISION_SCALE } from "../src/ui/pacing";
 
 const args = process.argv.slice(2);
 const flag = (name: string, dflt: string) => {
@@ -303,7 +303,7 @@ function frame() {
   scale += (target - scale) * k;
   if (Math.abs(scale - target) < 0.002) scale = target;
   if (s.phase !== "playing" && awaiting === null) progress = 0;
-  const spy = SPEED_CONFIG[s.speed].secondsPerYear;
+  const spy = legacy ? SPEED_CONFIG[s.speed].secondsPerYear : secondsPerYearNow({ speed: s.speed, base: SPEED_CONFIG[s.speed].secondsPerYear, nextFork: s.nextFork, endingReady: s.endingReady });
   if (playing || scale > 0) progress += ((dt / 1000) * scale) / spy;
   if (progress >= 1) {
     if (awaiting === null) {

@@ -17,7 +17,7 @@ import { create } from "zustand";
 import { SPEED_CONFIG } from "../../shared/sim";
 import { typingInSmallCard } from "./activity";
 import { gsap } from "./motion";
-import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, holdsYearEnd, SMALL_DECISION_SCALE } from "./pacing";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, holdsYearEnd, secondsPerYearNow, SMALL_DECISION_SCALE } from "./pacing";
 import { sim } from "./session";
 
 type Listener = (yearFloat: number, scale: number) => void;
@@ -105,7 +105,7 @@ class LifeClock {
     if (Math.abs(this.scale - target) < 0.002) this.scale = target;
     // Leaving a decision or an interlude starts a fresh year (no carried-over time).
     if (s.phase !== "playing" && this.awaiting === null) this.progress = 0;
-    const spy = SPEED_CONFIG[s.speed].secondsPerYear;
+    const spy = secondsPerYearNow({ speed: s.speed, base: SPEED_CONFIG[s.speed].secondsPerYear, nextFork: s.nextFork, endingReady: s.endingReady });
     if (playing || this.scale > 0) this.progress += ((dtMs / 1000) * this.scale) / spy;
 
     let starved = false;

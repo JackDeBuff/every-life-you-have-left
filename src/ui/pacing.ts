@@ -13,6 +13,18 @@ export const cutSecondsFor = (speed: SpeedMode | string): number => (speed === "
 /** Length of the fork moment's GSAP timeline (src/ui/motion/forkMoment.ts). */
 export const FORK_MOMENT_S = 2.4;
 
+/**
+ * Auto's coda: once the last fork is behind and the ending is already written, the remaining
+ * years play at this fraction of their time (1.5 s -> 0.9 s a year). It only starts when the
+ * ending is ready, so it can never add a wait at 70.
+ */
+export const AUTO_CODA_FACTOR = 0.6;
+
+/** Seconds per year now: SPEED_CONFIG, or Auto's coda (see AUTO_CODA_FACTOR). */
+export function secondsPerYearNow(o: { speed: SpeedMode; base: number; nextFork: number | null | undefined; endingReady: boolean | undefined }): number {
+  return o.speed === "auto" && o.nextFork == null && o.endingReady ? o.base * AUTO_CODA_FACTOR : o.base;
+}
+
 /** Clock time scale while a small decision is open (it slows time, it never stops it). */
 export const SMALL_DECISION_SCALE = 0.5;
 
@@ -44,8 +56,8 @@ export const CLOCK_EASE_OUT_MS = 260;
  */
 export const MOMENT_RULES: Record<SpeedMode, { gapYears: number; holdS: number }> = {
   // Auto: the hold plus the ~2 s the year itself takes lets a 4-4.8 s cinematic play out. One
-  // every 4 years (was 3): ~2 fewer holds in a judge's run, ~5 s.
-  auto: { gapYears: 4, holdS: 2.5 },
+  // every 6 years (was 3; a measured run held 9 of them, 22.5 s): ~6 in a judge's run.
+  auto: { gapYears: 6, holdS: 2.5 },
   "4x": { gapYears: 3, holdS: 2.8 },
   "2x": { gapYears: 2, holdS: 3.6 },
   "1x": { gapYears: 2, holdS: 4.4 },
