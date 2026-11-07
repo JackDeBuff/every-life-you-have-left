@@ -1,0 +1,5 @@
+# Workers Static Assets custom headers. /admin is the team's playtest console: keep it out of search.
+/admin
+  X-Robots-Tag: noindex, nofollow
+/admin/*
+  X-Robots-Tag: noindex, nofollow

@@ -52,7 +52,8 @@ import {
   type SimYear,
 } from "../../shared/sim";
 import type { Profile } from "../../shared/schema";
-import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
+import { loadEngine, type LoadedEngine, type MetricSink, type UsageSink } from "../engine-select";
+import { passcodeOk } from "../admin-auth";
 import type { FoldItem, SmallDecisionKit } from "../engine/smalls";
 import { chosenOf, resolveBig } from "../engine/answers";
 import { bigCardIssues } from "../engine/decisions";
@@ -360,6 +361,12 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     d.outTok += u.outputTokens + u.thoughtTokens;
     this.publishSpend();
   };
+  /** Year-writer warnings (a repaired, fallback or filler year) for /admin's Health tab. */
+  private onMetric: MetricSink = (m) => {
+    if (!m.fallback && !m.repaired && !m.hardErrors) return;
+    const code = m.filler ? "year.filler" : m.fallback ? "year.fallback" : "year.repaired";
+    void this.mirror.engineLog("warn", code, m.errors.join(" | ") || null, m.lifeId, m.year);
+  };
   private publishSpend(): void {
     if (this.spendTimer) return;
     this.spendTimer = setTimeout(() => {
@@ -381,7 +388,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   private engInfo(): Promise<LoadedEngine> {
     if (!this.enginePromise) {
-      this.enginePromise = loadEngine(this.env, this.onUsage).then((r) => {
+      this.enginePromise = loadEngine(this.env, this.onUsage, this.onMetric).then((r) => {
         this.engineSync = r.engine;
         // SMALL_BATCH=off restores the old small-card path (one card per call, a fold and a
         // re-written future per answer); kept for before/after measurements.
@@ -402,6 +409,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const base = this.s;
     const p = typeof patch === "function" ? patch(base) : patch;
     this.cur = { ...base, ...p, updatedAt: nowIso() };
+    // every engine error, for /admin (AgentState keeps only the last one)
+    if (p.error && p.error !== base.error) void this.mirror.engineLog("error", p.error.split(":")[0] ?? "error", p.error);
     const nf = this.nextForkYear();
     if (nf !== (this.cur.nextFork ?? null)) this.cur = { ...this.cur, nextFork: nf };
     if (!this.flushTimer) this.flushTimer = setTimeout(() => this.flush(), FLUSH_MS);
@@ -1263,6 +1272,26 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.invalidate();
       });
     }
+  }
+
+  /**
+   * /admin reads (worker/admin.ts, DO RPC on a plain stub). Deliberately NOT async: the Agents SDK
+   * starts the agent lifecycle (onStart, which may resume a warm-up and call the model) before any
+   * async custom method, but not before a sync one, so reading a session never changes it. Never
+   * @callable: no browser can reach these. The passcode is checked here too.
+   * null = wrong passcode or nothing stored for this session.
+   */
+  adminSnapshot(passcode: string): { state: AgentState; awake: boolean } | null {
+    if (!passcodeOk(passcode, this.env.ADMIN_PASSCODE)) return null;
+    const st = this.cur ?? (this.state as AgentState | undefined);
+    return st && st.sessionId ? { state: st, awake: this.cur !== null } : null;
+  }
+
+  /** The /admin list columns (spend, warm-up, last error) for a session mirrored before 0004_admin.sql. Sync, like adminSnapshot. */
+  adminSummary(passcode: string): { usage: AgentState["usage"]; warmup: AgentState["warmup"]; error: string | null } | null {
+    const snap = this.adminSnapshot(passcode);
+    if (!snap) return null;
+    return { usage: snap.state.usage ?? null, warmup: snap.state.warmup ?? null, error: snap.state.error };
   }
 
   /** Called by /api/portrait (DO RPC) after a portrait is stored in R2. */
