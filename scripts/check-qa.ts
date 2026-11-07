@@ -14,6 +14,7 @@ import { resolveBig, chosenOf } from "../worker/engine/answers";
 import { bigCardIssues } from "../worker/engine/decisions";
 import { ANSWER_CASES, CLEAN_CASES, FORK_CASES, TODAY } from "./qa/fixtures";
 import { PEOPLE_CASES, HISTORY_CASES, MONEY_CASES, COPY_CASES } from "./qa/code-cases";
+import { PEOPLE_MODEL_CASES } from "./qa/people-cases";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -49,6 +50,7 @@ for (const [title, cases] of [
   ["3. People from uploads", PEOPLE_CASES],
   ["4. History and people over time", HISTORY_CASES],
   ["5. Money anchors and copy", [...MONEY_CASES, ...COPY_CASES]],
+  ["6. People join, drift and get new names (Ploy, made up)", PEOPLE_MODEL_CASES],
 ] as const) {
   console.log(`\n${title}`);
   for (const c of cases) {

@@ -167,6 +167,79 @@ export function resolveBig(d: Pick<Decision, "options">, optionId: string | null
   return contradicts(opt, words, d.options) ? { optionId: null, own: true, how: "contradicts" } : { optionId: opt.id, own: false, how: "refine" };
 }
 
+// ---------------------------------------------------------------------------------------------
+// People named in their own words (owner playtest, Sat Nov 7)
+// ---------------------------------------------------------------------------------------------
+//
+// A friend named in a typed answer ("I'd go climbing with my friend Kai") never reached People: the
+// ledger only knew the warm-up and the uploads. Code reads names with a relation cue out of every
+// typed answer (the ledger adds them from that year on, ledger.ts peopleCues), and "I lost touch
+// with Kai" marks Kai as drifted. A name, a relation and nothing else: never race or ethnicity.
+
+const REL_WORDS =
+  "best friend|friend|bestie|buddy|pal|mate|roommate|flatmate|housemate|neighbou?r|mentor|coworker|co-worker|colleague|teammate|classmate|girlfriend|boyfriend|partner|wife|husband|fianc[eé]e?|sister|brother|cousin|auntie|aunt|uncle|son|daughter|godmother|godfather|grandma|grandpa|grandmother|grandfather";
+const NAME = "(\\p{Lu}[\\p{Ll}'’-]+)";
+const MODS = "((?:[a-z][a-z-]*\\s+){0,2}?)";
+const SAID_RES: { re: RegExp; name: number; mods: number; rel: number }[] = [
+  // "my friend Kai", "my best friend, Priya", "my old college roommate Dana", "my girlfriend named Lin"
+  { re: new RegExp(`\\b[Mm]y\\s+${MODS}(${REL_WORDS})(?!['’]s)\\b,?\\s+(?:(?:named|called)\\s+)?${NAME}`, "gu"), name: 3, mods: 1, rel: 2 },
+  // "Kai, my climbing buddy"
+  { re: new RegExp(`${NAME},\\s+(?:[Mm]y|[Oo]ur)\\s+${MODS}(${REL_WORDS})\\b(?!['’]s)`, "gu"), name: 1, mods: 2, rel: 3 },
+  // "Dana is my best friend", "Kai has been my closest friend"
+  { re: new RegExp(`${NAME}\\s+(?:is|was|has been|became)\\s+(?:[Mm]y|[Oo]ur)\\s+${MODS}(${REL_WORDS})\\b(?!['’]s)`, "gu"), name: 1, mods: 2, rel: 3 },
+  // "a friend named Kai", "this colleague called Dana"
+  { re: new RegExp(`\\b(?:a|an|this|that|one)\\s+${MODS}(friend|colleague|coworker|neighbou?r|classmate|teammate)\\s+(?:named|called)\\s+${NAME}`, "gu"), name: 3, mods: 1, rel: 2 },
+];
+/** Capitalised words that are never a person's name here. */
+const NOT_A_NAME = new Set(
+  "I I'm I'd I'll I've Mom Mum Dad Mama Papa God Monday Tuesday Wednesday Thursday Friday Saturday Sunday January February March April May June July August September October November December Christmas Easter Ramadan Diwali Songkran English Spanish French German Thai Chinese Japanese Korean Hindi Google Instagram LinkedIn Netflix Zoom Uber Amazon Facebook WhatsApp Line Slack Then That This They There These Those Honestly Maybe Probably Yes No Not But And So Or If When What Why How Well Okay Ok Yeah Sure Also Still Just Actually Really Because After Before Since Once Even Every Some Most Our Their His Her We You He She It My Your Today Tomorrow Yesterday Sometimes Never Always".split(" "),
+);
+/** A clause that says they are no longer close with someone. */
+const LOST_TOUCH =
+  /\b(?:lost touch|losing touch|fell out of touch|out of touch|drifted apart|drift(?:ed|ing)? away|grew apart|growing apart|fell out|stopped (?:talking|speaking|calling|seeing|texting)|(?:don't|do not|never|rarely|barely|hardly) (?:really |ever )?(?:talk|speak|see|hear from|call|text)|haven't (?:really )?(?:talked|spoken|seen|heard from|called)|not (?:that |really |as |very )?close (?:anymore|any more|now|these days)|no longer (?:close|friends|in touch)|(?:isn't|aren't|wasn't|weren't) close|not friends anymore|cut (?:\w+ )?off|ghosted)\b/i;
+/** Hypotheticals and fears ("I'd hate to lose touch with Kai") are not a drift. */
+const NOT_REAL = /\b(?:if|would|wouldn't|won't|might|could|afraid|worr\w*|scared|hope|don't want|never want|hate to)\b|['’]d\b/i;
+/** An ex or someone who died is not a person to keep in People. */
+const NOT_CURRENT = /\b(?:ex|former|late)\b|\bex-/i;
+
+export interface PeopleSaid {
+  /** People introduced with a relation cue: "my friend Kai" -> { name: "Kai", relation: "friend" }. */
+  joins: { name: string; relation: string }[];
+  /** Capitalised words in a sentence that says they lost touch (the ledger matches them to people). */
+  drifted: string[];
+  /** Capitalised words anywhere else (a renewal when they match someone already in the ledger). */
+  mentioned: string[];
+}
+
+const capsIn = (s: string) => [...s.matchAll(new RegExp(NAME, "gu"))].map((m) => m[1]!.replace(/['’]s$/, "")).filter((w) => !NOT_A_NAME.has(w));
+
+/** Named people, lost-touch statements and mentions in their typed words (code only, cheap). */
+export function peopleSaid(text: string): PeopleSaid {
+  const out: PeopleSaid = { joins: [], drifted: [], mentioned: [] };
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return out;
+  // where a "my <relation> <Name>" match starts: "Mostly, my friend Kai" is Kai, not "Mostly"
+  const myAt = new Set<number>();
+  for (const [i, { re, name, mods, rel }] of SAID_RES.entries()) {
+    re.lastIndex = 0;
+    for (const m of t.matchAll(re)) {
+      const nm = m[name]!.replace(/['’]s$/, "");
+      if (i === 0) myAt.add(m.index);
+      else if (myAt.has(m.index + m[0].search(/\b[MmOo](?:y|ur)\s/))) continue;
+      if (NOT_A_NAME.has(nm) || nm.length < 2) continue;
+      const relation = `${(m[mods] ?? "").trim()} ${m[rel]!}`.trim().toLowerCase().replace(/^(?:new|own|good|dear|lovely)\s+/, "");
+      if (NOT_CURRENT.test(relation)) continue;
+      if (!out.joins.some((j) => j.name === nm)) out.joins.push({ name: nm, relation });
+    }
+  }
+  for (const s of t.split(/(?<=[.!?;])\s+|,\s+(?=but\b|and\b|so\b|though\b)/i)) {
+    const caps = capsIn(s);
+    if (LOST_TOUCH.test(s) && !NOT_REAL.test(s.replace(LOST_TOUCH, ""))) out.drifted.push(...caps.filter((c) => !out.drifted.includes(c)));
+    else out.mentioned.push(...caps.filter((c) => !out.mentioned.includes(c)));
+  }
+  return out;
+}
+
 /** The path a big decision took, from its stored answer. */
 export function chosenOf(d: Pick<Decision, "options">, a: Pick<DecisionAnswer, "optionId" | "text"> | null | undefined): Chosen {
   const said = a?.text?.trim() ? a.text.trim() : null;
