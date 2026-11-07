@@ -1,9 +1,14 @@
 /* The decision card: the heart. A hairline-framed sheet, not a shadow card. Sun edge = you, now. */
 /*
  * The card is the right pane's priority: natural height, never squeezed by the history above it
- * (that has flex-basis 0). It only scrolls inside if the pane is shorter than the card itself.
- * Budget: the whole card (question, why, 4 answers, say more, Decide) fits a 1280×720 pane with
- * the longest copy the engine may write (30-word question, 10-word answers, 12-word hints).
+ * (that has flex-basis 0). If the pane is shorter than the card, the card scrolls inside and the
+ * foot (Decide) sticks to the bottom edge.
+ *
+ * Legibility pass (owner playtest, Sat Nov 7): the question is set in the text width of Mona Sans
+ * (100%, not the 118% display width) at ~21 px with a reading line-height, and steps down for long
+ * questions so it stays within ~3-4 lines. The card is a size container: in the default pane
+ * (~384-420 px) the answers are one column (a key badge, then the words), and once the pane is
+ * dragged wider they go two-up and the question grows a little.
  */
 .dcard {
   position: relative; flex: 0 1 auto; min-height: 0;
@@ -12,15 +17,11 @@
   background: var(--raised);
   border-top: 2px solid var(--sun);
   overflow-y: auto; overscroll-behavior: contain;
+  container: dcard / inline-size;
 }
 /* The card itself takes focus when it opens (so Enter decides); its controls show the ring. */
 .dcard:focus { outline: none; }
-.dcard[data-kind="big"] {
-  flex: 1 1 auto;
-  padding: var(--s5) var(--s5) 0;
-  gap: var(--s4);
-  justify-content: flex-start;
-}
+.dcard[data-kind="big"] { flex: 1 1 auto; justify-content: flex-start; }
 .dcard-drain { position: absolute; left: 0; right: 0; top: -2px; height: 2px; background: var(--hair); }
 .dcard-drain > div { height: 100%; background: var(--ink); transform-origin: left; }
 .dcard-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); }
@@ -29,53 +30,61 @@
   font-size: 11px; font-weight: 700; font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2);
 }
 .dk.big { color: var(--ink); }
+
+/* ---- the question ---- */
 .dq {
-  font-size: var(--fs-q-small); font-weight: 650; font-stretch: var(--w-wide);
-  letter-spacing: -0.022em; line-height: 1.1; text-wrap: balance;
+  max-width: 36em;
+  font-size: var(--fs-q-text); font-weight: 620; font-stretch: 100%;
+  letter-spacing: -0.012em; line-height: 1.3;
+  text-wrap: pretty; overflow-wrap: break-word;
 }
-.dcard[data-kind="big"] .dq { font-size: 28px; line-height: 1.06; }
-.dwhy { font-size: 14px; color: var(--ink-2); line-height: 1.45; }
-.dwhy .label { margin-right: 4px; }
+.dcard[data-kind="big"] .dq { font-size: 22px; line-height: 1.28; }
+.dq[data-len="l"], .dcard[data-kind="big"] .dq[data-len="l"] { font-size: 19px; line-height: 1.32; }
+.dq[data-len="xl"], .dcard[data-kind="big"] .dq[data-len="xl"] { font-size: 18px; line-height: 1.34; }
+
+/* ---- why I'm asking ---- */
+.dwhy { display: grid; gap: 3px; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.dwhy-k {
+  font-size: 11px; font-weight: 680; font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-3); line-height: 1.2;
+}
 .dwhy .voice { color: var(--ink); }
 
-/*
- * Answer tiles. The keycap sits inline at the start of the first line (not in its own column), so
- * the label gets the tile's full width: in a 384 px pane that is the difference between a 10-word
- * answer taking three lines and five.
- */
-.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+/* ---- answers ---- */
+.tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .tile {
   position: relative; display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; text-align: left;
-  padding: 10px 12px 11px 10px; min-height: 64px;
+  padding: 10px 12px 11px 10px;
   background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r1);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   transition: border-color var(--t-micro) var(--e-press), background var(--t-micro), transform var(--t-press) var(--e-press), box-shadow var(--t-micro);
 }
-.dcard[data-kind="big"] .tile { min-height: 84px; padding: 11px 12px 12px 10px; }
 .tile:hover:not(:disabled) { border-color: var(--ink-3); background: var(--raised); }
 .tile:active:not(:disabled) { transform: translateY(1px); }
 .tile[data-on="true"] { border-color: var(--ink); background: var(--raised); box-shadow: inset 3px 0 0 var(--sun); }
 .tile:disabled { cursor: default; }
-.tile-in { display: block; width: 100%; min-width: 0; }
+/* The key badge has its own column; the words wrap under themselves. */
+.tile-in { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 10px; align-items: start; width: 100%; min-width: 0; }
+.tile-words { display: grid; gap: 2px; min-width: 0; }
 .kc {
-  float: left; width: 20px; height: 18px; margin: 0 8px 0 0; display: grid; place-items: center;
-  border: 1px solid var(--hair-2); border-bottom-width: 2px; border-radius: 3px;
-  font-size: 11px; font-weight: 700; font-stretch: var(--w-cond); color: var(--ink-3); line-height: 1;
-  transition: all var(--t-micro) var(--e-press);
+  width: 24px; height: 24px; display: grid; place-items: center;
+  background: var(--raised); border: 1px solid var(--hair-2); border-bottom-width: 2px; border-radius: 4px;
+  font-size: 12.5px; font-weight: 700; font-stretch: var(--w-data); font-variant-numeric: tabular-nums; color: var(--ink-2); line-height: 1;
+  transition: background-color var(--t-micro) var(--e-press), border-color var(--t-micro) var(--e-press), color var(--t-micro) var(--e-press);
 }
 .tile:hover .kc { color: var(--ink); border-color: var(--ink-3); }
-.tile[data-on="true"] .kc { background: var(--sun); border-color: var(--sun); color: var(--on-sun); }
-.tile-fork { display: block; min-height: 18px; padding-top: 2px; font-size: 10.5px; line-height: 1.35; font-weight: 720; font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.tile[data-on="true"] .kc { background: var(--sun); border-color: var(--ink); color: var(--on-sun); }
+.tile-fork { font-size: 10.5px; line-height: 1.3; font-weight: 720; font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding-top: 1px; }
 .tile[data-on="true"] .tile-fork { color: var(--sun-text); }
-.tile-label { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
-.tile-fork + .tile-label { clear: left; margin-top: 3px; }
-.dcard[data-kind="big"] .tile-label { font-size: 15px; }
-.tile-hint { display: block; clear: left; margin-top: 2px; font-size: 12.5px; color: var(--ink-3); line-height: 1.3; }
+.tile-label { font-size: 15px; font-weight: 600; line-height: 1.32; color: var(--ink); padding-top: 2px; }
+.tile-fork + .tile-label { padding-top: 0; }
+.tile-hint { font-size: 13px; color: var(--ink-2); line-height: 1.38; }
 
+/* ---- say it your way ---- */
 .say { display: grid; gap: 6px; }
 .say-l { display: flex; justify-content: space-between; }
 /* One line until you write more; it grows with your words (DecisionCard sizes it). */
-.say .say-field .textarea { padding-right: 46px; min-height: 64px; max-height: 160px; overflow-y: auto; }
+.say .say-field .textarea { padding-right: 46px; min-height: 52px; max-height: 160px; overflow-y: auto; }
 .say .say-field .talk { right: 8px; }
 .say-micro { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--ink-2); line-height: 1.4; }
 .say-micro svg { flex: none; margin-top: 2px; color: var(--sun-text); }
@@ -91,56 +100,55 @@
   position: sticky; bottom: 0; z-index: 2;
   background: linear-gradient(transparent, var(--raised) 10px);
 }
-.dcard[data-kind="small"] .dcard-foot { padding-bottom: var(--s3); }
-.dcard[data-kind="big"] .dq[data-len="l"] { font-size: 24px; }
-.dcard[data-kind="big"] .dq[data-len="xl"] { font-size: 21px; line-height: 1.12; }
-.dcard[data-kind="small"] .dq[data-len="l"], .dcard[data-kind="small"] .dq[data-len="xl"] { font-size: 18px; }
-@media (max-height: 940px) {
-  .dcard[data-kind="big"] { gap: var(--s3); padding-top: var(--s4); }
-  .dcard[data-kind="big"] .tile { min-height: 0; padding: 9px 10px 10px 9px; }
-  .dcard[data-kind="big"] .tile-label { font-size: 14px; }
-  .dcard[data-kind="big"] .tile-hint { font-size: 11.5px; }
-  .dcard[data-kind="big"] .dq { font-size: 24px; }
-  .dcard[data-kind="big"] .dq[data-len="l"] { font-size: 21px; }
-  .dcard[data-kind="big"] .dq[data-len="xl"] { font-size: 19px; }
-  .dcard[data-kind="big"] .say .say-field .textarea { min-height: 52px; }
-  .dwhy { font-size: 13px; }
-}
-.keys-hint { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.keys-hint { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; white-space: nowrap; }
 .btn.decide { min-width: 120px; }
 .btn.slide { color: var(--ink-2); font-stretch: var(--w-data); }
 
 /* Small decisions are lighter: they slide in, they don't take over. */
 .dcard[data-kind="small"] { padding: var(--s4) var(--s5) 0; gap: var(--s3); }
-.dcard[data-kind="small"] .dq { font-size: 21px; }
-.dcard[data-kind="small"] .tile { min-height: 46px; padding: 9px 10px 9px 9px; }
-.dcard[data-kind="small"] .tile-label { font-size: 13.5px; line-height: 1.34; }
+.dcard[data-kind="small"] .tile { padding: 9px 12px 9px 10px; }
+.dcard[data-kind="small"] .tile-label { font-size: 14.5px; }
 .dcard[data-kind="small"] .say .say-field .textarea { min-height: 46px; }
 .dcard[data-kind="small"] .say-micro { font-size: 11.5px; }
+.dcard[data-kind="small"] .dcard-foot { padding-bottom: var(--s3); }
+
+/* The keyboard hint's "new line" part goes first when the foot gets tight. */
+@container dcard (max-width: 400px) { .kh-nl { display: none; } }
+
+/* A widened pane: answers two-up, the question a touch larger (still the text width). */
+@container dcard (min-width: 500px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tile { min-height: 64px; }
+  .dq { font-size: 22px; }
+  .dcard[data-kind="big"] .dq { font-size: 24px; }
+  .dcard[data-kind="big"] .dq[data-len="l"], .dq[data-len="l"] { font-size: 20px; }
+  .dcard[data-kind="big"] .dq[data-len="xl"], .dq[data-len="xl"] { font-size: 19px; }
+}
+@container dcard (min-width: 680px) {
+  .dcard[data-kind="big"] .dq { font-size: 26px; line-height: 1.24; }
+  .dwhy { font-size: 15px; }
+  .tile-label { font-size: 15.5px; }
+}
 
 /*
- * Shorter screens (1280×720 and 1280×800: pane ≤ ~800 px): a tighter rhythm so the whole card fits
- * with the longest copy the engine may write. Answer hints clamp to one line (the tile's tooltip
- * has the full hint), the microcopy keeps its first sentence (the rest stays for screen readers),
- * and a long question loosens its width a little before it adds a line.
+ * Shorter screens (1280×720 and 1280×800: pane ≤ ~800 px): a tighter rhythm so the card fits with
+ * the copy the engine usually writes. Answer hints clamp to two lines (the tile's tooltip has the
+ * full hint), the microcopy keeps its first sentence (the rest stays for screen readers).
  */
 @media (max-height: 860px) {
-  .dcard, .dcard[data-kind="small"], .dcard[data-kind="big"] { gap: 8px; padding-top: 12px; }
-  .dcard[data-kind="small"] .tile { min-height: 0; padding: 8px 10px 8px 9px; }
-  .dcard[data-kind="big"] .tile { min-height: 0; padding: 8px 10px 9px 9px; }
-  .tile-hint { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-  .dcard[data-kind="big"] .dq { font-size: 22px; }
-  .dcard[data-kind="big"] .dq[data-len="l"] { font-size: 19px; line-height: 1.1; font-stretch: 106%; }
-  .dcard[data-kind="big"] .dq[data-len="xl"] { font-size: 18px; line-height: 1.12; font-stretch: 104%; }
-  .dcard[data-kind="small"] .dq[data-len="l"], .dcard[data-kind="small"] .dq[data-len="xl"] { font-size: 17.5px; font-stretch: 108%; }
-  .dcard[data-kind="big"] .say .say-field .textarea { min-height: 46px; }
-  .dcard .say .say-field .textarea { max-height: 92px; }
+  .dcard, .dcard[data-kind="small"], .dcard[data-kind="big"] { gap: 10px; padding-top: 14px; }
+  .tile, .dcard[data-kind="small"] .tile { padding: 8px 10px 8px 9px; }
+  .tile-hint { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .dcard[data-kind="big"] .dq { font-size: 21px; }
+  .dcard[data-kind="big"] .dq[data-len="l"], .dq[data-len="l"] { font-size: 18.5px; }
+  .dcard[data-kind="big"] .dq[data-len="xl"], .dq[data-len="xl"] { font-size: 17.5px; }
+  .dwhy { font-size: 13.5px; line-height: 1.45; }
+  .say .say-field .textarea, .dcard[data-kind="small"] .say .say-field .textarea { min-height: 44px; max-height: 92px; }
   .dcard .say-micro { font-size: 11.5px; line-height: 1.35; }
   .say-micro-more { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dcard-foot, .dcard[data-kind="small"] .dcard-foot { padding: 4px 0 10px; }
   .dcard-foot .btn.decide { height: 36px; }
-  .dwhy { line-height: 1.4; }
 }
-/* Narrow right pane (1280-1400 px): keep the key hint on one line. */
-.keys-hint { white-space: nowrap; }
-@media (max-width: 1400px) { .kh-nl { display: none; } }
+@media (max-height: 760px) {
+  .tile-hint { -webkit-line-clamp: 1; }
+}

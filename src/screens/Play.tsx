@@ -2,7 +2,7 @@
  * The play screen (SPEC §1): timeline bar over three panes. One focus at a time: a big decision dims
  * everything but the card. Phone (<820px): world on top, tabs, the chat as a bottom sheet.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { clock } from "../ui/clock";
 import { Bio, LeftPane } from "../ui/left/Bio";
 import { LifeRose } from "../ui/left/LifeRose";
@@ -74,10 +74,12 @@ export default function Play() {
   }, []);
 
   const dim = pendingBig && !forking;
+  const play = useRef<HTMLDivElement>(null);
+  const cols = usePaneWidths();
 
   if (phone) return <PhonePlay dim={dim} />;
   return (
-    <div className="play" data-dim={dim} data-phase={phase}>
+    <div className="play" ref={play} data-dim={dim} data-phase={phase} style={cols.style}>
       <TimelineBar />
       <LeftPane />
       <main className="pane middle" data-region="middle" aria-label="Your life">
@@ -88,6 +90,157 @@ export default function Play() {
         {phase === "warmup" ? <Learned /> : <LifeLog />}
       </main>
       <RightPane />
+      <ColumnResizer side="left" cols={cols} play={play} />
+      <ColumnResizer side="right" cols={cols} play={play} />
+    </div>
+  );
+}
+
+/*
+ * Resizable columns: drag the hairline between the panes (or focus it and use the arrow keys).
+ * Widths persist per browser; a double-click (or Enter) puts the default back. The CSS defaults
+ * (tokens.css --left-w / --right-w) apply until the user moves a divider. The timeline bar's grid
+ * reads the same variables, so it follows.
+ */
+type Side = "left" | "right";
+const WIDTH_KEY: Record<Side, string> = { left: "elyl.pane.left.v1", right: "elyl.pane.right.v1" };
+/** The middle column (world + life log) never gets narrower than this. */
+const MIDDLE_MIN = 380;
+
+function readWidth(side: Side): number | null {
+  try {
+    const v = Number(window.localStorage.getItem(WIDTH_KEY[side]));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+function writeWidth(side: Side, v: number | null) {
+  try {
+    if (v === null) window.localStorage.removeItem(WIDTH_KEY[side]);
+    else window.localStorage.setItem(WIDTH_KEY[side], String(Math.round(v)));
+  } catch {
+    /* storage blocked: the width just doesn't persist */
+  }
+}
+/** Mirrors tokens.css: 300 / 420, and 280 / 384 at ≤1360 px. */
+const defaultWidth = (side: Side, vw: number) => (side === "left" ? (vw > 1360 ? 300 : 280) : vw > 1360 ? 420 : 384);
+
+interface PaneWidths {
+  /** The width a column has now (the user's, clamped to this window, or the default). */
+  width: (side: Side) => number;
+  bounds: (side: Side) => { min: number; max: number };
+  commit: (side: Side, v: number | null) => void;
+  style: CSSProperties | undefined;
+}
+
+function usePaneWidths(): PaneWidths {
+  const [vw, setVw] = useState(() => window.innerWidth);
+  const [set, setSet] = useState<Record<Side, number | null>>(() => ({ left: readWidth("left"), right: readWidth("right") }));
+  useEffect(() => {
+    const on = () => setVw(window.innerWidth);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  const raw = (side: Side) => set[side] ?? defaultWidth(side, vw);
+  const bounds = (side: Side) => {
+    const other = raw(side === "left" ? "right" : "left");
+    const min = side === "left" ? 240 : 340;
+    const max = side === "left" ? Math.min(420, vw - other - MIDDLE_MIN) : Math.min(Math.round(vw * 0.55), vw - other - MIDDLE_MIN);
+    return { min, max: Math.max(min, max) };
+  };
+  const width = (side: Side) => {
+    const b = bounds(side);
+    return Math.min(b.max, Math.max(b.min, raw(side)));
+  };
+  const commit = useCallback((side: Side, v: number | null) => {
+    writeWidth(side, v);
+    setSet((s) => ({ ...s, [side]: v === null ? null : Math.round(v) }));
+  }, []);
+  const vars: Record<string, string> = {};
+  if (set.left !== null) vars["--left-w"] = `${width("left")}px`;
+  if (set.right !== null) vars["--right-w"] = `${width("right")}px`;
+  return { width, bounds, commit, style: Object.keys(vars).length ? (vars as CSSProperties) : undefined };
+}
+
+function ColumnResizer({ side, cols, play }: { side: Side; cols: PaneWidths; play: RefObject<HTMLDivElement | null> }) {
+  const drag = useRef<{ id: number; v: number } | null>(null);
+  const handle = useRef<HTMLDivElement>(null);
+  const now = cols.width(side);
+  const { min, max } = cols.bounds(side);
+  const prop = side === "left" ? "--left-w" : "--right-w";
+  const clampV = (v: number) => Math.min(max, Math.max(min, v));
+
+  /** While dragging, write the width straight to the grid (no React render per frame). */
+  const preview = (v: number) => {
+    play.current?.style.setProperty(prop, `${Math.round(v)}px`);
+    handle.current?.setAttribute("aria-valuenow", String(Math.round(v)));
+  };
+  const onDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { id: e.pointerId, v: now };
+    play.current?.setAttribute("data-resizing", side);
+  };
+  const onMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drag.current || drag.current.id !== e.pointerId) return;
+    drag.current.v = clampV(side === "left" ? e.clientX : window.innerWidth - e.clientX);
+    preview(drag.current.v);
+  };
+  const onUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drag.current || drag.current.id !== e.pointerId) return;
+    const v = drag.current.v;
+    drag.current = null;
+    play.current?.removeAttribute("data-resizing");
+    if (Math.round(v) !== Math.round(now)) cols.commit(side, v);
+  };
+  const reset = () => {
+    play.current?.style.removeProperty(prop);
+    cols.commit(side, null);
+  };
+  const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 64 : 16;
+    // The arrows move the divider the way they point.
+    const dir = side === "left" ? 1 : -1;
+    let v: number | null = null;
+    if (e.key === "ArrowLeft") v = now - step * dir;
+    else if (e.key === "ArrowRight") v = now + step * dir;
+    else if (e.key === "Home") v = side === "left" ? min : max;
+    else if (e.key === "End") v = side === "left" ? max : min;
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      reset();
+      return;
+    }
+    if (v === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cols.commit(side, clampV(v));
+  };
+
+  return (
+    <div
+      ref={handle}
+      className="col-resizer"
+      data-side={side}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={side === "right" ? "Resize the conversation pane" : "Resize the bio pane"}
+      aria-valuenow={Math.round(now)}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+      onDoubleClick={reset}
+      onKeyDown={onKey}
+    >
+      <span className="col-grip" aria-hidden="true" />
     </div>
   );
 }
@@ -138,7 +291,7 @@ function PhonePlay({ dim }: { dim: boolean }) {
       <nav className="ph-tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-            {t === "log" ? "Log" : t === "bio" ? "Bio" : "Settings"}
+            {t === "log" ? "Log" : t === "bio" ? "Bio" : "Steer"}
           </button>
         ))}
       </nav>
@@ -152,8 +305,8 @@ function PhonePlay({ dim }: { dim: boolean }) {
           </div>
         )}
         {tab === "settings" && (
-          <div className="ph-settings scroll">
-            <LiveSettings collapsed={false} />
+          <div className="ph-settings">
+            <LiveSettings />
           </div>
         )}
       </div>
@@ -163,7 +316,7 @@ function PhonePlay({ dim }: { dim: boolean }) {
           {!open && <span className="small sheet-peek">{lastGuide?.text ?? "Conversation"}</span>}
         </button>
         <div className="sheet-body">
-          <RightPane />
+          <RightPane tabs={false} />
         </div>
       </section>
     </div>

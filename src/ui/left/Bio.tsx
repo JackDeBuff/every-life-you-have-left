@@ -143,8 +143,8 @@ export function Bio() {
                   title={`You're in ${yr!.place.split(",")[0]} now. Show money in ${CURRENCIES[offer].symbol} ${offer}?`}
                   onClick={() => setCurrencyPref(sid, { override: offer })}
                 >
-                  <span className="cur-offer-t">In {yr!.place.split(",")[0]} now</span>
                   <span className="cur-offer-go">Show {CURRENCIES[offer].symbol}</span>
+                  <span className="cur-offer-t">you're in {yr!.place.split(",")[0]} now</span>
                 </button>
                 <button type="button" className="cur-offer-no" aria-label="Keep the current currency" onClick={() => setCurrencyPref(sid, { dismissed: [...pref.dismissed, offer] })}>
                   <Icon name="x" size={11} />
