@@ -24,14 +24,20 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Branch, SpeedMode, StartInput, Appearance, Portrait } from "../../shared/sim";
-import { agentPath, applyServerMsg, isServerMsg, type AgentState, type AnswerInput } from "../../worker/agent/protocol";
+import type { DocInput } from "../../shared/engine";
+import { agentPath, applyServerMsg, isServerMsg, type AgentState, type AnswerInput, type ForgetKind, type WarmAnswerInput } from "../../worker/agent/protocol";
 
-export type { AgentState, AnswerInput, ChatMessage, SessionExtras } from "../../worker/agent/protocol";
+export type { AgentState, AnswerInput, ChatMessage, SessionExtras, WarmAnswerInput, WarmupState, WarmQuestion, ForgetKind } from "../../worker/agent/protocol";
 
 export type ConnectionStatus = "connecting" | "open" | "closed";
 
 export interface SessionClientCalls {
-  start(input: StartInput): Promise<void>;
+  /** `docs`: the start screen's uploads (text), so the warm-up and the first profile see them. */
+  start(input: StartInput, docs?: DocInput[]): Promise<void>;
+  /** The warm-up (phase "warmup"): answer (or skip) the question on screen. */
+  answerWarmup(a: WarmAnswerInput): Promise<void>;
+  /** "Here's what I learned" ×: remove a learned item from the profile. */
+  forget(kind: ForgetKind, id: string): Promise<void>;
   answer(answer: AnswerInput): Promise<void>;
   /** A small decision timed out: logged as "let it slide", the life follows its inertia. */
   slide(decisionId: string): Promise<void>;
@@ -154,7 +160,9 @@ export function connectSession(sessionId: string, opts: { url?: string; callTime
     });
 
   const calls: SessionClientCalls = {
-    start: (input) => rpc("start", input),
+    start: (input, docs) => (docs?.length ? rpc("start", input, docs) : rpc("start", input)),
+    answerWarmup: (a) => rpc("answerWarmup", a),
+    forget: (kind, id) => rpc("forget", kind, id),
     answer: (a) => rpc("answer", a),
     slide: (decisionId) => rpc("answer", { decisionId, optionId: null, text: null, via: "tap", slid: true } satisfies AnswerInput),
     nudge: (settingId, to) => rpc("nudge", settingId, to),
@@ -217,7 +225,7 @@ export function useSessionAgent(sessionId: string | null): {
 
 const offline = () => Promise.reject(new Error("no_session"));
 const OFFLINE: SessionClientCalls = {
-  start: offline, answer: offline, slide: offline, nudge: offline, setSpeed: offline, tick: offline,
+  start: offline, answerWarmup: offline, forget: offline, answer: offline, slide: offline, nudge: offline, setSpeed: offline, tick: offline,
   pause: offline, peekBranch: offline, addDocument: offline, sayTo: offline, reset: offline,
 };
 
