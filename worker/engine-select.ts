@@ -47,7 +47,7 @@ export function wantsReal(env: Env): boolean {
 const isEngine = (x: unknown): x is Engine => !!x && typeof x === "object" && typeof (x as Engine).generateYears === "function";
 
 /** Every real model call's usage (the session agent tallies the session's cost from it). */
-export type UsageSink = (u: { purpose: string; model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; hedged: boolean }) => void;
+export type UsageSink = (u: { purpose: string; model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; hedged: boolean; ms: number; firstTokenMs?: number }) => void;
 
 export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedEngine> {
   bindLlm(env as unknown as LlmEnv);
@@ -86,7 +86,7 @@ export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedE
 /** Per-call budgets before a real call is abandoned for the mock (ms). */
 const BUDGET: Partial<Record<keyof Engine, number>> = {
   startProfile: 30_000, enrichProfile: 30_000, makeDecision: 25_000, applyAnswer: 25_000, generateYears: 60_000,
-  spawnBranches: 30_000, stepBranch: 30_000, interlude: 25_000, settingsFor: 25_000, ending: 40_000, safety: 8_000,
+  spawnBranches: 30_000, prepareFork: 45_000, stepBranch: 30_000, interlude: 25_000, settingsFor: 25_000, ending: 40_000, safety: 8_000,
 };
 
 class Timeout extends Error {
@@ -124,6 +124,8 @@ export function resilient(real: Engine, mock: Engine): Engine {
     spawnBranches: wrap("spawnBranches"),
     stepBranch: wrap("stepBranch"),
     interlude: wrap("interlude"),
+    // Speculative: no mock fallback (a failed preparation just means the fork is written at the answer).
+    prepareFork: real.prepareFork ? (state, d) => within(real.prepareFork!(state, d), BUDGET.prepareFork!, "prepareFork") : undefined,
     settingsFor: wrap("settingsFor"),
     ending: wrap("ending"),
     safety: wrap("safety"),

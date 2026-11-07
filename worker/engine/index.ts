@@ -37,9 +37,9 @@
  * Years returned for year >= fromYear replace the provisional ones in state.years.
  * interlude()/ending() also write advanced branch years back into state.branches (in place).
  */
-import type { DocInput, Engine } from "../../shared/engine";
+import type { DocInput, Engine, PreparedFork } from "../../shared/engine";
 import type { Branch, Decision, DecisionAnswer, SessionState, SimYear, StartInput } from "../../shared/sim";
-import { coarseYears, selectDiverse, stepBranchTo, interludeCuts, type BranchEnv } from "./branches";
+import { captionsFor, coarseYears, selectDiverse, stepBranchTo, interludeCuts, type BranchEnv } from "./branches";
 import { reply } from "./chat";
 import { decisionsBlock, settingsBlock } from "./context";
 import { makeDecisionFor } from "./decisions";
@@ -214,10 +214,11 @@ export function createEngine(deps: EngineDeps): Engine {
       return logLines(state, year);
     },
 
-    async spawnBranches(state, decision, chosenOptionId) {
+    async spawnBranches(state, decision, chosenOptionId, prepared) {
       const p = state.profile!;
       const endYear = endYearOf(state);
       const env = branchEnv(state);
+      const ready = prepared?.decisionId === decision.id ? prepared : null;
       const fresh: Branch[] = decision.options
         .filter((o) => o.id !== chosenOptionId)
         .map((o) => ({
@@ -235,6 +236,9 @@ export function createEngine(deps: EngineDeps): Engine {
       const until = Math.min(endYear, decision.year + 10);
       const stepped = await Promise.all(
         fresh.map(async (b) => {
+          // Written while the card was open (prepareFork): use it as is.
+          const pre = ready?.fresh.find((x) => x.id === b.id && x.years.length);
+          if (pre) return { ...pre, status: "active" as const };
           try {
             return await stepBranchTo(env, state, b, coarseYears(b, until, endYear), false);
           } catch {
@@ -242,9 +246,58 @@ export function createEngine(deps: EngineDeps): Engine {
           }
         }),
       );
-      const existing = state.branches.filter((b) => b.status === "active" && !stepped.some((s) => s.id === b.id));
+      const advanced = new Map((ready?.advanced ?? []).map((b) => [b.id, b]));
+      const existing = state.branches
+        .filter((b) => b.status === "active" && !stepped.some((s) => s.id === b.id))
+        .map((b) => {
+          const a = advanced.get(b.id);
+          return a && a.years.length >= b.years.length ? { ...b, years: a.years } : b;
+        });
       const { keep } = selectDiverse([...existing, ...stepped], state.years, 3);
       return keep;
+    },
+
+    async prepareFork(state, decision): Promise<PreparedFork> {
+      const p = state.profile!;
+      const endYear = endYearOf(state);
+      const env = branchEnv(state);
+      // Every option, as if it were the one not chosen: the chosen one is dropped at the answer
+      // (one extra coarse branch per fork, ~+10% of a session's spend).
+      const fresh = decision.options.map((o) => ({
+        id: `b-${decision.id}-${o.id}`,
+        forkDecisionId: decision.id,
+        optionId: o.id,
+        title: o.branchTitle ?? o.label,
+        forkYear: decision.year,
+        forkAge: decision.year - p.birthYear,
+        status: "active" as const,
+        years: [] as SimYear[],
+        verdictAtEnd: null,
+        divergence: 0,
+      }));
+      // A few calls at a time: a Worker holds ~6 open connections, and the chosen life's own
+      // stream must never queue behind speculative work.
+      const limit = gate(3);
+      const step = (b: Branch, years: number[]) => (years.length ? limit(() => stepBranchTo(env, state, b, years, false)).catch(() => b) : Promise.resolve(b));
+      const [written, advanced] = await Promise.all([
+        // Only the fork-year snapshot (what the interlude shows); kept branches are stepped on in
+        // 5-year steps as the playhead moves, so the option that wins costs a single snapshot.
+        Promise.all(fresh.map((b) => step(b, [decision.year]))),
+        // The interlude shows each life near the fork year: the same work interlude() would do.
+        Promise.all(
+          state.branches
+            .filter((b) => b.status === "active")
+            .map((b) => {
+              const years = coarseYears(b, decision.year, endYear);
+              const lastYear = years.at(-1) ?? b.years.at(-1)?.year ?? b.forkYear - 1;
+              if (lastYear < decision.year - 2 && decision.year <= endYear) years.push(decision.year);
+              return step(b, years);
+            }),
+        ),
+      ]);
+      const atFork = { ...state, playhead: { ...state.playhead, year: decision.year, age: decision.age } };
+      const captions = await captionsFor(env, atFork, [...advanced, ...written], decision.year);
+      return { decisionId: decision.id, fresh: written, advanced, captions: Object.fromEntries(captions) };
     },
 
     async stepBranch(state, branch, untilYear, fine) {
@@ -258,9 +311,10 @@ export function createEngine(deps: EngineDeps): Engine {
       return stepBranchTo(env, state, branch, coarseYears(branch, untilYear, endYear), false);
     },
 
-    async interlude(state) {
+    async interlude(state, prepared) {
       const stepped = await advanceBranches(state, state.playhead.year, true);
-      return interludeCuts(branchEnv(state), state, stepped);
+      const known = prepared && state.decisions.some((d) => d.id === prepared.decisionId && d.year === state.playhead.year) ? prepared.captions : undefined;
+      return interludeCuts(branchEnv(state), state, stepped, known);
     },
 
     async settingsFor(state) {
@@ -292,6 +346,22 @@ export function createEngine(deps: EngineDeps): Engine {
 export function provisionalProfile(input: StartInput, now: Date = new Date()): Profile {
   const quotes = quotesFromText(input.line, 1, "start", "answer");
   return emptyProfile(input, now.getFullYear(), "s_provisional", quotes, now.toISOString());
+}
+
+/** At most `n` of the wrapped tasks run at once. */
+function gate(n: number) {
+  let running = 0;
+  const queue: (() => void)[] = [];
+  return async <T>(task: () => Promise<T>): Promise<T> => {
+    if (running >= n) await new Promise<void>((r) => queue.push(r));
+    running++;
+    try {
+      return await task();
+    } finally {
+      running--;
+      queue.shift()?.();
+    }
+  };
 }
 
 /** Helper for the session agent: decision budgets after planning (SessionState.budgets). */

@@ -150,18 +150,22 @@ export function coarseYears(branch: Branch, untilYear: number, endYear: number):
 // Interlude captions
 // ---------------------------------------------------------------------------------------------
 
-export async function interludeCuts(env: BranchEnv, state: SessionState, steppedBranches: Branch[]): Promise<InterludeCut[]> {
-  const profile = state.profile!;
-  const year = state.playhead.year;
-  const age = year - profile.birthYear;
-  const items = steppedBranches
+/** The snapshot each branch shows at `year` (its latest at or before it). */
+function snapshotsAt(branches: Branch[], year: number): { b: Branch; snap: SimYear }[] {
+  return branches
     .map((b) => {
       const snap = b.years.filter((y) => y.year <= year).at(-1) ?? b.years[0];
       return snap ? { b, snap } : null;
     })
     .filter((x): x is { b: Branch; snap: SimYear } => Boolean(x));
-  if (!items.length) return [];
-  let captions = new Map<string, string>();
+}
+
+/** One fast call: a caption per branch at `year` ("Meanwhile, in your other lives..."). */
+export async function captionsFor(env: BranchEnv, state: SessionState, branches: Branch[], year: number): Promise<Map<string, string>> {
+  const profile = state.profile!;
+  const age = year - profile.birthYear;
+  const items = snapshotsAt(branches, year);
+  if (!items.length) return new Map();
   try {
     const r = await env.call.json({
       tier: "fast",
@@ -177,13 +181,28 @@ export async function interludeCuts(env: BranchEnv, state: SessionState, stepped
         age,
       ),
       schema: InterludeLLM,
-      maxOutputTokens: 800,
+      maxOutputTokens: Math.max(800, 220 * items.length),
       hedgeMs: 5000,
     });
-    if (r.data) captions = new Map(r.data.cuts.map((c) => [c.branchId, truncateWords(c.caption, 16)]));
+    if (r.data) return new Map(r.data.cuts.map((c) => [c.branchId, truncateWords(c.caption, 16)]));
   } catch {
     /* fall back to summaries */
   }
+  return new Map();
+}
+
+/**
+ * The interlude cuts at the playhead. `known` captions (written speculatively while the fork's
+ * card was open) skip the caption call when they cover every branch.
+ */
+export async function interludeCuts(env: BranchEnv, state: SessionState, steppedBranches: Branch[], known?: Record<string, string>): Promise<InterludeCut[]> {
+  const profile = state.profile!;
+  const year = state.playhead.year;
+  const age = year - profile.birthYear;
+  const items = snapshotsAt(steppedBranches, year);
+  if (!items.length) return [];
+  const have = known && items.every(({ b }) => known[b.id]);
+  const captions = have ? new Map(Object.entries(known!)) : await captionsFor(env, state, steppedBranches, year);
   return items.map(({ b, snap }) => ({
     branchId: b.id,
     title: b.title,
