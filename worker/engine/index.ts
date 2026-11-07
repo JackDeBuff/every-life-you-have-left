@@ -43,6 +43,7 @@ import { captionsFor, coarseYears, selectDiverse, stepBranchTo, interludeCuts, t
 import { reply } from "./chat";
 import { decisionsBlock, settingsBlock } from "./context";
 import { makeDecisionFor } from "./decisions";
+import { forksTaken } from "./ledger";
 import { endingFor, logLines, safetyCheck, settingsForState } from "./extras";
 import type { LlmPort } from "./llm-port";
 import { createCaller, DEFAULT_MODELS, type EngineModels, type UsageEvent } from "./models";
@@ -87,6 +88,7 @@ export function createEngine(deps: EngineDeps): Engine {
   };
   const call = createCaller({ llm: deps.llm, models, onUsage: deps.onUsage });
   const at = () => nowIso(deps.now);
+  const today = () => (deps.now ? deps.now() : new Date());
 
   const writerEnv = (state: SessionState): WriterEnv => {
     const p = state.profile!;
@@ -97,6 +99,7 @@ export function createEngine(deps: EngineDeps): Engine {
       span: Math.max(10, (state.endAge || p.endAge) - p.age),
       seed: p.sessionId,
       onMetric: deps.onMetric,
+      today: today(),
     };
   };
   const branchEnv = (state: SessionState): BranchEnv => ({ writer: writerEnv(state), call });
@@ -172,7 +175,7 @@ export function createEngine(deps: EngineDeps): Engine {
     },
 
     async makeDecision(state, slot) {
-      return makeDecisionFor(call, state, slot);
+      return makeDecisionFor(call, state, slot, today());
     },
 
     async applyAnswer(state: SessionState, decision: Decision, answer: DecisionAnswer) {
@@ -208,6 +211,7 @@ export function createEngine(deps: EngineDeps): Engine {
           : undefined,
         decisionIdsFor: decisionIdsIn(state.decisions),
         money: chosenPath(state.decisions, state.answers, p.sessionId),
+        path: forksTaken(state, last),
       };
       return writeYears(writerEnv(state), spec, years, onYear);
     },
@@ -320,7 +324,7 @@ export function createEngine(deps: EngineDeps): Engine {
     },
 
     async settingsFor(state) {
-      return settingsForState(call, state);
+      return settingsForState(call, state, today());
     },
 
     async ending(state) {
@@ -329,7 +333,7 @@ export function createEngine(deps: EngineDeps): Engine {
     },
 
     replyAs(state, life, age, history, text) {
-      return reply(call, state, life, age, history, text);
+      return reply(call, state, life, age, history, text, today());
     },
 
     async safety(text) {

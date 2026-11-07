@@ -1,0 +1,55 @@
+{
+ "stamp": "2026-11-07T10-33-29",
+ "budget": 0.5,
+ "spent": 0.27485879999999985,
+ "summary": [
+  {
+   "group": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "personas": "marisol",
+   "sessions": 1,
+   "ok": 1,
+   "judged": 0,
+   "overall": null,
+   "personal": null,
+   "believable": null,
+   "no_melodrama": null,
+   "forks": null,
+   "specificity": null,
+   "ending": null,
+   "safety": null,
+   "schemaValidPct": 89.47368421052632,
+   "ruleValidPct": 100,
+   "repaired": 0,
+   "fallback": 0,
+   "filler": 2,
+   "years": 19,
+   "contractErrors": 0,
+   "tpPerLife": 7,
+   "tpCitedPct": 100,
+   "quietPct": 63.1578947368421,
+   "firstYearMsMean": 22902,
+   "firstYearMsMedian": 17049,
+   "perYearMs": 7158,
+   "decisionMs": 5180.75,
+   "profileMs": 14865,
+   "firstCardMs": 38415,
+   "sessionMin": 5.264116666666666,
+   "costPerSession": 0.2733372999999999,
+   "heavyCostPerSession": 0,
+   "branchCostPerSession": 0.095449,
+   "tokensPerSession": 399665,
+   "judgeCost": 0,
+   "hedges": 7,
+   "cliches": 0
+  }
+ ],
+ "notes": [
+  {
+   "persona": "marisol-52-quezon",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": null,
+   "error": null
+  }
+ ]
+}

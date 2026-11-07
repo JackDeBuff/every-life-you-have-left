@@ -128,8 +128,10 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
     const opt = d.options.find((x) => x.id === ans.optionId);
     push({ id: `a-${d.id}`, role: "you", text: ans.text ?? opt?.label ?? "…", decisionId: d.id, quoteId: ans.text ? ans.quoteId : null }, d.age, at);
     if (d.kind === "big") {
-      const others = st.branches.filter((b) => b.forkDecisionId === d.id).length;
-      const n = others === 1 ? "life keeps" : `${others === 3 || others === 0 ? "three" : others} lives keep`;
+      // Count-aware from the decision itself: every unchosen option split off as a life at this fork.
+      // (Counting live branches made old forks read "the other life" once later forks retired some.)
+      const others = Math.max(1, d.options.length - 1);
+      const n = others === 1 ? "life keeps" : `${["two", "three", "four", "five"][others - 2] ?? others} lives keep`;
       push({ id: `f-${d.id}`, role: "guide", text: `“${opt?.branchTitle ?? opt?.label ?? "Your own way"}” it is. The other ${n} running without you. You'll see them now and then.` }, d.age, at + 1);
     }
   }

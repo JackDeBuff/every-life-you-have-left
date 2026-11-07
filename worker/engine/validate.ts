@@ -121,10 +121,12 @@ export function coerceYear(raw: unknown, prev: SimYear | null): { draft: YearDra
 }
 
 /** The compact form of a checked year, for repair prompts. */
-export function compactOf(d: YearDraft): YearC {
+export function compactOf(d: YearDraft, life: { w: string; ch: string[] } = { w: "", ch: [] }): YearC {
   return {
     y: d.year,
     p: d.place,
+    w: life.w,
+    ch: life.ch,
     e: d.events.map((e) => ({
       d: e.domain, c: e.category, t: e.title, n: e.narrative, tp: e.isTurningPoint, q: e.cause?.quoteId ?? null,
       why: e.cause?.reason ?? null, st: e.baseRate?.statId ?? null, tone: e.tone, w: e.worldId,
@@ -453,7 +455,10 @@ function fixScene(
 export function fallbackYear(check: YearCheck): SimYear {
   const y = check.year;
   const events = y.events.filter((_, i) => !check.badEvents.has(i)).map((e, i) => ({ ...e, id: e.id.replace(/-\d+$/, `-${i + 1}`) }));
-  const summary = check.summaryBanned ? "A quieter year than most." : y.summary;
+  // a bad summary (banned content, a person who isn't in this life, a repeated line) is replaced
+  // by the year's own first clean event, so two fallback years don't print the same line
+  const lead = events[0]?.narrative.match(/^[^.!?]+[.!?]/)?.[0];
+  const summary = check.summaryBanned ? (lead && bannedHits(lead).length === 0 ? truncateWords(lead, 18) : "A quieter year than most.") : y.summary;
   const caption = check.summaryBanned ? "" : y.scene.caption;
   const moment = events.some((e) => e.isTurningPoint) ? y.scene.moment : null;
   return { ...y, events, summary, scene: { ...y.scene, caption, moment } };

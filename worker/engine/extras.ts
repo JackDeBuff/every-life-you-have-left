@@ -1,7 +1,9 @@
 /** settingsFor, ending, safety and logFor. */
 import type { Ending, SafetyResult } from "../../shared/engine";
 import type { Branch, LiveSetting, LogLine, SessionState, SimYear } from "../../shared/sim";
-import { decisionsBlock, lifeSoFarBlock, personBlock, quotesBlock, settingValueLabel, yearLine } from "./context";
+import { fixPeopleNumbers, peopleIssues, similarity } from "./consistency";
+import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, settingValueLabel, yearLine } from "./context";
+import { branchForks, forksTaken, lifeAt, nowBlock, peopleNowLine, peopleSummary, profileAsOf, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
 import { ENDING_SYSTEM, endingPrompt, SAFETY_SYSTEM, SETTINGS_SYSTEM, settingsPrompt } from "./prompts/extras";
 import { EndingLLM, SafetyLLM, SettingsLLM } from "./schemas";
@@ -53,9 +55,11 @@ function fixSetting(s: LiveSetting, validQuotes: Set<string>, fallbackQuote: str
   return out;
 }
 
-export async function settingsForState(call: Caller, state: SessionState): Promise<LiveSetting[]> {
+export async function settingsForState(call: Caller, state: SessionState, today: Date = new Date()): Promise<LiveSetting[]> {
   const profile = state.profile!;
   const past = state.years.filter((y) => y.year <= state.playhead.year);
+  // settings follow the life as it stands (after the latest fork), not the start profile
+  const now = nowContext({ profile, years: past, atYear: state.playhead.year, path: forksTaken(state, state.playhead.year), today }).text;
   const current = state.settings.length
     ? state.settings.map((s) => `${s.id}: ${s.type} "${s.label}" = ${settingValueLabel(s, s.value)}`).join("\n")
     : "(none yet)";
@@ -67,7 +71,7 @@ export async function settingsForState(call: Caller, state: SessionState): Promi
       prompt: settingsPrompt({
         person: personBlock(profile),
         quotes: quotesBlock(profile),
-        recent: lifeSoFarBlock(past.slice(-4), 4),
+        recent: `${lifeSoFarBlock(past.slice(-4), 4)}\n\n${now}`,
         current,
         decisions: decisionsBlock(state, state.playhead.year),
       }),
@@ -104,42 +108,82 @@ function compactLife(years: SimYear[], fromYear: number, maxLines: number): stri
   return important.slice(0, maxLines).map(yearLine).join("\n");
 }
 
-export async function endingFor(call: Caller, state: SessionState, branches: Branch[]): Promise<Ending> {
+/**
+ * What the ending returns beyond the contract.
+ * CONTRACT-REQUEST: add to shared/engine.ts Ending:
+ *   postcard: string                  the chosen life's postcard line (life-specific, replaces the
+ *                                     fixed "Decide the small things faster..." in Ending.tsx)
+ *   people: Record<string, string>    per life ("chosen" | branchId): who is in it at the end age,
+ *                                     computed from the life ledger in code (never by the model)
+ */
+export type EndingX = Ending & { postcard?: string; people?: Record<string, string> };
+
+export async function endingFor(call: Caller, state: SessionState, branches: Branch[]): Promise<EndingX> {
   const profile = state.profile!;
   const start = profile.startYear;
+  const endYear = profile.birthYear + (state.endAge || profile.endAge);
   const lives: string[] = [];
-  lives.push(`id "chosen": THEIR CHOSEN LIFE (from ${start}, age ${profile.age})\nDecisions: ${decisionsBlock(state, 9999).split("\n").slice(0, 8).join(" / ")}\n${compactLife(state.years, start, 30)}`);
+  // Each life's facts at the start (for the five-year answer) and at the end (for the verdict),
+  // from the ledger: place, work, people with code-computed ages. The model never counts people.
+  const startCtx = (years: SimYear[], atYear: number) => {
+    const n = lifeAt(profile, years.filter((y) => y.year < atYear), atYear);
+    return `${n.place}; ${n.work}; people: ${peopleNowLine(n)}`;
+  };
+  const chosenEnd = lifeAt(profile, state.years, endYear, forksTaken(state));
+  const ends: Record<string, LifeNow> = { chosen: chosenEnd };
+  lives.push(
+    `id "chosen": THEIR CHOSEN LIFE (from ${start}, age ${profile.age})\nDecisions: ${decisionsBlock(state, 9999).split("\n").slice(0, 8).join(" / ")}\nAt the start: ${startCtx(state.years, start)}\n${compactLife(state.years, start, 30)}\n${nowBlock(chosenEnd, { title: `AT THE END (${endYear})` })}`,
+  );
   for (const b of branches) {
     const shared = state.years.filter((y) => y.year < b.forkYear);
+    const bEnd = lifeAt(profileAsOf(profile, state.decisions, b.forkYear), [...shared, ...b.years], endYear, branchForks(state, b));
+    ends[b.id] = bEnd;
     lives.push(
-      `id "${b.id}": "${b.title}" (forked at ${b.forkAge} in ${b.forkYear}; five-year answer is spoken at ${b.forkAge})\nShared past up to then: ${shared.length ? yearLine(shared[shared.length - 1]!) : "(none)"}\n${compactLife(b.years, b.forkYear, 14)}`,
+      `id "${b.id}": "${b.title}" (forked at ${b.forkAge} in ${b.forkYear}; five-year answer is spoken at ${b.forkAge})\nShared past up to then: ${shared.length ? yearLine(shared[shared.length - 1]!) : "(none)"}\nAt the fork: ${startCtx(shared, b.forkYear)}\n${compactLife(b.years, b.forkYear, 14)}\n${nowBlock(bEnd, { title: `AT THE END (${endYear})` })}`,
     );
   }
-  const fallback = (): Ending => ({
+  const people = Object.fromEntries(Object.entries(ends).map(([id, n]) => [id, peopleSummary(n)]));
+  const fallback = (): EndingX => ({
     verdict: "A life with your fingerprints on it.",
     branchVerdicts: Object.fromEntries(branches.map((b) => [b.id, `The life where you chose "${b.title}".`])),
     fiveYear: {},
+    people,
   });
+  /** Ranking (D-010) and people that don't exist in that life, per verdict. */
+  const problems = (data: { lives: { id: string; verdict: string; fiveYear: string }[]; postcard: string }) => {
+    const out: string[] = [];
+    for (const l of data.lives) {
+      if (RANKING.test(l.verdict)) out.push(`verdict for ${l.id} ranks or compares ("${l.verdict}"): no best, better, worse, happiest, right choice or should have`);
+      const n = ends[l.id];
+      if (n) for (const i of peopleIssues(l.verdict, n).filter((x) => x.kind !== "age")) out.push(`verdict for ${l.id}: ${i.msg}`);
+    }
+    for (const i of peopleIssues(data.postcard ?? "", chosenEnd).filter((x) => x.kind !== "age")) out.push(`postcard: ${i.msg}`);
+    return out;
+  };
   try {
     const prompt = endingPrompt({ person: personBlock(profile), quotes: quotesBlock(profile), lives: lives.join("\n\n") });
     const ask = (extra: string) =>
-      call.json({ tier: "heavy", purpose: "ending", system: ENDING_SYSTEM, prompt: prompt + extra, schema: EndingLLM, maxOutputTokens: 3000 });
+      call.json({ tier: "heavy", purpose: "ending", system: ENDING_SYSTEM, prompt: prompt + extra, schema: EndingLLM, maxOutputTokens: 3200 });
     let r = await ask("");
-    // D-010: no life is ranked best. One rewrite if a verdict compares or ranks.
-    const ranked = r.data?.lives.map((l) => l.verdict).find((v) => RANKING.test(v));
-    if (ranked) {
-      const again = await ask(`\n\nYour previous draft ranked or compared the lives ("${ranked}"). Rewrite every verdict so it stands on its own: no best, better, worse, happiest, right choice or should have.`);
-      if (again.data && !again.data.lives.some((l) => RANKING.test(l.verdict))) r = again;
+    // One rewrite if a verdict ranks the lives or gives a life people it doesn't have.
+    const bad = r.data ? problems(r.data) : [];
+    if (bad.length) {
+      const again = await ask(`\n\nYour previous draft had these problems. Rewrite so none remain (keep everything else):\n${bad.map((b) => `- ${b}`).join("\n")}`);
+      if (again.data && problems(again.data).length < bad.length) r = again;
     }
     if (!r.data) return fallback();
+    const fix = (id: string, t: string) => (ends[id] ? fixPeopleNumbers(t, ends[id]!).text : t);
     const byId = new Map(r.data.lives.map((l) => [l.id, l]));
     const chosen = byId.get("chosen");
+    const postcard = r.data.postcard?.trim();
     return {
-      verdict: chosen?.verdict.trim() || fallback().verdict,
-      branchVerdicts: Object.fromEntries(branches.map((b) => [b.id, byId.get(b.id)?.verdict.trim() || `The life where you chose "${b.title}".`])),
+      verdict: fix("chosen", chosen?.verdict.trim() || fallback().verdict),
+      branchVerdicts: Object.fromEntries(branches.map((b) => [b.id, fix(b.id, byId.get(b.id)?.verdict.trim() || `The life where you chose "${b.title}".`)])),
       fiveYear: Object.fromEntries(
         [["chosen", chosen?.fiveYear], ...branches.map((b) => [b.id, byId.get(b.id)?.fiveYear] as const)].filter((x): x is [string, string] => Boolean(x[1])),
       ),
+      postcard: postcard && !/\bshould\b/i.test(postcard) ? fix("chosen", postcard) : undefined,
+      people,
     };
   } catch {
     return fallback();
@@ -199,7 +243,18 @@ export function logLines(state: SessionState, year: SimYear): LogLine[] {
   let n = 0;
   const id = (kind: string) => `log-${year.year}-${kind}-${++n}`;
   const domainOf = year.events.find((e) => e.isTurningPoint)?.domain ?? year.events[0]?.domain ?? null;
-  out.push({ ...base, id: id("year"), kind: "year", text: truncateWords(year.summary, 24), domain: domainOf, tone: null, why: null, baseRate: null, refId: null });
+  // Near-duplicate lines from the last 3 years never show twice in the log (normalised similarity).
+  const earlier = state.years.filter((y) => y.year < year.year && y.year >= year.year - 3);
+  const seenLines = earlier.flatMap((y) => [y.summary, ...y.events.map((e) => e.title)]);
+  const repeats = (t: string, th: number) => seenLines.some((x) => similarity(x, t) >= th);
+  let yearText = year.summary;
+  let skipEvent = -1;
+  if (repeats(year.summary, 0.7)) {
+    // the summary repeats an earlier year's: lead with this year's own event instead
+    const i = year.events.findIndex((e) => e.narrative && !repeats(e.title, 0.8));
+    if (i >= 0) (yearText = year.events[i]!.narrative), (skipEvent = i);
+  }
+  out.push({ ...base, id: id("year"), kind: "year", text: truncateWords(yearText, 24), domain: domainOf, tone: null, why: null, baseRate: null, refId: null });
 
   for (const d of state.decisions.filter((x) => x.year === year.year)) {
     const a = state.answers.find((x) => x.decisionId === d.id);
@@ -223,7 +278,8 @@ export function logLines(state: SessionState, year: SimYear): LogLine[] {
     }
   }
 
-  for (const e of year.events) {
+  for (const [i, e] of year.events.entries()) {
+    if (i === skipEvent || (!e.isTurningPoint && (repeats(e.title, 0.8) || similarity(e.title, yearText) >= 0.8))) continue;
     out.push({
       ...base, id: id("event"), kind: "event", text: truncateWords(e.title, 24), domain: e.domain, tone: e.tone,
       why: e.cause, baseRate: e.baseRate, refId: e.id,

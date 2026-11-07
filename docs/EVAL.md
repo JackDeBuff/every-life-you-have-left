@@ -141,6 +141,54 @@ The main run used commit `85b4dbb`. Fixes made from its transcripts and the judg
 | Generation fell behind Auto playback (3.8 s/year vs 1.5 s/year) | Compact year schema (~490 → ~280 output tokens/year), one streamed call per stretch of up to 10 years (call boundaries cost 5-9 s), and the hybrid Auto writer below. |
 | ~15 s from the start screen to the first card | `provisionalProfile(input)` lets the agent write the first card in parallel with `startProfile`. |
 
+## Consistency pass: the life ledger (Engine content, Sat Nov 7 ~6-9am)
+
+The QA inspector's live sessions showed lives that forgot themselves: a card at 31 set "ten years into
+San Francisco" after Jordan chose CMU, a director post offered to Marisol two years into retirement, Bea
+"nineteen" when she was 24, one child at 70 for a mother of two, a partner Jordan never had, a dog alive
+37 years after adoption, and the first card saying "It's spring 2026" on November 7.
+
+**What changed.** `worker/engine/ledger.ts` replays a life into code-owned facts at any year: place,
+work (and retirement), the people with birth years and status, pets with a real lifespan, and the forks
+taken. Every year the model now writes `w` (work) and `ch` (people changes: `+partner:Sam`, `+child:Bea`,
+`+pet:dog:Barnaby`, ...), and each `SimYear` carries `life = {work, ch, people}`. Every generator gets one
+NOW block (today's date, place, work, people with code-computed ages, forks). `consistency.ts` and
+`calendar.ts` check text against it: wrong ages and children counts are rewritten in code; a phantom
+partner/child/pet, a pet past its time, a repeated summary or turning point, or a past season in the
+first year is a hard error in a year (one repair, then fallback); a decision that names a place or
+employer they've left, offers work to a retiree, repeats an earlier fork's subject, or reuses a recent
+small-card framing gets one rewrite. Scene people come from the ledger, so the ending's people line is
+computed in code.
+
+**Measure.** `npm run eval -- --smalls 15` writes 15 small cards per session on top of Auto, and every
+session prints its violations (`scripts/eval/consistency.ts`, code only; also runs on old run files).
+Same 5 personas before (the engine at `29a2c96`) and after, hybrid Auto writer, no judge. Two new personas
+are shaped like the QA sessions: `jordan-21-pittsburgh` (SF vs CMU, a dog) and `marisol-52-quezon` (teens
+with stated ages, retirement by 60).
+
+| Violation | Before | After |
+|---|---|---|
+| Small card reuses a recent time/setting ("Sunday", "2am", within 3 cards; late night within 6) | 9 | 0 |
+| Ending people line wrong (children missing or miscounted) | 10 | 0 |
+| Near-duplicate summary or event within 3 years | 3 | 0 |
+| A named person's age wrong | 1 | 0 |
+| First card set in a season that has passed ("It is spring 2026 at CMU") | 2 | 0 (all 5 say November / late 2026) |
+| Phantom child | 1 | 0 |
+| Pet past its lifespan (Barnaby, adopted 2026, in 2047-2075) | 16 | 9* |
+| Phantom partner in a branch's people line | 0 | 2* |
+| Fork repeats an earlier fork's subject | 1 | 1 (Cebu: a son moved there, a real revisit) |
+| Card sets the scene in another city | 0 | 1 (Penn Hills, a Pittsburgh suburb) |
+| **Total (5 sessions)** | **43** | **13** |
+
+\* Both from two ledger gaps the after-run exposed, fixed in `3fc5510` and not re-run at full length
+(budget): the profile never listed Barnaby as a person, so he never entered the ledger (pets named in
+their own words are now added); and people first named in later answers (Elena, at 29) leaked into
+branches forked before them (`profileAsOf`). A $0.015 smoke on Jordan's state confirms Barnaby leaves on
+schedule, a child arrives through `+child:Leo` with a code-owned age, and the future self says the dog is gone.
+
+Cost and speed held: $0.27-0.34 per session (was $0.24-0.33), 3.67 s per year, 6.2 s median first year
+after a fork (before: 3.3-6.2 s/yr, 5.1-8.2 s). Spend for this pass: ~$2.91 (baselines $1.38, after $1.51, smoke $0.02).
+
 ## Method
 
 **Personas** (`scripts/eval/personas.ts`): eight fictional people, written as the start line they would type

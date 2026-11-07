@@ -1,0 +1,67 @@
+{
+ "stamp": "2026-11-07T10-23-06",
+ "budget": 1.3,
+ "spent": 0.8079539499999999,
+ "summary": [
+  {
+   "group": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "personas": "kenji, lucia, denise",
+   "sessions": 3,
+   "ok": 3,
+   "judged": 0,
+   "overall": null,
+   "personal": null,
+   "believable": null,
+   "no_melodrama": null,
+   "forks": null,
+   "specificity": null,
+   "ending": null,
+   "safety": null,
+   "schemaValidPct": 95.29411764705883,
+   "ruleValidPct": 96.47058823529412,
+   "repaired": 3,
+   "fallback": 0,
+   "filler": 4,
+   "years": 85,
+   "contractErrors": 0,
+   "tpPerLife": 6.666666666666667,
+   "tpCitedPct": 100,
+   "quietPct": 76.47058823529412,
+   "firstYearMsMean": 17190.4,
+   "firstYearMsMedian": 5093,
+   "perYearMs": 4293,
+   "decisionMs": 10686.833333333334,
+   "profileMs": 14382.333333333334,
+   "firstCardMs": 5597,
+   "sessionMin": 5.101633333333333,
+   "costPerSession": 0.2678041166666667,
+   "heavyCostPerSession": 0,
+   "branchCostPerSession": 0.09909079999999999,
+   "tokensPerSession": 374255,
+   "judgeCost": 0,
+   "hedges": 12,
+   "cliches": 3
+  }
+ ],
+ "notes": [
+  {
+   "persona": "kenji-42-osaka",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": null,
+   "error": null
+  },
+  {
+   "persona": "lucia-36-valencia",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": null,
+   "error": null
+  },
+  {
+   "persona": "denise-50-phoenix",
+   "model": "gemini-3.8-flash+auto:gemini-3.5-flash-lite",
+   "verdict": null,
+   "error": null
+  }
+ ]
+}

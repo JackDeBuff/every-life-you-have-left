@@ -19,6 +19,7 @@ import { summarize, table } from "./summarize";
 import { PERSONAS } from "./personas";
 import { Ledger } from "./pricing";
 import { runSession, type SessionResult } from "./session";
+import { checkSession, printReport } from "./consistency";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -31,6 +32,7 @@ const MODELS = (opt("models") ?? "gemini-3.8-flash,gemini-4-argon,openai/gpt-oss
 const budget = Number(opt("budget") ?? 8);
 const concurrency = Number(opt("concurrency") ?? 5);
 const judge = !flag("no-judge");
+const smalls = Number(opt("smalls") ?? 0);
 let personas = PERSONAS;
 if (opt("personas")) personas = PERSONAS.filter((p) => opt("personas")!.split(",").includes(p.key));
 if (opt("n")) personas = personas.slice(0, Number(opt("n")));
@@ -70,7 +72,7 @@ async function worker(id: number) {
     const tag = `[${job.p.key} | ${job.m}]`;
     const logs: string[] = [];
     const t0 = Date.now();
-    const result = await runSession(llm, job.p, job.m, ledger, (s) => logs.push(s));
+    const result = await runSession(llm, job.p, job.m, ledger, (s) => logs.push(s), { smalls });
     let verdict: Verdict | null = null;
     let judgeCost = 0;
     if (judge && result.transcript.profile && result.transcript.years.length) {
@@ -85,6 +87,7 @@ async function worker(id: number) {
       `${tag} ${result.ok ? "ok" : "FAIL"} ${Math.round((Date.now() - t0) / 1000)}s | years ${result.validity.years} schemaOk ${result.validity.schemaOk} repaired ${result.validity.repaired} fallback ${result.validity.fallback} filler ${result.validity.filler} | first year ${result.timings.firstYearMs[0] ?? "-"}ms, ${result.timings.perYearMs}ms/yr | $${result.cost.session.toFixed(3)} | judge ${verdict ? `${verdict.overall} (P${verdict.personal} B${verdict.believable} M${verdict.no_melodrama} F${verdict.forks} S${verdict.specificity} E${verdict.ending})` : "-"} | spent $${ledger.spent.toFixed(2)}`,
     );
     if (flag("verbose")) console.log(logs.join("\n"));
+    printReport(tag, checkSession(result.transcript, new Date(result.startedAt)));
     writeFileSync(new URL(`run-${stamp}.json`, outDir), JSON.stringify(rows, null, 1));
   }
 }

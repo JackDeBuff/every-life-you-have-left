@@ -23,6 +23,8 @@ KNOWN PLANS (listed in PERSON) are already part of this life, not ideas.
 EACH YEAR (compact keys)
 - y: the year, exactly the ones asked for, in order.
 - p: where they live that year, "City, Region" or "City, Country". It changes only with a move event.
+- w: what they do that year, <= 8 words ("Head nurse, St. Luke's ER", "Grad student, CMU", "Between jobs", "Retired"). Start from the NOW block; it changes only with an event (a new job, a layoff, retiring). After retiring, it stays "Retired" unless an event brings them back.
+- ch: people changes in THIS year, as tags: "+partner:Name" (they get together; use the name you give them), "-partner:Name" (they split up), "+child:Name" (born or adopted this year), "+pet:dog:Name", "-pet:Name", "-parent:Name" (a parent's old-age death, gently). [] in most years. The PEOPLE in the NOW block are everyone who exists: nobody else is their partner, child or pet unless a ch tag brings them in that year, and the ages there are computed by code (never compute an age yourself).
 - e: events, 0-3. Most years have 0 or 1. Each event:
   - t: title <= 8 words. n: 1-2 concrete sentences (<= 30 words), present tense, second person; name their real people, places, job.
   - c: category (catalog value; "texture" for small colour). d: the domain it touches. tone: up | down | mixed.
@@ -51,6 +53,7 @@ export const COARSE_ADDENDUM = `COARSE MODE (a hidden branch, simulated cheaply)
 - Each item is a SNAPSHOT of one year, 5 years apart. Its events (0-3) are the most important things that happened in the 5 years leading up to it; say when in n ("In 2029, ...").
 - inc, nw, k and sc describe the snapshot year itself. States may move up to +-35 between snapshots.
 - Never repeat an event from an earlier snapshot; each snapshot moves the life on.
+- ch lists every people change in those 5 years; for a child add the birth year: "+child:Name:2031".
 - Keep it honest and specific; fewer words, same rules.`;
 
 export interface YearsPromptParts {
@@ -59,6 +62,10 @@ export interface YearsPromptParts {
   quotes: string;
   focusQuotes: string;
   lifeSoFar: string;
+  /** The NOW block (context.ts nowContext): today, place, work, people with code ages, forks. */
+  now?: string;
+  /** Recent lines not to repeat. */
+  avoid?: string;
   decisions: string;
   mustShow: string;
   settings: string;
@@ -79,6 +86,8 @@ export function yearsPrompt(p: YearsPromptParts): string {
     `THEIR WORDS (cite these ids in cause.quoteId)\n${p.quotes}`,
     p.focusQuotes ? `MOST RELEVANT RIGHT NOW\n${p.focusQuotes}` : "",
     `THE LIFE SO FAR (this life)\n${p.lifeSoFar}`,
+    p.now ? p.now : "",
+    p.avoid ? `ALREADY SAID (recent summaries and event titles; don't reuse these lines or near-copies of them)\n${p.avoid}` : "",
     `DECISIONS IN THIS LIFE\n${p.decisions}`,
     p.mustShow ? `MUST SHOW\n${p.mustShow}` : "",
     `LIVE SETTINGS (how they're living it; nudges apply from the next year and must visibly shape it)\n${p.settings}`,
