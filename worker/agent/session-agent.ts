@@ -54,6 +54,7 @@ import type { Profile } from "../../shared/schema";
 import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
 import type { FoldItem, SmallDecisionKit } from "../engine/smalls";
 import { chosenOf, resolveBig } from "../engine/answers";
+import { bigCardIssues } from "../engine/decisions";
 import { costOf } from "../engine/pricing";
 import {
   applyWarmDelta,
@@ -992,11 +993,15 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       // also starts its years now; typed words wait for the fold, so the consequence can cite them.
       const early = isBig && !rec.text;
       const forkP = isBig ? this.fork(engine, answered, rec.optionId ?? "") : null;
-      // A fork rewrites its own year too: the engine writes the consequence from decision.year.
-      // The old future goes now either way (the playhead must never step into it).
+      // The old future goes now (the playhead must never step into it). Years at or before the
+      // playhead are history and are never rewritten: the fork's own year has played (QA: a
+      // separation from Jamie at 47 was shown, then erased when the fork rewrote 47), so the
+      // consequence starts the year after. Only the first fork rewrites "today", the start year's
+      // placeholder scene behind the warm-up.
       if (isBig) {
         this.holdGen = !early;
-        this.invalidate(d.year);
+        const first = !this.s.decisions.some((x) => x.kind === "big" && x.id !== d.id && x.status === "answered");
+        this.invalidate(first && d.year === this.startYear ? d.year : undefined);
       }
       let folded: Awaited<ReturnType<Engine["applyAnswer"]>> | null = null;
       let safety: Awaited<ReturnType<Engine["safety"]>> | null;
@@ -1225,6 +1230,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.epoch++;
     this.spend = freshSpend();
     this.prepared.clear();
+    this.cardSeen.clear();
+    this.rewriting.clear();
+    this.rewrites.clear();
     this.holdGen = false;
     this.endingPre = null;
     this.slots = [];
@@ -1513,6 +1521,70 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
 
+  // -------------------------------------------------------------------------------------------
+  // Fork cards written ahead (final QA, Sat Nov 7). A big card is written up to 8 years before its
+  // fork (Auto), before the years in between exist and sometimes before the previous fork is even
+  // answered: Sam at 27 got fork 1's "office job or UX?" again, as a junior. When the life catches
+  // up with a card (the years before it land, then its own year), it is checked again in code
+  // against the life as it stands and every fork taken; a stale card is rewritten before it opens.
+  // -------------------------------------------------------------------------------------------
+  /** Per pending fork card: forks answered when it was written, and the last check (level, forks). */
+  private cardSeen = new Map<string, { forks: number; level: number; checkedForks: number }>();
+  private rewriting = new Set<string>();
+  private rewrites = new Map<string, number>();
+  private answeredForks = () => this.s.decisions.filter((d) => d.kind === "big" && d.status === "answered").length;
+  /** 0 = the years before the card aren't written; 1 = up to 2 years before it are; 2 = its own year is. */
+  private cardLevel(year: number): number {
+    const lastGen = this.s.years.at(-1)?.year ?? this.startYear - 1;
+    return lastGen >= year ? 2 : lastGen >= year - 2 ? 1 : 0;
+  }
+
+  private recheckForks(): void {
+    const s = this.s;
+    if (!s.profile || s.phase === "ended" || s.engine === "mock" || (this.warm && !this.warm.placed)) return;
+    const forks = this.answeredForks();
+    for (const d of s.decisions) {
+      if (d.kind !== "big" || d.status !== "pending" || this.rewriting.has(d.id) || (this.rewrites.get(d.id) ?? 0) >= 2) continue;
+      if (s.phase === "deciding" && d.year <= s.playhead.year) continue; // on screen: never swapped under them
+      const level = this.cardLevel(d.year);
+      const seen = this.cardSeen.get(d.id) ?? { forks, level: 0, checkedForks: forks };
+      if (!level || (level <= seen.level && forks <= seen.checkedForks)) continue;
+      this.cardSeen.set(d.id, { ...seen, level: Math.max(level, seen.level), checkedForks: forks });
+      const forkAfter = seen.forks < forks;
+      const issues = bigCardIssues(s, d);
+      if (!forkAfter && !issues.length) continue;
+      console.log(`[fork] ${d.id} (${d.year}) is stale: ${forkAfter ? "a fork was answered after it was written" : ""}${forkAfter && issues.length ? "; " : ""}${issues.map((i) => i.kind).join(", ")}. Rewriting.`);
+      this.rewriteFork(d);
+    }
+  }
+
+  private rewriteFork(d: Decision): void {
+    this.rewriting.add(d.id);
+    this.rewrites.set(d.id, (this.rewrites.get(d.id) ?? 0) + 1);
+    this.prepared.delete(d.id);
+    const slot = this.slots.find((sl) => sl.kind === "big" && sl.year === d.year) ?? { year: d.year, age: d.age, kind: "big" as const, reason: "" };
+    this.bg("fork.rewrite", async () => {
+      try {
+        const engine = await this.eng();
+        const forks = this.answeredForks();
+        const level = this.cardLevel(d.year);
+        const made = await engine.makeDecision(this.s, slot);
+        const cur = this.s.decisions.find((x) => x.id === d.id);
+        if (!cur || cur.status !== "pending") return;
+        const next: Decision = { ...made, id: d.id, kind: "big", year: d.year, age: d.age, status: "pending" };
+        this.update((s) => ({ decisions: s.decisions.map((x) => (x.id === d.id ? next : x)) }));
+        this.cardSeen.set(d.id, { forks, level, checkedForks: forks });
+        void this.mirror.decisions([next]);
+      } catch (e) {
+        console.error("fork rewrite failed", e instanceof Error ? e.name : "error");
+      } finally {
+        this.rewriting.delete(d.id);
+        this.gateCheck();
+        this.recheckForks();
+      }
+    });
+  }
+
   /** Write one decision (serialized). `using` overrides the state the engine sees (provisional start). */
   private queueDecision(sl: DecisionSlot, key: string, using?: AgentState): void {
     this.making.add(key);
@@ -1520,15 +1592,19 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.decisionQueue = this.decisionQueue.then(async () => {
       try {
         const engine = await this.eng();
+        const seen = { forks: this.answeredForks(), level: sl.kind === "big" ? this.cardLevel(sl.year) : 0 };
         const made = await engine.makeDecision(using ?? this.s, sl);
         if (this.s.phase === "start" && !this.s.profile) return; // reset meanwhile
         if (epoch !== this.epoch && this.s.decisions.some((d) => d.kind === sl.kind && d.year === sl.year)) return;
         let id = made.id;
         while (this.s.decisions.some((d) => d.id === id)) id = `${made.id}-${crypto.randomUUID().slice(0, 4)}`;
         const d: Decision = { ...made, id, kind: sl.kind, year: sl.year, age: sl.age, status: "pending" };
+        if (d.kind === "big") this.cardSeen.set(d.id, { forks: seen.forks, level: seen.level, checkedForks: seen.forks });
         this.update((st) => ({ decisions: [...st.decisions, d] }));
         this.updateBudgets();
         void this.mirror.decisions([d]);
+        // (the life may have moved on while it was being written)
+        if (d.kind === "big") this.recheckForks();
         this.gateCheck();
       } catch (e) {
         console.error("makeDecision failed", e instanceof Error ? e.name : "error");
@@ -1593,7 +1669,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!s.profile || s.phase === "ended") return;
     const lastYear = s.years.at(-1)?.year ?? this.startYear - 1;
     for (const d of s.decisions) {
-      if (d.kind !== "big" || d.status !== "pending" || this.prepared.has(d.id)) continue;
+      if (d.kind !== "big" || d.status !== "pending" || this.prepared.has(d.id) || this.rewriting.has(d.id)) continue;
       if (d.year > this.startYear && lastYear < d.year - 1) continue;
       const p = (async () => {
         await this.profileReady;
@@ -1617,7 +1693,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (s.phase !== "playing" && s.phase !== "start" && s.phase !== "warmup") return;
     // The warm-up holds the first fork until its last answer (then placeFirstCard opens it).
     if (this.warm && !this.warm.placed) return;
-    const big = s.decisions.find((d) => d.kind === "big" && d.status === "pending" && d.year <= s.playhead.year);
+    // (a fork card being rewritten because it went stale waits; the playhead holds at its year)
+    const big = s.decisions.find((d) => d.kind === "big" && d.status === "pending" && d.year <= s.playhead.year && !this.rewriting.has(d.id));
     if (big) {
       // A fork preempts an open small card: it is shelved silently (status "slid" with no answer
       // record and no log line, so it never resurfaces and the chat doesn't mention it). The QA
@@ -1700,6 +1777,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
           return { years: [...st.years, y], bufferedTo: y.year };
         });
         this.catchUpLog();
+        this.recheckForks();
         this.maybePrepare();
         this.refillSmalls();
       };
