@@ -112,7 +112,8 @@ function Line({ line }: { line: LogLine }) {
 }
 
 function ForkRow({ line, titles }: { line: LogLine; titles: string[] }) {
-  const chosen = line.text.match(/“([^”]+)”/)?.[1] ?? "";
+  // Mock: 'You choose “Take Singapore”.' · agent: "Your life splits here: Take Singapore".
+  const chosen = line.text.match(/“([^”]+)”/)?.[1] ?? line.text.match(/splits here:\s*(.+?)\.?$/)?.[1] ?? "";
   return (
     <div className="log-fork">
       <svg className="fork-glyph" width="64" height="44" viewBox="0 0 64 44" aria-hidden="true">

@@ -27,7 +27,7 @@ export function RightPane() {
 }
 
 function Dialogue({ hidden }: { hidden: boolean }) {
-  const chat = useSim((s) => s.chat);
+  const chat = useSim((s) => s.dialogue);
   const decisions = useSim((s) => s.decisions);
   const forking = useUi((s) => s.forking);
   const highlight = useUi((s) => s.highlight);

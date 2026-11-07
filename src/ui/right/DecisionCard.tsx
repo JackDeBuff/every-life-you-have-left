@@ -70,7 +70,7 @@ export function DecisionCard({ d }: { d: Decision }) {
     if (busy) return;
     setBusy(true);
     if (card.current && !reducedMotion()) await gsap.to(card.current, { opacity: 0, y: 16, height: 0, duration: 0.35, ease: "expo.in" });
-    await sim().answer({ decisionId: d.id, optionId: null, text: null, via: "tap" });
+    await sim().answer({ decisionId: d.id, optionId: null, text: null, via: "tap", slid: true });
   }
 
   async function submit() {

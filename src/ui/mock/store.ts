@@ -120,6 +120,13 @@ const emptyState = (): ClientState => ({
   interlude: null,
   ending: null,
   safety: null,
+  thinking: false,
+  bufferedTo: null,
+  engine: "mock",
+  error: null,
+  dialogue: [],
+  connection: "open",
+  backend: "mock",
 });
 
 type Store = ClientState & ClientCalls;
@@ -150,7 +157,7 @@ export const useMockSim = create<Store>()((set, get) => {
       at: Date.now(),
       ...e,
     };
-    set({ chat: [...get().chat, entry] } as Partial<Store>);
+    set({ dialogue: [...get().dialogue, entry] } as Partial<Store>);
     return entry;
   };
 
@@ -233,7 +240,7 @@ export const useMockSim = create<Store>()((set, get) => {
       out.push(year);
       prev = traj;
     }
-    patch({ years: out });
+    patch({ years: out, bufferedTo: out[out.length - 1]?.year ?? null });
   };
 
   const extend = () => {
@@ -573,14 +580,14 @@ export const useMockSim = create<Store>()((set, get) => {
       const d = s.decisions.find((x) => x.id === a.decisionId);
       if (!d || d.status !== "pending") return;
       screen(a.text);
-      const slid = !a.optionId && !a.text?.trim();
+      const slid = !!a.slid || (!a.optionId && !a.text?.trim());
       let quoteId: string | null = null;
       if (a.text?.trim()) {
         quoteId = addQuote(a.text, "answer", d.id).id;
         bumpKnowMe(7);
       } else if (!slid) bumpKnowMe(2);
       const optionId = slid ? null : (a.optionId ?? bestOptionFor(d, a.text ?? ""));
-      const answer: DecisionAnswer = { ...a, quoteId, answeredAt: new Date().toISOString() };
+      const answer: DecisionAnswer = { decisionId: a.decisionId, optionId: a.optionId, text: a.text, via: a.via, quoteId, answeredAt: new Date().toISOString() };
       patch({
         answers: [...get().answers, answer],
         decisions: get().decisions.map((x) => (x.id === d.id ? { ...x, status: slid ? "slid" : "answered" } : x)),
@@ -735,7 +742,7 @@ export const useMockSim = create<Store>()((set, get) => {
         const tickWords = () => {
           i += 3;
           const txt = words.slice(0, i).join("");
-          set({ chat: get().chat.map((c) => (c.id === entry.id ? { ...c, text: txt, streaming: i < words.length } : c)) } as Partial<Store>);
+          set({ dialogue: get().dialogue.map((c) => (c.id === entry.id ? { ...c, text: txt, streaming: i < words.length } : c)) } as Partial<Store>);
           if (i < words.length) later(45, tickWords);
           else res();
         };
@@ -760,4 +767,3 @@ export const lifeTitle = (s: SessionState, life: string) => (life === "chosen" ?
 export const settingById = (s: SessionState, id: string): LiveSetting | undefined => s.settings.find((x) => x.id === id);
 export { cap };
 
-if (import.meta.env.DEV) (window as unknown as { __sim: typeof useMockSim }).__sim = useMockSim;
