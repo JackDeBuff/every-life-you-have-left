@@ -1,20 +1,19 @@
 /**
- * Timeline bar (SPEC §1, §2, §4): age axis from now to endAge, a linear sun playhead, fork ◆ with
- * the threads of the lives you didn't choose, small-decision ticks, speed keys and pause.
- * Hover a ◆ to peek the branches.
+ * Timeline bar (SPEC §1, §2, §4): age axis from now to endAge, a linear sun playhead, big forks ◆
+ * with the threads of the lives you didn't choose, small choices as dots, speed keys and pause.
+ * The part not lived yet sits on a sunken band. Click a ◆ for "the road not taken" (RoadNotTaken).
  */
-import * as HoverCard from "@radix-ui/react-hover-card";
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Branch, Decision, SpeedMode } from "../../../shared/sim";
 import { clock } from "../clock";
-import { moneyHint, moneyShort, ROMAN, useCurrency } from "../format";
+import { ROMAN } from "../format";
 import { Icon } from "../icons";
-import { Portrait } from "../left/Portrait";
-import { MiniRose } from "../left/LifeRose";
 import { gsap, reducedMotion } from "../motion";
 import { sim, useSim } from "../session";
+import { RoadNotTaken, RunningLife } from "./RoadNotTaken";
+import "./timeline.css";
 
 const PAD = 18;
 const H = 64;
@@ -26,6 +25,7 @@ export function TimelineBar() {
   const endAge = useSim((s) => s.endAge);
   const name = useSim((s) => s.profile?.firstName ?? "");
   const decisions = useSim((s) => s.decisions);
+  const answers = useSim((s) => s.answers);
   const branches = useSim((s) => s.branches);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(600);
@@ -44,14 +44,24 @@ export function TimelineBar() {
 
   // Playhead: moved every frame by the clock, never by React.
   const lived = useRef<SVGLineElement>(null);
+  const ahead = useRef<SVGRectElement>(null);
+  const aheadLabel = useRef<SVGTextElement>(null);
   const sunG = useRef<SVGGElement>(null);
   const ageText = useRef<SVGTextElement>(null);
   useEffect(() => {
     const reduce = reducedMotion();
+    const right = w - PAD + 6;
     return clock.subscribe((yf, scale) => {
       const y = reduce ? Math.floor(yf) : yf;
       const px = PAD + ((y - startYear) / span) * (w - PAD * 2);
       lived.current?.setAttribute("x2", px.toFixed(1));
+      if (ahead.current) {
+        const ax = Math.min(right, px + 16);
+        ahead.current.setAttribute("x", ax.toFixed(1));
+        ahead.current.setAttribute("width", Math.max(0, right - ax).toFixed(1));
+      }
+      // "not lived yet" only while there's room for it beside the sun
+      aheadLabel.current?.setAttribute("opacity", right - px > 110 ? "1" : "0");
       sunG.current?.setAttribute("transform", `translate(${px.toFixed(1)} ${LINE_Y})`);
       if (ageText.current) {
         const a = startAge + Math.floor(yf - startYear);
@@ -72,7 +82,13 @@ export function TimelineBar() {
   }, [startYear, endYear, startAge]);
 
   const bigs = decisions.filter((d) => d.kind === "big");
-  const smalls = decisions.filter((d) => d.kind === "small");
+  const smalls = decisions.filter((d) => d.kind === "small" && d.status !== "pending");
+  const smallTitle = (d: Decision) => {
+    const a = answers.find((x) => x.decisionId === d.id);
+    const o = a?.optionId ? d.options.find((x) => x.id === a.optionId) : null;
+    const said = d.status === "slid" ? "It slid by." : o ? `You: ${o.label}` : a?.text ? `You: "${a.text.slice(0, 80)}"` : "";
+    return `Small choice at ${d.age}: ${d.prompt.replace(/^It's \d{4}\.\s*/, "")} ${said}`.trim();
+  };
 
   return (
     <header className="tl" data-region="timeline">
@@ -80,6 +96,7 @@ export function TimelineBar() {
         <span className="wordmark">Every Life You Have Left</span>
         <span className="tl-who small faint">
           {name ? `${name} · ${startYear}–${endYear}` : ""}
+          <Legend />
         </span>
       </div>
 
@@ -91,6 +108,11 @@ export function TimelineBar() {
               <stop offset="1" stopColor="var(--ink-2)" stopOpacity="0" />
             </linearGradient>
           </defs>
+          {/* Not lived yet: a sunken band from just past the sun to 70. */}
+          <rect ref={ahead} x={PAD + 16} y={LINE_Y - 16} width={Math.max(0, w - PAD * 2 - 10)} height={34} rx="3" className="tl-ahead-band" />
+          <text ref={aheadLabel} x={w - PAD} y={LINE_Y - 7} textAnchor="end" className="tl-ahead-label">
+            not lived yet
+          </text>
           {ticks.map((t) => (
             <g key={t.year} transform={`translate(${x(t.year)} 0)`}>
               <line y1={LINE_Y + 5} y2={LINE_Y + (t.major ? 10 : 7)} stroke="var(--ink-3)" strokeOpacity={t.major ? 0.9 : 0.45} />
@@ -107,7 +129,11 @@ export function TimelineBar() {
           ))}
           <line ref={lived} x1={PAD} x2={PAD} y1={LINE_Y} y2={LINE_Y} stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" />
           {smalls.map((d) => (
-            <line key={d.id} x1={x(d.year)} x2={x(d.year)} y1={LINE_Y - 9} y2={LINE_Y - 4} stroke={d.status === "slid" ? "var(--ink-3)" : "var(--ink-2)"} strokeWidth="1.5" strokeDasharray={d.status === "slid" ? "1 1.5" : undefined} className="tl-small" />
+            <g key={d.id} className="tl-small" data-slid={d.status === "slid"}>
+              <title>{smallTitle(d)}</title>
+              <circle cx={x(d.year)} cy={LINE_Y - 9} r="6" fill="transparent" />
+              <circle cx={x(d.year)} cy={LINE_Y - 9} r="2.4" className="tl-small-dot" />
+            </g>
           ))}
           <g ref={sunG} className="tl-sun" transform={`translate(${PAD} ${LINE_Y})`}>
             <circle r="15" fill="var(--sun)" className="tl-halo" />
@@ -124,7 +150,7 @@ export function TimelineBar() {
             ))}
         </svg>
         {bigs.map((d) => (
-          <ForkPeek key={d.id} d={d} left={x(d.year)} branches={branches.filter((b) => b.forkDecisionId === d.id)} />
+          <RoadNotTaken key={d.id} d={d} left={x(d.year)} onClosed={focusOpenCard} />
         ))}
       </div>
 
@@ -172,7 +198,7 @@ function Threads({ d, x, branches }: { d: Decision; x: number; branches: Branch[
         );
       })}
       {d.status !== "pending" && (
-        <rect x={x - 5} y={LINE_Y - 5} width="10" height="10" transform={`rotate(45 ${x} ${LINE_Y})`} className="tl-fork" data-fork-marker={d.id} />
+        <rect x={x - 6} y={LINE_Y - 6} width="12" height="12" transform={`rotate(45 ${x} ${LINE_Y})`} className="tl-fork" data-fork-marker={d.id} />
       )}
     </g>
   );
@@ -192,100 +218,45 @@ function focusOpenCard(): boolean {
   return true;
 }
 
-function ForkPeek({ d, left, branches }: { d: Decision; left: number; branches: Branch[] }) {
-  const active = useSim(useShallow((s) => s.branches.filter((b) => b.status === "active").map((b) => b.id)));
-  if (d.status === "pending") return null;
-  const chosen = d.options.find((o) => sim().answers.find((a) => a.decisionId === d.id)?.optionId === o.id);
-  return (
-    <HoverCard.Root openDelay={120} closeDelay={80} onOpenChange={(open) => !open && focusOpenCard()}>
-      <HoverCard.Trigger asChild>
-        <button className="tl-fork-hit" style={{ left: left - 11 }} aria-label={`Fork at ${d.age}: peek the lives you didn't choose`} />
-      </HoverCard.Trigger>
-      <HoverCard.Portal>
-        <HoverCard.Content className="pop peek" side="bottom" align="start" sideOffset={6} collisionPadding={12}>
-          <p className="label">
-            Fork at {d.age} · {d.year}
-          </p>
-          <p className="peek-q">{d.prompt.replace(/^It's \d{4}\.\s*/, "")}</p>
-          {chosen && (
-            <p className="peek-chosen small">
-              <span className="peek-you">You</span> {chosen.branchTitle ?? chosen.label}
-            </p>
-          )}
-          <div className="peek-list">
-            {branches.map((b) => (
-              <BranchRow key={b.id} b={b} numeral={ROMAN[Math.max(0, active.indexOf(b.id))] ?? "·"} />
-            ))}
-          </div>
-        </HoverCard.Content>
-      </HoverCard.Portal>
-    </HoverCard.Root>
-  );
-}
-
-export function BranchRow({ b, numeral }: { b: Branch; numeral: string }) {
-  const appearance = useSim((s) => s.appearance);
-  const cur = useCurrency();
-  const startAge = useSim((s) => s.profile?.age ?? 25);
-  const endAge = useSim((s) => s.endAge);
-  const y = b.years[b.years.length - 1];
-  const people = y?.scene.people.filter((p) => p.role !== "self") ?? [];
-  return (
-    <div className="branch-row" data-retired={b.status === "retired"}>
-      <Portrait appearance={appearance} age={y?.age ?? b.forkAge} progress={((y?.age ?? b.forkAge) - startAge) / (endAge - startAge)} size={40} />
-      <div className="branch-main">
-        <p className="branch-title">
-          <span className="numeral">{b.status === "retired" ? "·" : numeral}</span> {b.title}
-        </p>
-        {y ? (
-          <>
-            <p className="small muted">
-              {y.age} · {y.place} · <span className="data" title={moneyHint(y.money.netWorth, cur)}>{moneyShort(y.money.netWorth, cur)}</span>
-              {people.length ? ` · ${people.length} at home` : ""}
-            </p>
-            <p className="small">{y.summary}</p>
-          </>
-        ) : (
-          <p className="small faint">Just split off.</p>
-        )}
-        {b.status === "retired" && <p className="small faint">Retired quietly: too close to another life.</p>}
-      </div>
-      {y && <MiniRose states={y.states} size={40} />}
-    </div>
-  );
-}
-
 function LivesLeft() {
   const active = useSim(useShallow((s) => s.branches.filter((b) => b.status === "active")));
   const ref = useRef<HTMLSpanElement>(null);
   const n = active.length;
   useEffect(() => {
+    // Opacity and scale only: a digit sliding inside a clipped box got cut off (owner's playtest).
     if (!ref.current || reducedMotion() || n === 0) return;
-    gsap.fromTo(ref.current, { yPercent: 60, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.6, delay: 1.6, ease: "expo.out" });
+    gsap.fromTo(ref.current, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.6, delay: 1.6, ease: "expo.out" });
   }, [n]);
+  const lives = n === 1 ? "life" : "lives";
+  const tip = n ? `${n} ${lives} you didn't choose, still running beside yours. Click to see ${n === 1 ? "it" : "them"} today.` : "Each big fork leaves the answers you didn't pick running as other lives.";
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <button className="lives-left" disabled={!n} aria-label={`${n} other lives running. Show them.`}>
-          <svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true">
+        <button className="lives-left" disabled={!n} data-tip={tip} aria-label={n ? `${n} other ${lives} still running. Show ${n === 1 ? "it" : "them"}.` : "No other lives yet"}>
+          <svg width="22" height="16" viewBox="0 0 26 18" aria-hidden="true" className="lives-glyph">
             <path d="M1 9 H25" stroke="var(--ink)" strokeWidth="1.8" />
             <path d="M6 9 C10 9 12 3 25 3" stroke="var(--ink-3)" strokeDasharray="3 1.5" fill="none" opacity={n > 0 ? 1 : 0.25} />
             <path d="M6 9 C10 9 12 15 25 15" stroke="var(--ink-3)" strokeDasharray="1 1.5" fill="none" opacity={n > 1 ? 1 : 0.25} />
             <path d="M9 9 C13 9 15 6 25 6" stroke="var(--ink-3)" strokeDasharray="4 1.5 1 1.5" fill="none" opacity={n > 2 ? 1 : 0.25} />
           </svg>
-          <span className="lives-n">
-            <span ref={ref} className="data">{n}</span>
+          <span ref={ref} className="lives-n data">
+            {n}
           </span>
-          <span className="lives-label">{n === 1 ? "life" : "lives"} left</span>
+          <span className="lives-label">
+            {n ? `other ${lives}` : "no other"}
+            <br />
+            {n ? "still running" : "lives yet"}
+          </span>
         </button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          className="pop peek"
+          className="pop rn"
           side="bottom"
           align="end"
           sideOffset={8}
           collisionPadding={12}
+          aria-labelledby="lives-h"
           onCloseAutoFocus={(e) => {
             // Radix returns focus to the trigger; with a card open, the card gets it (Enter decides).
             if (document.querySelector(".pane.right .dcard")) {
@@ -294,15 +265,87 @@ function LivesLeft() {
             }
           }}
         >
-          <p className="label">The lives you have left</p>
-          <p className="small muted" style={{ marginBottom: 10 }}>
-            They keep running in the background, roughly, five years at a time.
+          <p className="label" id="lives-h">
+            Your other lives, today
           </p>
-          <div className="peek-list">
+          <p className="rn-hint">
+            <Icon name="info" size={14} /> Each big fork leaves the answers you didn't pick running as lives you didn't live. Up to three run at once.
+          </p>
+          <ul className="rn-list">
             {active.map((b, i) => (
-              <BranchRow key={b.id} b={b} numeral={ROMAN[i]!} />
+              <RunningLife key={b.id} b={b} numeral={ROMAN[i]!} />
             ))}
-          </div>
+          </ul>
+          <Popover.Close className="pop-x" aria-label="Close">
+            <Icon name="x" size={14} />
+          </Popover.Close>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/** How to read the bar: shapes, lines and the sun. */
+function Legend() {
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button className="tl-legend-btn" aria-label="How to read the timeline">
+          <Icon name="info" size={13} />
+          <span>Key</span>
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content className="pop tl-legend" side="bottom" align="start" sideOffset={8} collisionPadding={12} aria-labelledby="tl-legend-h">
+          <p className="label" id="tl-legend-h">
+            How to read the timeline
+          </p>
+          <ul>
+            <li>
+              <svg width="22" height="16" aria-hidden="true">
+                <circle cx="11" cy="8" r="5" fill="var(--sun)" />
+              </svg>
+              <span>You, now.</span>
+            </li>
+            <li>
+              <svg width="22" height="16" aria-hidden="true">
+                <rect x="6.5" y="3.5" width="9" height="9" transform="rotate(45 11 8)" className="tl-fork" />
+              </svg>
+              <span>
+                <b>Big fork.</b> Click it: what you chose, and who you'd be today with the other answers.
+              </span>
+            </li>
+            <li>
+              <svg width="22" height="16" aria-hidden="true">
+                <circle cx="11" cy="8" r="2.6" className="tl-small-dot" />
+              </svg>
+              <span>
+                <b>Small choice.</b> Hover it for the question and your answer.
+              </span>
+            </li>
+            <li>
+              <svg width="22" height="16" aria-hidden="true">
+                <path d="M2 12 C 8 12, 10 4, 21 4" fill="none" stroke="var(--ink-2)" strokeDasharray="3 2" />
+              </svg>
+              <span>A life you didn't choose, still running beside yours.</span>
+            </li>
+            <li>
+              <svg width="22" height="16" aria-hidden="true">
+                <line x1="1" x2="21" y1="8" y2="8" stroke="var(--ink)" strokeWidth="2" />
+              </svg>
+              <span>Years you've lived.</span>
+            </li>
+            <li>
+              <svg width="22" height="16" aria-hidden="true">
+                <rect x="0" y="2" width="22" height="12" rx="2" className="tl-ahead-band" />
+                <line x1="2" x2="20" y1="8" y2="8" stroke="var(--ink-3)" strokeDasharray="1 4" strokeLinecap="round" />
+              </svg>
+              <span>Not lived yet. Nothing there is decided yet.</span>
+            </li>
+          </ul>
+          <Popover.Close className="pop-x" aria-label="Close">
+            <Icon name="x" size={14} />
+          </Popover.Close>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
