@@ -5,7 +5,7 @@
  *   /agents/session-agent/<sessionId>   SessionAgent Durable Object (WebSocket + RPC), Agents SDK
  *   GET  /api/health · POST /api/smoke · GET /api/demo · GET /api/demo/life/:key (SSE envelope)
  *   POST /api/transcribe · /api/portrait · /api/tts · /api/upload · GET /media/<key>   (worker/media.ts)
- *   GET  /api/admin/sessions · /api/admin/session/:id · /api/admin/ping               (worker/admin.ts)
+ *   GET  /api/admin/sessions · /api/admin/session/:id[/checks] · /api/admin/ping       (worker/admin.ts)
  */
 import { routeAgentRequest } from "agents";
 import { Hono } from "hono";
