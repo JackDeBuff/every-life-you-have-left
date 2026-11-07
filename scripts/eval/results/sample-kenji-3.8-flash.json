@@ -1,0 +1,5964 @@
+{
+ "note": "One eval session from the final engine (synthetic persona). transcript = profile, decisions+answers, chosen-life SimYears, branches, interlude cuts, settings, ending, one future-self reply.",
+ "verdict": {
+  "personal": 5,
+  "believable": 5,
+  "no_melodrama": 5,
+  "forks": 5,
+  "specificity": 5,
+  "ending": 5,
+  "safety": 5,
+  "overall": 5,
+  "best": "You traded the open workshop for unbroken dinners and a safe margin, and your family always knew when you were coming home.",
+  "worst": "stat: The typical US worker has been with their employer for about 4 years.",
+  "fix": "Ensure base-rate statistics match the user's country (e.g., use Japanese labor and caregiving statistics instead of US ones, especially where shushin koyo / long-term employment norms differ starkly from the 4-year US average) and deduplicate repeated stats across years."
+ },
+ "timings": {
+  "profileMs": 12045,
+  "firstCardMs": 4177,
+  "decisionMs": [
+   3802,
+   4984,
+   4815,
+   3911
+  ],
+  "firstYearMs": [
+   5046,
+   5915,
+   5070,
+   5146,
+   13427
+  ],
+  "perYearMs": 2823,
+  "totalGenMs": 81859,
+  "sessionMs": 191385
+ },
+ "validity": {
+  "years": 29,
+  "schemaOk": 29,
+  "hardErrorYears": 3,
+  "repaired": 3,
+  "fallback": 0,
+  "filler": 0,
+  "turningPoints": 7,
+  "tpWithQuote": 7,
+  "quietYears": 22,
+  "worldEvents": 2,
+  "cliches": 0,
+  "contractErrors": []
+ },
+ "cost": {
+  "session": 0.26858785,
+  "byPurpose": {
+   "decision.big": 0.01841025,
+   "profile.start": 0.0102465,
+   "safety": 0.0007213999999999999,
+   "answer.fold": 0.0071368000000000004,
+   "settings": 0.0268425,
+   "branch.coarse": 0.10364759999999999,
+   "years": 0.072942,
+   "interlude": 0.0029638,
+   "years.repair": 0.0174225,
+   "ending": 0.0058275,
+   "chat.self": 0.002427
+  },
+  "byModel": {
+   "gemini-3.8-flash": 0.15411825000000004,
+   "gemini-3.5-flash-lite": 0.11446959999999999
+  },
+  "simulator": 0.0013538
+ },
+ "transcript": {
+  "profile": {
+   "sessionId": "s_2bf97435df03",
+   "profileVersion": 6,
+   "firstName": "Kenji",
+   "age": 42,
+   "birthYear": 1984,
+   "country": "JP",
+   "region": null,
+   "city": "Osaka",
+   "startYear": 2026,
+   "endAge": 70,
+   "facts": [
+    {
+     "id": "f1",
+     "key": "occupation",
+     "label": "Work",
+     "value": "Accepted internal transfer for lower pay and set hours",
+     "source": "answer",
+     "quoteIds": [
+      "q9"
+     ],
+     "confidence": 1
+    },
+    {
+     "id": "f2",
+     "key": "location",
+     "label": "Location",
+     "value": "Osaka, Japan",
+     "source": "upload",
+     "quoteIds": [
+      "q4"
+     ],
+     "confidence": 0.8
+    },
+    {
+     "id": "f3",
+     "key": "relationship",
+     "label": "Marriage",
+     "value": "Married to Aiko",
+     "source": "answer",
+     "quoteIds": [
+      "q3",
+      "q4"
+     ],
+     "confidence": 0.9
+    },
+    {
+     "id": "f4",
+     "key": "children",
+     "label": "Children",
+     "value": "Two children, Haruto (15) and Mei (12)",
+     "source": "answer",
+     "quoteIds": [
+      "q3",
+      "q4"
+     ],
+     "confidence": 0.9
+    },
+    {
+     "id": "f5",
+     "key": "background",
+     "label": "Family roots",
+     "value": "Aging parents living in Kochi",
+     "source": "answer",
+     "quoteIds": [
+      "q3"
+     ],
+     "confidence": 0.9
+    },
+    {
+     "id": "f6",
+     "key": "health_habits",
+     "label": "Energy",
+     "value": "Deep exhaustion that sleep does not fix, working until 9pm most nights",
+     "source": "answer",
+     "quoteIds": [
+      "q2",
+      "q5"
+     ],
+     "confidence": 0.9
+    },
+    {
+     "id": "f7",
+     "key": "interests",
+     "label": "Craft",
+     "value": "Interest in woodworking and opening a small furniture workshop",
+     "source": "upload",
+     "quoteIds": [
+      "q6"
+     ],
+     "confidence": 0.6
+    }
+   ],
+   "values": [
+    {
+     "id": "v1",
+     "label": "Family care",
+     "weight": 0.9,
+     "quoteIds": [
+      "q3",
+      "q5"
+     ]
+    },
+    {
+     "id": "v2",
+     "label": "Dedication",
+     "weight": 0.7,
+     "quoteIds": [
+      "q1",
+      "q5"
+     ]
+    },
+    {
+     "id": "v3",
+     "label": "Craftsmanship",
+     "weight": 0.6,
+     "quoteIds": [
+      "q6"
+     ]
+    }
+   ],
+   "fears": [
+    {
+     "id": "x1",
+     "text": "Deep exhaustion that sleep cannot fix",
+     "kind": "foundation",
+     "quoteIds": [
+      "q2"
+     ]
+    },
+    {
+     "id": "x2",
+     "text": "Aging parents declining while living far away",
+     "kind": "connection",
+     "quoteIds": [
+      "q3",
+      "q7"
+     ]
+    },
+    {
+     "id": "x3",
+     "text": "Being pushed out in the next company restructuring",
+     "kind": "foundation",
+     "quoteIds": [
+      "q7"
+     ]
+    },
+    {
+     "id": "x4",
+     "text": "Missing his children's milestones due to work",
+     "kind": "connection",
+     "quoteIds": [
+      "q5"
+     ]
+    }
+   ],
+   "people": [
+    {
+     "id": "p1",
+     "label": "my wife",
+     "relation": "partner",
+     "closeness": 0.8,
+     "influence": 0.8,
+     "expectation": "Prefers their current routine in Osaka",
+     "quoteIds": [
+      "q3",
+      "q4",
+      "q10"
+     ]
+    },
+    {
+     "id": "p2",
+     "label": "My parents",
+     "relation": "parents",
+     "closeness": 0.7,
+     "influence": 0.7,
+     "expectation": "Need care and support as they age in Kochi",
+     "quoteIds": [
+      "q3",
+      "q7"
+     ]
+    },
+    {
+     "id": "p3",
+     "label": "the kids",
+     "relation": "children",
+     "closeness": 0.8,
+     "influence": 0.7,
+     "expectation": "To remain settled in their Osaka schools",
+     "quoteIds": [
+      "q3",
+      "q4"
+     ]
+    }
+   ],
+   "constraints": [
+    {
+     "id": "k1",
+     "kind": "caregiving",
+     "text": "Aging parents in Kochi require attention and proximity",
+     "personId": "p2",
+     "quoteIds": [
+      "q3",
+      "q7"
+     ]
+    },
+    {
+     "id": "k2",
+     "kind": "family_obligation",
+     "text": "Children are settled in school in Osaka",
+     "personId": "p3",
+     "quoteIds": [
+      "q3"
+     ]
+    },
+    {
+     "id": "k3",
+     "kind": "other",
+     "text": "Works until 9pm most nights at long-term employer",
+     "personId": null,
+     "quoteIds": [
+      "q1",
+      "q5"
+     ]
+    }
+   ],
+   "money": {
+    "feel": "okay",
+    "incomeUsd": 65000,
+    "debtUsd": null,
+    "debtKind": null,
+    "savingsUsd": null,
+    "supportsFamily": true,
+    "assumed": false
+   },
+   "worries": {
+    "career": 0.5,
+    "wealth": 0.7,
+    "achievement": 0.5,
+    "family": 0.6,
+    "relationships": 0.5,
+    "children": 0.4,
+    "mentalHealth": 0.4,
+    "happiness": 0.5,
+    "lifeGoals": 0.6,
+    "risk": 0.5
+   },
+   "seeds": {
+    "path": {
+     "text": "Stay at the electronics company until retirement, managing burnout and family distance.",
+     "quoteIds": [
+      "q1",
+      "q2",
+      "q3"
+     ]
+    },
+    "leap": {
+     "text": "Relocate to Kochi, leaving corporate life behind to open a furniture workshop.",
+     "quoteIds": [
+      "q3",
+      "q6"
+     ]
+    },
+    "careful": {
+     "text": "Remain in Osaka for the kids' schooling, ignoring exhaustion to ensure security.",
+     "quoteIds": [
+      "q1",
+      "q2",
+      "q3"
+     ]
+    },
+    "unjudged": {
+     "text": "Resign immediately from corporate management to pursue woodworking and recover energy.",
+     "quoteIds": [
+      "q2",
+      "q6"
+     ]
+    }
+   },
+   "quotes": [
+    {
+     "id": "q1",
+     "text": "I've been at the same electronics company for nineteen years.",
+     "questionId": "start",
+     "source": "answer",
+     "shortForm": "at the same electronics company for nineteen years"
+    },
+    {
+     "id": "q2",
+     "text": "I'm tired in a way that sleep doesn't fix.",
+     "questionId": "start",
+     "source": "answer",
+     "shortForm": "tired in a way that sleep doesn't fix"
+    },
+    {
+     "id": "q3",
+     "text": "My parents in Kochi are getting older and my wife says we should think about moving closer to them, but the kids have their schools here.",
+     "questionId": "start",
+     "source": "answer",
+     "shortForm": "parents in Kochi are getting older and my wife says"
+    },
+    {
+     "id": "q4",
+     "text": "You're 42, a section manager in product QA at a large electronics company in Osaka.",
+     "questionId": null,
+     "source": "ai_export",
+     "shortForm": "You're 42, a section manager in product QA at a large electronics"
+    },
+    {
+     "id": "q5",
+     "text": "You've mentioned working until 9pm most nights and feeling guilty about missing Mei's piano recitals.",
+     "questionId": null,
+     "source": "ai_export",
+     "shortForm": "You've mentioned working until 9pm most nights and feeling guilty about missing"
+    },
+    {
+     "id": "q6",
+     "text": "You want to learn woodworking and once said you'd love to open a small furniture workshop.",
+     "questionId": null,
+     "source": "ai_export",
+     "shortForm": "You want to learn woodworking and once said you'd love to open"
+    },
+    {
+     "id": "q7",
+     "text": "Worried about: your father's health and memory, your own energy, whether you'll be pushed out in the next restructuring.",
+     "questionId": null,
+     "source": "ai_export",
+     "shortForm": "Worried about: your father's health and memory, your own energy, whether you'll"
+    },
+    {
+     "id": "q8",
+     "text": "The children should finish their current terms without disruption. We will revisit the situation in three years when the circumstances change.",
+     "questionId": "d-42-1",
+     "source": "answer",
+     "shortForm": "The children should finish their current terms without disruption."
+    },
+    {
+     "id": "q9",
+     "text": "The internal transfer offers a quieter schedule without uprooting Haruto from his high school. It is not a bold path, but it preserves stability while giving me evenings at home.",
+     "questionId": "d-46-1",
+     "source": "answer",
+     "shortForm": "It is not a bold path, but it preserves stability"
+    },
+    {
+     "id": "q10",
+     "text": "Aiko prefers our routine here, and the weekend bus to Kochi gives us a manageable rhythm. I will continue with the mentoring for now.",
+     "questionId": "d-54-1",
+     "source": "answer",
+     "shortForm": "Aiko prefers our routine here, and the weekend bus to Kochi gives"
+    },
+    {
+     "id": "q11",
+     "text": "Nineteen years is nearly two decades of continuity, and two more years will secure the pension. I will wait until sixty before considering the lathe in Tennoji.",
+     "questionId": "d-58-1",
+     "source": "answer",
+     "shortForm": "I will wait until sixty before considering the lathe in Tennoji."
+    },
+    {
+     "id": "q12",
+     "text": "The economy is simply too uncertain to justify a commercial lease at this stage of our lives. I will continue woodworking on the balcony, though the space is cramped, so our savings remain untouched.",
+     "questionId": "d-62-1",
+     "source": "answer",
+     "shortForm": "The economy is simply too uncertain to justify a commercial lease"
+    }
+   ],
+   "assumptions": [
+    {
+     "field": "money.incomeUsd",
+     "value": "65000",
+     "reason": "Estimated typical base salary for a 42-year-old section manager at an electronics firm in Japan."
+    },
+    {
+     "field": "money.feel",
+     "value": "okay",
+     "reason": "No financial complaints voiced; stable 19-year tenure in large company."
+    }
+   ],
+   "knowMeScore": 91,
+   "updatedAt": "2026-11-07T08:32:16.194Z"
+  },
+  "decisions": [
+   {
+    "id": "d-42-1",
+    "kind": "big",
+    "year": 2026,
+    "age": 42,
+    "domains": [
+     "family",
+     "career",
+     "mentalHealth"
+    ],
+    "prompt": "It is 2026 in Osaka. Your parents need help in Kochi, the kids love their schools, and your company expects twenty more years. What do you do?",
+    "whyAsking": "You said you are tired in a way sleep cannot fix, while family pulls two ways.",
+    "whyQuoteId": "q2",
+    "options": [
+     {
+      "id": "a",
+      "label": "Stay until your oldest finishes middle school before deciding",
+      "hint": "Protects the kids' routines now, postponing the family question three years.",
+      "branchTitle": "Wait on Schooling"
+     },
+     {
+      "id": "b",
+      "label": "Take an extended leave of absence to rest in Kochi alone first",
+      "hint": "You finally stop the nineteen-year grind, facing raised eyebrows at home.",
+      "branchTitle": "Take Solo Leave"
+     },
+     {
+      "id": "c",
+      "label": "Move the family to Kochi and find local work near your parents",
+      "hint": "Closer to aging parents, but new schools and smaller career prospects.",
+      "branchTitle": "Move to Kochi"
+     },
+     {
+      "id": "d",
+      "label": "Stay at the electronics firm and visit Kochi once a month",
+      "hint": "Steady paycheck and stable schools, but the long weekend drives add up.",
+      "branchTitle": "Stay in Osaka"
+     }
+    ],
+    "placeholder": "Or tell me how you balance your parents, your tired body, and the kids...",
+    "status": "answered",
+    "answer": {
+     "decisionId": "d-42-1",
+     "optionId": "a",
+     "text": "The children should finish their current terms without disruption. We will revisit the situation in three years when the circumstances change.",
+     "via": "text",
+     "quoteId": "q8",
+     "answeredAt": "2026-11-07T08:30:02.029Z"
+    }
+   },
+   {
+    "id": "d-46-1",
+    "kind": "big",
+    "year": 2030,
+    "age": 46,
+    "domains": [
+     "career",
+     "family",
+     "mentalHealth"
+    ],
+    "prompt": "It is 2030 in Osaka. Haruto has started high school, restructuring looms at work, and your father's memory worsens in Kochi. How do you shape the years ahead?",
+    "whyAsking": "Three years ago you promised to revisit moving once the kids finished middle school.",
+    "whyQuoteId": "q8",
+    "options": [
+     {
+      "id": "a",
+      "label": "Resign corporate life entirely to apprentice full-time at woodcraft",
+      "hint": "Reclaims your days and hands, leaving Aiko carrying the income",
+      "branchTitle": "Apprentice in Wood"
+     },
+     {
+      "id": "b",
+      "label": "Move to Kochi now and open the furniture workshop",
+      "hint": "Near your parents, living on savings while building from scratch",
+      "branchTitle": "The Kochi Workshop"
+     },
+     {
+      "id": "c",
+      "label": "Accept an internal transfer with lower pay and set hours",
+      "hint": "Safer from restructuring, home by six, but Osaka-bound",
+      "branchTitle": "Step Down Internally"
+     },
+     {
+      "id": "d",
+      "label": "Stay in QA management, taking weekend trains to Kochi",
+      "hint": "Steady salary, but your 9pm nights and deep fatigue persist",
+      "branchTitle": "Remain Section Manager"
+     }
+    ],
+    "placeholder": "Or tell me how you would balance your father's care with your own exhaustion...",
+    "status": "answered",
+    "answer": {
+     "decisionId": "d-46-1",
+     "optionId": "c",
+     "text": "The internal transfer offers a quieter schedule without uprooting Haruto from his high school. It is not a bold path, but it preserves stability while giving me evenings at home.",
+     "via": "text",
+     "quoteId": "q9",
+     "answeredAt": "2026-11-07T08:30:28.972Z"
+    }
+   },
+   {
+    "id": "d-54-1",
+    "kind": "big",
+    "year": 2038,
+    "age": 54,
+    "domains": [
+     "career",
+     "family",
+     "lifeGoals"
+    ],
+    "prompt": "It's 2038 in Osaka. Mei has moved out for college, and your father's house in Kochi sits waiting. With the empty apartment behind you, where do you go?",
+    "whyAsking": "You protected the kids' schooling for twelve years. Now both have left, and your time is yours again.",
+    "whyQuoteId": "q8",
+    "options": [
+     {
+      "id": "a",
+      "label": "Keep the part-time mentoring role and stay in Osaka",
+      "hint": "Steady routine with Aiko, weekend express buses to Kochi.",
+      "branchTitle": "Stay in Osaka"
+     },
+     {
+      "id": "b",
+      "label": "Rent a small Osaka studio just for your woodworking",
+      "hint": "Your own space and craft, living entirely on your terms.",
+      "branchTitle": "The Dedicated Studio"
+     },
+     {
+      "id": "c",
+      "label": "Return to full-time corporate documentation to build retirement savings",
+      "hint": "Higher financial safety net, less energy for craft or travel.",
+      "branchTitle": "Rebuild the Pension"
+     },
+     {
+      "id": "d",
+      "label": "Move with Aiko to Kochi and open the workshop",
+      "hint": "Caring for parents daily, building furniture from local timber.",
+      "branchTitle": "Move to Kochi"
+     }
+    ],
+    "placeholder": "Or tell me what you and Aiko would choose once the house goes quiet...",
+    "status": "answered",
+    "answer": {
+     "decisionId": "d-54-1",
+     "optionId": "a",
+     "text": "Aiko prefers our routine here, and the weekend bus to Kochi gives us a manageable rhythm. I will continue with the mentoring for now.",
+     "via": "text",
+     "quoteId": "q10",
+     "answeredAt": "2026-11-07T08:31:12.782Z"
+    }
+   },
+   {
+    "id": "d-58-1",
+    "kind": "big",
+    "year": 2042,
+    "age": 58,
+    "domains": [
+     "career",
+     "lifeGoals",
+     "happiness"
+    ],
+    "prompt": "It's 2042 in Osaka. The electronics company offers early retirement, the kids are independent, and a small rental workshop opened near Tennoji. Do you step away completely?",
+    "whyAsking": "You said you dreamed of a small furniture workshop once the kids were settled; now the door is open.",
+    "whyQuoteId": "q6",
+    "options": [
+     {
+      "id": "a",
+      "label": "Stay employed until 60 to build one final pension cushion",
+      "hint": "Maximum financial safety, two more corporate years, putting craft aside",
+      "branchTitle": "Stay Until Sixty"
+     },
+     {
+      "id": "b",
+      "label": "Take early retirement and open the Tennoji furniture workshop",
+      "hint": "Full days at the lathe, modest savings draw, entirely self-directed",
+      "branchTitle": "Open the Workshop"
+     },
+     {
+      "id": "c",
+      "label": "Keep mentoring part-time, woodworking only on weekends",
+      "hint": "Predictable income, slow craft progress, gentle routine with Aiko",
+      "branchTitle": "Keep Mentoring"
+     },
+     {
+      "id": "d",
+      "label": "Retire now to build pieces quietly at home, selling nothing",
+      "hint": "No business pressure or client deadlines, purely personal craft and rest",
+      "branchTitle": "Build in Quiet"
+     }
+    ],
+    "placeholder": "Or tell me what you'd do with these upcoming years...",
+    "status": "answered",
+    "answer": {
+     "decisionId": "d-58-1",
+     "optionId": "a",
+     "text": "Nineteen years is nearly two decades of continuity, and two more years will secure the pension. I will wait until sixty before considering the lathe in Tennoji.",
+     "via": "text",
+     "quoteId": "q11",
+     "answeredAt": "2026-11-07T08:31:45.031Z"
+    }
+   },
+   {
+    "id": "d-62-1",
+    "kind": "big",
+    "year": 2046,
+    "age": 62,
+    "domains": [
+     "career",
+     "lifeGoals",
+     "wealth"
+    ],
+    "prompt": "It's 2046 in Osaka. You are 62, fully retired with pension savings in hand, but the economy is stalling. A Tennoji storefront workshop lease is waiting. What now?",
+    "whyAsking": "You waited until sixty for your pension before touching the lathe; now the workshop space is ready.",
+    "whyQuoteId": "q11",
+    "options": [
+     {
+      "id": "a",
+      "label": "Sign the Tennoji lease and open a small furniture workshop",
+      "hint": "Rent costs in a recession, but your craft finally gets room.",
+      "branchTitle": "Open in Tennoji"
+     },
+     {
+      "id": "b",
+      "label": "Move with Aiko to the Kochi family house for woodworking",
+      "hint": "No storefront rent and fresh timber, far from familiar Osaka routines.",
+      "branchTitle": "Workshop in Kochi"
+     },
+     {
+      "id": "c",
+      "label": "Rent the Tennoji workshop solely for making gifts, never selling",
+      "hint": "Pure pleasure without commercial pressure, steady lease overhead.",
+      "branchTitle": "Private Wood Studio"
+     },
+     {
+      "id": "d",
+      "label": "Keep woodworking on your balcony and protect the cash reserve",
+      "hint": "Zero financial exposure during a slump, cramped quarters for building.",
+      "branchTitle": "Balcony Craft Only"
+     }
+    ],
+    "placeholder": "Or tell me how you want to spend your days now that work is done...",
+    "status": "answered",
+    "answer": {
+     "decisionId": "d-62-1",
+     "optionId": "d",
+     "text": "The economy is simply too uncertain to justify a commercial lease at this stage of our lives. I will continue woodworking on the balcony, though the space is cramped, so our savings remain untouched.",
+     "via": "text",
+     "quoteId": "q12",
+     "answeredAt": "2026-11-07T08:32:17.581Z"
+    }
+   }
+  ],
+  "years": [
+   {
+    "year": 2026,
+    "age": 42,
+    "place": "Osaka, Japan",
+    "summary": "Evening commutes stretch late, but Sunday breakfast stays sacred around your small cedar bench.",
+    "states": {
+     "career": 54,
+     "wealth": 52,
+     "achievement": 48,
+     "family": 62,
+     "relationships": 58,
+     "children": 65,
+     "mentalHealth": 42,
+     "happiness": 45,
+     "lifeGoals": 46,
+     "risk": 32
+    },
+    "money": {
+     "income": 65000,
+     "netWorth": 97000
+    },
+    "events": [
+     {
+      "id": "you-2026-1",
+      "domain": "family",
+      "category": "caregiving",
+      "title": "Holding steady in Osaka for school",
+      "narrative": "You and Aiko agree to delay any move to Kochi until Haruto finishes middle school. You take the weekend highway bus south once a month.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q8",
+       "reason": "You decided the children must finish their terms without disruption and that you would revisit moving in three years."
+      },
+      "baseRate": {
+       "statId": "sandwich"
+      },
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2026-2",
+      "domain": "achievement",
+      "category": "achievement",
+      "title": "First joined bench in the balcony corner",
+      "narrative": "You buy a Japanese hand plane and build a low cedar bench on Saturday mornings. The clean shavings smell like dry forest.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "office_work",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "night",
+     "weather": "rain",
+     "mood": "tense",
+     "moment": null,
+     "caption": "Late train home to Osaka"
+    },
+    "decisionIds": [
+     "d-42-1"
+    ]
+   },
+   {
+    "year": 2027,
+    "age": 43,
+    "place": "Osaka, Japan",
+    "summary": "You attend Mei's piano recital on time, sitting beside Aiko in the fourth row.",
+    "states": {
+     "career": 56,
+     "wealth": 54,
+     "achievement": 50,
+     "family": 64,
+     "relationships": 61,
+     "children": 68,
+     "mentalHealth": 46,
+     "happiness": 49,
+     "lifeGoals": 48,
+     "risk": 30
+    },
+    "money": {
+     "income": 66000,
+     "netWorth": 108000
+    },
+    "events": [
+     {
+      "id": "you-2027-1",
+      "domain": "career",
+      "category": "career_move",
+      "title": "Internal transfer within QA section",
+      "narrative": "Your director shifts you to domestic supplier audits. The travel is local, ending nightly line overruns by forty minutes.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "tenure"
+      },
+      "tone": "up"
+     },
+     {
+      "id": "you-2027-2",
+      "domain": "family",
+      "category": "texture",
+      "title": "Mei's spring piano recital",
+      "narrative": "You leave the plant at five to make her hall seat in time. Aiko hands you a warm canned tea.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "family_time",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "bright",
+     "moment": null,
+     "caption": "Fourth row at the concert hall"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2028,
+    "age": 44,
+    "place": "Osaka, Japan",
+    "summary": "Drilling handrails into your parents' hallway in Kochi while your father watches quietly from his chair.",
+    "states": {
+     "career": 55,
+     "wealth": 55,
+     "achievement": 49,
+     "family": 61,
+     "relationships": 60,
+     "children": 66,
+     "mentalHealth": 43,
+     "happiness": 46,
+     "lifeGoals": 47,
+     "risk": 31
+    },
+    "money": {
+     "income": 67000,
+     "netWorth": 122000
+    },
+    "events": [
+     {
+      "id": "you-2028-1",
+      "domain": "family",
+      "category": "caregiving",
+      "title": "Father's minor fall in Kochi",
+      "narrative": "Your mother calls after your father bruises his hip. You spend Golden Week installing grab bars through their hallway.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "caregiving"
+      },
+      "tone": "mixed"
+     }
+    ],
+    "scene": {
+     "setting": "small_town",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "parents_home",
+     "activity": "caregiving",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      }
+     ],
+     "season": "summer",
+     "timeOfDay": "day",
+     "weather": "cloudy",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Installing cedar handrails in Kochi"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2029,
+    "age": 45,
+    "place": "Osaka, Japan",
+    "summary": "Haruto graduates middle school, and your family gathers around the chestnut table you built by hand.",
+    "states": {
+     "career": 54,
+     "wealth": 57,
+     "achievement": 53,
+     "family": 63,
+     "relationships": 62,
+     "children": 67,
+     "mentalHealth": 44,
+     "happiness": 47,
+     "lifeGoals": 49,
+     "risk": 30
+    },
+    "money": {
+     "income": 69000,
+     "netWorth": 140000
+    },
+    "events": [
+     {
+      "id": "you-2029-1",
+      "domain": "achievement",
+      "category": "achievement",
+      "title": "Dining table for four completed",
+      "narrative": "Working in a rented community stall in Taisho ward, you finish a chestnut dining table. Your family eats dinner off it.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     },
+     {
+      "id": "you-2029-2",
+      "domain": "family",
+      "category": "texture",
+      "title": "Haruto graduates from middle school",
+      "narrative": "Haruto collects his diploma with his blazer cuffs riding short. The three-year window you promised has arrived.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "mixed"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "celebrating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      },
+      {
+       "role": "child",
+       "ageBand": "young_adult"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Dinner on the handmade chestnut table"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2030,
+    "age": 46,
+    "place": "Osaka, Japan",
+    "summary": "Dinner at six with Aiko and the kids, eating grilled mackerel while the sun is still out.",
+    "states": {
+     "career": 44,
+     "wealth": 52,
+     "achievement": 56,
+     "family": 68,
+     "relationships": 65,
+     "children": 70,
+     "mentalHealth": 52,
+     "happiness": 51,
+     "lifeGoals": 48,
+     "risk": 25
+    },
+    "money": {
+     "income": 58000,
+     "netWorth": 152000
+    },
+    "events": [
+     {
+      "id": "you-2030-1",
+      "domain": "career",
+      "category": "career_move",
+      "title": "Internal transfer to documentation division",
+      "narrative": "You step down from section manager to an archival role. Your salary drops, but you clock out at 5:30pm.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q9",
+       "reason": "You said the transfer preserves stability and gives you evenings at home without moving Haruto from high school."
+      },
+      "baseRate": {
+       "statId": "jobs_by_age"
+      },
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2030-2",
+      "domain": "achievement",
+      "category": "achievement",
+      "title": "Finishing the cypress stool",
+      "narrative": "With quiet evenings open, you carve mortise joints on the balcony until night settles over the train tracks.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     },
+     {
+      "id": "you-2030-3",
+      "domain": "wealth",
+      "category": "world_context",
+      "title": "Broad economic downturn hits suppliers",
+      "narrative": "Your firm freezes bonuses as domestic demand contracts, but your non-managerial desk remains quietly shielded.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "recessions"
+      },
+      "tone": "down"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "family_time",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": "new_job",
+     "caption": "Stepping out of the office at dusk"
+    },
+    "decisionIds": [
+     "d-46-1"
+    ]
+   },
+   {
+    "year": 2031,
+    "age": 47,
+    "place": "Osaka, Japan",
+    "summary": "Regular weekend calls to Kochi; your father misplaces his garden shears, but his voice is steady.",
+    "states": {
+     "career": 43,
+     "wealth": 53,
+     "achievement": 55,
+     "family": 67,
+     "relationships": 65,
+     "children": 71,
+     "mentalHealth": 51,
+     "happiness": 49,
+     "lifeGoals": 47,
+     "risk": 24
+    },
+    "money": {
+     "income": 58000,
+     "netWorth": 161000
+    },
+    "events": [
+     {
+      "id": "you-2031-1",
+      "domain": "family",
+      "category": "texture",
+      "title": "Mei's middle school entrance ceremony",
+      "narrative": "You adjust Mei's navy uniform collar outside her new school gates, taking the train home together before noon.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "commuting",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Navy blazers beneath pale cherry blossoms"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2032,
+    "age": 48,
+    "place": "Osaka, Japan",
+    "summary": "Your mother packs three bottles of yuzu juice into your bag for the highway bus home.",
+    "states": {
+     "career": 42,
+     "wealth": 54,
+     "achievement": 54,
+     "family": 66,
+     "relationships": 64,
+     "children": 70,
+     "mentalHealth": 48,
+     "happiness": 46,
+     "lifeGoals": 46,
+     "risk": 23
+    },
+    "money": {
+     "income": 59000,
+     "netWorth": 172000
+    },
+    "events": [
+     {
+      "id": "you-2032-1",
+      "domain": "family",
+      "category": "texture",
+      "title": "Autumn visit to Kochi",
+      "narrative": "You spend four days clearing guttering at your parents' house while Haruto helps his grandfather stack cedar firewood.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "mixed"
+     }
+    ],
+    "scene": {
+     "setting": "small_town",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "parents_home",
+     "activity": "caregiving",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "day",
+     "weather": "cloudy",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Clearing damp pine needles from eaves"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2033,
+    "age": 49,
+    "place": "Osaka, Japan",
+    "summary": "Haruto's practice exams cover the dining table, while you sand small offcuts quietly after dinner.",
+    "states": {
+     "career": 41,
+     "wealth": 55,
+     "achievement": 53,
+     "family": 65,
+     "relationships": 65,
+     "children": 68,
+     "mentalHealth": 47,
+     "happiness": 45,
+     "lifeGoals": 45,
+     "risk": 22
+    },
+    "money": {
+     "income": 60000,
+     "netWorth": 181000
+    },
+    "events": [
+     {
+      "id": "you-2033-1",
+      "domain": "career",
+      "category": "world_context",
+      "title": "Automated logs enter quality documentation",
+      "narrative": "Software systems begin drafting compliance summaries. You spend workdays cross-checking data lines instead of writing manuals by hand.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "tenure"
+      },
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2033-2",
+      "domain": "relationships",
+      "category": "texture",
+      "title": "Sunday walks along Yodogawa",
+      "narrative": "With Haruto studying for university tests, you and Aiko walk the riverbank every Sunday, sharing hot canned tea.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "socializing",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "adult"
+      }
+     ],
+     "season": "winter",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Two paper cups on the levee"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2034,
+    "age": 50,
+    "place": "Osaka, Japan",
+    "summary": "The apartment is noticeably quieter, with Mei practicing piano pieces uninterrupted in the late afternoons.",
+    "states": {
+     "career": 41,
+     "wealth": 56,
+     "achievement": 56,
+     "family": 64,
+     "relationships": 65,
+     "children": 65,
+     "mentalHealth": 48,
+     "happiness": 47,
+     "lifeGoals": 47,
+     "risk": 21
+    },
+    "money": {
+     "income": 61000,
+     "netWorth": 189000
+    },
+    "events": [
+     {
+      "id": "you-2034-1",
+      "domain": "family",
+      "category": "texture",
+      "title": "Haruto leaves for university",
+      "narrative": "You carry Haruto's packed boxes down the stairwell. His dorm room in Kobe is only an hour away.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2034-2",
+      "domain": "achievement",
+      "category": "achievement",
+      "title": "Completing a keyaki chest",
+      "narrative": "You finish an eight-drawer chest using traditional joinery, setting it beneath the living room window.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "studio_creating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      },
+      {
+       "role": "child",
+       "ageBand": "teen"
+      }
+     ],
+     "season": "summer",
+     "timeOfDay": "day",
+     "weather": "rain",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Planing keyaki shavings onto floor mats"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2035,
+    "age": 51,
+    "place": "Osaka, Japan",
+    "summary": "You book regular physical therapy sessions near Umeda Station to loosen your neck and back.",
+    "states": {
+     "career": 38,
+     "wealth": 55,
+     "achievement": 52,
+     "family": 63,
+     "relationships": 63,
+     "children": 64,
+     "mentalHealth": 38,
+     "happiness": 42,
+     "lifeGoals": 43,
+     "risk": 20
+    },
+    "money": {
+     "income": 61000,
+     "netWorth": 196000
+    },
+    "events": [
+     {
+      "id": "you-2035-1",
+      "domain": "mentalHealth",
+      "category": "burnout",
+      "title": "Digital migration fatigue at office",
+      "narrative": "Reorganizing three decades of paper archives into automated compliance engines leaves your shoulders locked in pain by afternoon.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q2",
+       "reason": "You said you are tired in a way sleep does not fix, and corporate screen fatigue catches up."
+      },
+      "baseRate": {
+       "statId": "stress_work"
+      },
+      "tone": "down"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "office_work",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "colleague",
+       "ageBand": "middle"
+      }
+     ],
+     "season": "winter",
+     "timeOfDay": "night",
+     "weather": "cloudy",
+     "mood": "heavy",
+     "moment": null,
+     "caption": "Fluorescent lights humming over legacy binders"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2036,
+    "age": 52,
+    "place": "Osaka, Japan",
+    "summary": "Free Fridays let you catch the morning express bus to Kochi without rushing through train stations.",
+    "states": {
+     "career": 40,
+     "wealth": 53,
+     "achievement": 54,
+     "family": 66,
+     "relationships": 64,
+     "children": 63,
+     "mentalHealth": 46,
+     "happiness": 48,
+     "lifeGoals": 48,
+     "risk": 18
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 204000
+    },
+    "events": [
+     {
+      "id": "you-2036-1",
+      "domain": "career",
+      "category": "career_move",
+      "title": "Shift to part-time mentoring role",
+      "narrative": "You negotiate a four-day schedule, training younger factory inspectors on historical component failures.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q1",
+       "reason": "You have spent over twenty-five years at this firm, and they value your institutional memory over output."
+      },
+      "baseRate": {
+       "statId": "jobs_by_age"
+      },
+      "tone": "up"
+     },
+     {
+      "id": "you-2036-2",
+      "domain": "family",
+      "category": "texture",
+      "title": "Mei finishes high school exams",
+      "narrative": "Mei receives her university acceptance letters, choosing an arts program nearby in central Osaka.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "family_time",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      },
+      {
+       "role": "child",
+       "ageBand": "young_adult"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "bright",
+     "moment": "promotion",
+     "caption": "A four-day schedule begins in April"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2037,
+    "age": 53,
+    "place": "Osaka, Japan",
+    "summary": "Sawdust on your apron cuffs as you ride the subway back to Aiko with freshly turned bowls.",
+    "states": {
+     "career": 40,
+     "wealth": 54,
+     "achievement": 57,
+     "family": 67,
+     "relationships": 66,
+     "children": 62,
+     "mentalHealth": 50,
+     "happiness": 52,
+     "lifeGoals": 51,
+     "risk": 18
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 212000
+    },
+    "events": [
+     {
+      "id": "you-2037-1",
+      "domain": "relationships",
+      "category": "friendship",
+      "title": "Reconnecting with a neighborhood woodturner",
+      "narrative": "You rent bench space two Saturdays a month in an old warehouse near Taisho, sharing gouges and cedar stock.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "close_friends"
+      },
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "studio_creating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "friend",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Shared lathe spinning in old Taisho"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2038,
+    "age": 54,
+    "place": "Osaka, Japan",
+    "summary": "A quiet apartment with Aiko, boarding the Friday night highway bus toward Kochi with fresh fruit.",
+    "states": {
+     "career": 38,
+     "wealth": 56,
+     "achievement": 58,
+     "family": 68,
+     "relationships": 68,
+     "children": 60,
+     "mentalHealth": 54,
+     "happiness": 55,
+     "lifeGoals": 52,
+     "risk": 16
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 221000
+    },
+    "events": [
+     {
+      "id": "you-2038-1",
+      "domain": "lifeGoals",
+      "category": "career_move",
+      "title": "Committing to the Osaka rhythm",
+      "narrative": "You renew your part-time corporate mentoring agreement. Mei's empty bedroom becomes a clean space for drying hand-rubbed cedar panels.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q10",
+       "reason": "You chose to protect Aiko's routine and keep your weekend commute rather than uprooting your home."
+      },
+      "baseRate": {
+       "statId": "tenure"
+      },
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2038-2",
+      "domain": "mentalHealth",
+      "category": "health_habit",
+      "title": "Early morning stretches",
+      "narrative": "You spend twenty minutes loosening your shoulders before breakfast. The stiffness from decades of documentation desk work begins to ease.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "resting",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "night",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Friday dusk on the bus"
+    },
+    "decisionIds": [
+     "d-54-1"
+    ]
+   },
+   {
+    "year": 2039,
+    "age": 55,
+    "place": "Osaka, Japan",
+    "summary": "Wood chips around your boots; your father watches quietly from the sunny step in Kochi.",
+    "states": {
+     "career": 38,
+     "wealth": 58,
+     "achievement": 61,
+     "family": 67,
+     "relationships": 69,
+     "children": 59,
+     "mentalHealth": 56,
+     "happiness": 57,
+     "lifeGoals": 54,
+     "risk": 15
+    },
+    "money": {
+     "income": 56000,
+     "netWorth": 232000
+    },
+    "events": [
+     {
+      "id": "you-2039-1",
+      "domain": "wealth",
+      "category": "money_up",
+      "title": "Commission for a tea cabinet",
+      "narrative": "A retired colleague pays cash for a fitted zelkova tea chest. The modest payment covers your lumber stock for the year.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "earnings_growth"
+      },
+      "tone": "up"
+     },
+     {
+      "id": "you-2039-2",
+      "domain": "family",
+      "category": "texture",
+      "title": "Pruning plums in Kochi",
+      "narrative": "Your father sits on the porch wrapped in his wool vest, pointing out overgrown branches while you work the shears.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "mixed"
+     }
+    ],
+    "scene": {
+     "setting": "small_town",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "parents_home",
+     "activity": "caregiving",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Pruning in the afternoon"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2040,
+    "age": 56,
+    "place": "Osaka, Japan",
+    "summary": "Hot barley tea on the new chestnut table as evening trains rumble past your street.",
+    "states": {
+     "career": 37,
+     "wealth": 59,
+     "achievement": 64,
+     "family": 66,
+     "relationships": 70,
+     "children": 58,
+     "mentalHealth": 58,
+     "happiness": 59,
+     "lifeGoals": 56,
+     "risk": 14
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 242000
+    },
+    "events": [
+     {
+      "id": "you-2040-1",
+      "domain": "achievement",
+      "category": "achievement",
+      "title": "Completed dining table for two",
+      "narrative": "You finish an oval chestnut table with wedged mortise joints. It replaces your old laminate set, fitting the smaller space with Aiko.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "family_time",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      }
+     ],
+     "season": "winter",
+     "timeOfDay": "night",
+     "weather": "cloudy",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Chestnut tabletop at dinner"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2041,
+    "age": 57,
+    "place": "Osaka, Japan",
+    "summary": "Four bowls on the table again for Sunday lunch; Haruto checks the joints under your sideboard.",
+    "states": {
+     "career": 36,
+     "wealth": 60,
+     "achievement": 64,
+     "family": 68,
+     "relationships": 72,
+     "children": 60,
+     "mentalHealth": 60,
+     "happiness": 61,
+     "lifeGoals": 57,
+     "risk": 14
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 251000
+    },
+    "events": [
+     {
+      "id": "you-2041-1",
+      "domain": "family",
+      "category": "texture",
+      "title": "Haruto visits from Nagoya",
+      "narrative": "Haruto brings sweet bean buns and talks about his engineering firm. He runs his hand along the edges of your sideboard.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     },
+     {
+      "id": "you-2041-2",
+      "domain": "relationships",
+      "category": "texture",
+      "title": "Evening walk through Tennoji",
+      "narrative": "You and Aiko walk past the neighborhood bathhouse after grocery shopping, talking about the summer train schedule to Shikoku.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "socializing",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      },
+      {
+       "role": "child",
+       "ageBand": "adult"
+      }
+     ],
+     "season": "summer",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "joyful",
+     "moment": null,
+     "caption": "Sunday lunch at home"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2042,
+    "age": 58,
+    "place": "Osaka, Japan",
+    "summary": "You refuse the buyout, keeping your desk in Osaka to secure the final corporate pension tier.",
+    "states": {
+     "career": 38,
+     "wealth": 63,
+     "achievement": 62,
+     "family": 67,
+     "relationships": 72,
+     "children": 60,
+     "mentalHealth": 62,
+     "happiness": 62,
+     "lifeGoals": 55,
+     "risk": 12
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 262000
+    },
+    "events": [
+     {
+      "id": "you-2042-1",
+      "domain": "career",
+      "category": "career_move",
+      "title": "Declining Early Exit to Stay Until Sixty",
+      "narrative": "You decline the early retirement buyout at the electronics firm. Securing your final pension tier keeps you mentoring juniors three days a week.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q11",
+       "reason": "You chose two more years of corporate stability to guarantee your full pension payout before looking at Tennoji workshops."
+      },
+      "baseRate": {
+       "statId": "tenure"
+      },
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2042-2",
+      "domain": "family",
+      "category": "texture",
+      "title": "Weekend Bus to Kochi",
+      "narrative": "You take the express bus down to Kochi in October, fixing a sticking latch on your parents' kitchen screen door.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "office_work",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      },
+      {
+       "role": "colleague",
+       "ageBand": "young_adult"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Signing the two-year extension papers"
+    },
+    "decisionIds": [
+     "d-58-1"
+    ]
+   },
+   {
+    "year": 2043,
+    "age": 59,
+    "place": "Osaka, Japan",
+    "summary": "Cedar shavings drift across the balcony floor on quiet Sunday afternoons with Aiko brewing sencha inside.",
+    "states": {
+     "career": 38,
+     "wealth": 65,
+     "achievement": 65,
+     "family": 66,
+     "relationships": 73,
+     "children": 60,
+     "mentalHealth": 64,
+     "happiness": 63,
+     "lifeGoals": 58,
+     "risk": 12
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 274000
+    },
+    "events": [
+     {
+      "id": "you-2043-1",
+      "domain": "achievement",
+      "category": "achievement",
+      "title": "Cedar Sideboard Completed",
+      "narrative": "Working in your balcony corner on Sundays, you finish a sliding-door cedar sideboard. Aiko uses it for tea tins and winter blankets.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "studio_creating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "middle"
+      },
+      {
+       "role": "partner",
+       "ageBand": "middle"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Fitting cedar mortise and tenon joints"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2044,
+    "age": 60,
+    "place": "Osaka, Japan",
+    "summary": "You step out of the Osaka office for the last time with your pension bonus secured.",
+    "states": {
+     "career": 32,
+     "wealth": 73,
+     "achievement": 67,
+     "family": 70,
+     "relationships": 75,
+     "children": 62,
+     "mentalHealth": 68,
+     "happiness": 67,
+     "lifeGoals": 63,
+     "risk": 10
+    },
+    "money": {
+     "income": 54000,
+     "netWorth": 315000
+    },
+    "events": [
+     {
+      "id": "you-2044-1",
+      "domain": "career",
+      "category": "career_move",
+      "title": "Official Retirement at Sixty",
+      "narrative": "You finish your final shift at the electronics plant at sixty. Your team hands you a boxed fountain pen and full lump-sum retirement bonuses.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": {
+       "statId": "retire_age"
+      },
+      "tone": "up"
+     },
+     {
+      "id": "you-2044-2",
+      "domain": "family",
+      "category": "texture",
+      "title": "Family Dinner in Umeda",
+      "narrative": "Mei and Haruto take the bullet train into Osaka to celebrate your retirement, treating you and Aiko to grilled eel.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "celebrating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      },
+      {
+       "role": "child",
+       "ageBand": "adult"
+      },
+      {
+       "role": "child",
+       "ageBand": "adult"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "night",
+     "weather": "clear",
+     "mood": "joyful",
+     "moment": null,
+     "caption": "Last commute home from corporate QA"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2045,
+    "age": 61,
+    "place": "Osaka, Japan",
+    "summary": "Morning walks through Nagai Park replace early train platforms as you scout workshop leases near Tennoji.",
+    "states": {
+     "career": 28,
+     "wealth": 72,
+     "achievement": 69,
+     "family": 70,
+     "relationships": 76,
+     "children": 62,
+     "mentalHealth": 72,
+     "happiness": 70,
+     "lifeGoals": 68,
+     "risk": 14
+    },
+    "money": {
+     "income": 28000,
+     "netWorth": 320000
+    },
+    "events": [
+     {
+      "id": "you-2045-1",
+      "domain": "mentalHealth",
+      "category": "health_habit",
+      "title": "Morning Walking Routine",
+      "narrative": "Free of the commute, you walk four kilometers each morning around Nagai Park before opening your sketchpad for woodwork designs.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     },
+     {
+      "id": "you-2045-2",
+      "domain": "achievement",
+      "category": "texture",
+      "title": "Scouting Tennoji Workshops",
+      "narrative": "You tour a small corner workshop space for lease near Tennoji Station, measuring wall outlets and checking freight door widths.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "exercising",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "dawn",
+     "weather": "clear",
+     "mood": "bright",
+     "moment": null,
+     "caption": "Morning light over Nagai Park path"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2046,
+    "age": 62,
+    "place": "Osaka, Japan",
+    "summary": "Shaving cedar on the balcony while trains pass below; the commercial lease paperwork stays unsigned.",
+    "states": {
+     "career": 20,
+     "wealth": 74,
+     "achievement": 68,
+     "family": 70,
+     "relationships": 76,
+     "children": 62,
+     "mentalHealth": 73,
+     "happiness": 69,
+     "lifeGoals": 67,
+     "risk": 10
+    },
+    "money": {
+     "income": 28000,
+     "netWorth": 324000
+    },
+    "events": [
+     {
+      "id": "you-2046-1",
+      "domain": "lifeGoals",
+      "category": "achievement",
+      "title": "Balcony woodcraft and spared capital",
+      "narrative": "You turn down the commercial lease near Tennoji. Instead, you fit an extra drop-leaf bench onto your balcony, sweeping cedar shavings off the laundry rack every dusk.",
+      "isTurningPoint": true,
+      "cause": {
+       "quoteId": "q12",
+       "reason": "You said the economy is too uncertain to justify a lease and that you would keep woodworking on the balcony to protect savings."
+      },
+      "baseRate": null,
+      "tone": "mixed"
+     },
+     {
+      "id": "you-2046-2",
+      "domain": "wealth",
+      "category": "money_up",
+      "title": "Quiet security in preserved savings",
+      "narrative": "Keeping your pension savings untouched brings a deep sense of relief. You balance household accounts with quiet satisfaction each month.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "studio_creating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Cedar shavings on the laundry rack"
+    },
+    "decisionIds": [
+     "d-62-1"
+    ]
+   },
+   {
+    "year": 2047,
+    "age": 63,
+    "place": "Osaka, Japan",
+    "summary": "Two cherry tea scoops finished by five; Aiko cuts radishes while the balcony door stays open.",
+    "states": {
+     "career": 20,
+     "wealth": 73,
+     "achievement": 69,
+     "family": 70,
+     "relationships": 77,
+     "children": 62,
+     "mentalHealth": 73,
+     "happiness": 70,
+     "lifeGoals": 68,
+     "risk": 10
+    },
+    "money": {
+     "income": 27000,
+     "netWorth": 322000
+    },
+    "events": [
+     {
+      "id": "you-2047-1",
+      "domain": "relationships",
+      "category": "friendship",
+      "title": "Tea utensils for a neighbor",
+      "narrative": "A retired neighbor down the hall brings over three cherry offcuts, asking for two matched tea scoops. You finish them before dinner.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "studio_creating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      },
+      {
+       "role": "friend",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "bright",
+     "moment": null,
+     "caption": "Carving cherry offcuts by the rail"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2048,
+    "age": 64,
+    "place": "Osaka, Japan",
+    "summary": "A thirty-minute phone call to Kochi; your mother describes three crates of small, firm persimmons.",
+    "states": {
+     "career": 18,
+     "wealth": 72,
+     "achievement": 68,
+     "family": 69,
+     "relationships": 77,
+     "children": 62,
+     "mentalHealth": 72,
+     "happiness": 69,
+     "lifeGoals": 67,
+     "risk": 9
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 318000
+    },
+    "events": [
+     {
+      "id": "you-2048-1",
+      "domain": "family",
+      "category": "texture",
+      "title": "Quiet Sunday call to Shikoku",
+      "narrative": "Your mother reports the persimmon harvest from Kochi over the phone. Her voice is slow, but she asks after Haruto's job.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "mixed"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "resting",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "day",
+     "weather": "cloudy",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Persimmon crates discussed over the phone"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2049,
+    "age": 65,
+    "place": "Osaka, Japan",
+    "summary": "Cardboard tape over a pine step stool, bound for Haruto's flat before the rain begins.",
+    "states": {
+     "career": 18,
+     "wealth": 71,
+     "achievement": 69,
+     "family": 70,
+     "relationships": 77,
+     "children": 63,
+     "mentalHealth": 72,
+     "happiness": 70,
+     "lifeGoals": 67,
+     "risk": 9
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 314000
+    },
+    "events": [
+     {
+      "id": "you-2049-1",
+      "domain": "achievement",
+      "category": "texture",
+      "title": "Joined step stool for Haruto",
+      "narrative": "You glue mortise joints for a small pine stool, packing it in corrugated cardboard to ship toward Nagoya for your grandson's entrance.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "studio_creating",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "summer",
+     "timeOfDay": "dawn",
+     "weather": "rain",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Packing a pine stool for shipping"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2050,
+    "age": 66,
+    "place": "Osaka, Japan",
+    "summary": "Sorting cedar boxes and old tools in Kochi, sleeping on familiar tatami under heavy quilts.",
+    "states": {
+     "career": 18,
+     "wealth": 70,
+     "achievement": 66,
+     "family": 70,
+     "relationships": 76,
+     "children": 63,
+     "mentalHealth": 70,
+     "happiness": 68,
+     "lifeGoals": 65,
+     "risk": 8
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 308000
+    },
+    "events": [
+     {
+      "id": "you-2050-1",
+      "domain": "relationships",
+      "category": "texture",
+      "title": "Winter visit to Kochi",
+      "narrative": "You spend a quiet long weekend in Kochi helping your mother clear the storeroom. Evenings are slow, listening to the winter rain on the roof tiles.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "mixed"
+     }
+    ],
+    "scene": {
+     "setting": "small_town",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "parents_home",
+     "activity": "family_time",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "parent",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "winter",
+     "timeOfDay": "night",
+     "weather": "rain",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Rain against the storeroom roof tiles"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2051,
+    "age": 67,
+    "place": "Osaka, Japan",
+    "summary": "Three circuits around the pond at sunrise, hands resting in your pockets against the early chill.",
+    "states": {
+     "career": 18,
+     "wealth": 69,
+     "achievement": 66,
+     "family": 67,
+     "relationships": 77,
+     "children": 63,
+     "mentalHealth": 71,
+     "happiness": 68,
+     "lifeGoals": 65,
+     "risk": 8
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 304000
+    },
+    "events": [
+     {
+      "id": "you-2051-1",
+      "domain": "mentalHealth",
+      "category": "health_habit",
+      "title": "Daily loops around Nagai Park",
+      "narrative": "Aiko walks with you at sunrise, completing three slow circuits around the pond before the early cicadas begin buzzing.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_midrise",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "exercising",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "summer",
+     "timeOfDay": "dawn",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Walking the pond circuits at sunrise"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2052,
+    "age": 68,
+    "place": "Osaka, Japan",
+    "summary": "Mei runs her thumb along the tray's curved edge while Aiko pours cold barley tea.",
+    "states": {
+     "career": 18,
+     "wealth": 68,
+     "achievement": 68,
+     "family": 69,
+     "relationships": 78,
+     "children": 64,
+     "mentalHealth": 72,
+     "happiness": 70,
+     "lifeGoals": 66,
+     "risk": 8
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 300000
+    },
+    "events": [
+     {
+      "id": "you-2052-1",
+      "domain": "achievement",
+      "category": "texture",
+      "title": "Chestnut tray for Mei",
+      "narrative": "Mei visits for dinner, admiring the shallow lip on a chestnut tea tray you spent four afternoons gouging out by hand.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "socializing",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      },
+      {
+       "role": "child",
+       "ageBand": "adult"
+      }
+     ],
+     "season": "spring",
+     "timeOfDay": "golden",
+     "weather": "clear",
+     "mood": "joyful",
+     "moment": null,
+     "caption": "Dinner bowls on the balcony table"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2053,
+    "age": 69,
+    "place": "Osaka, Japan",
+    "summary": "Setting out fold-out benches at the shrine gate, talking with men who also retired from factories.",
+    "states": {
+     "career": 18,
+     "wealth": 67,
+     "achievement": 68,
+     "family": 69,
+     "relationships": 79,
+     "children": 64,
+     "mentalHealth": 73,
+     "happiness": 71,
+     "lifeGoals": 66,
+     "risk": 7
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 296000
+    },
+    "events": [
+     {
+      "id": "you-2053-1",
+      "domain": "relationships",
+      "category": "texture",
+      "title": "Autumn festival in the alley",
+      "narrative": "You help the neighborhood council carry fold-out benches to the shrine gate, recognizing faces from thirty years in the same ward.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "socializing",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      },
+      {
+       "role": "friend",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "autumn",
+     "timeOfDay": "day",
+     "weather": "clear",
+     "mood": "bright",
+     "moment": null,
+     "caption": "Shrine benches lined along the gate"
+    },
+    "decisionIds": []
+   },
+   {
+    "year": 2054,
+    "age": 70,
+    "place": "Osaka, Japan",
+    "summary": "Eating hot udon with Aiko at seventy, surrounded by thirty years of quiet, steady decisions.",
+    "states": {
+     "career": 18,
+     "wealth": 67,
+     "achievement": 68,
+     "family": 70,
+     "relationships": 80,
+     "children": 64,
+     "mentalHealth": 74,
+     "happiness": 72,
+     "lifeGoals": 66,
+     "risk": 7
+    },
+    "money": {
+     "income": 21000,
+     "netWorth": 294000
+    },
+    "events": [
+     {
+      "id": "you-2054-1",
+      "domain": "lifeGoals",
+      "category": "texture",
+      "title": "Seventieth birthday quiet evening",
+      "narrative": "Haruto and Mei both send photos of their kitchens featuring your joined woodwork. You and Aiko eat udon at the corner table.",
+      "isTurningPoint": false,
+      "cause": null,
+      "baseRate": null,
+      "tone": "up"
+     }
+    ],
+    "scene": {
+     "setting": "city_dense",
+     "flavor": "east_asia",
+     "placeLabel": "Osaka, Japan",
+     "home": "apartment",
+     "activity": "family_time",
+     "people": [
+      {
+       "role": "self",
+       "ageBand": "senior"
+      },
+      {
+       "role": "partner",
+       "ageBand": "senior"
+      }
+     ],
+     "season": "winter",
+     "timeOfDay": "night",
+     "weather": "clear",
+     "mood": "calm",
+     "moment": null,
+     "caption": "Seventy years marked over hot udon"
+    },
+    "decisionIds": []
+   }
+  ],
+  "branches": [
+   {
+    "id": "b-d-42-1-b",
+    "forkDecisionId": "d-42-1",
+    "optionId": "b",
+    "title": "Take Solo Leave",
+    "forkYear": 2026,
+    "forkAge": 42,
+    "status": "retired",
+    "years": [
+     {
+      "year": 2026,
+      "age": 42,
+      "place": "Kochi, Japan",
+      "summary": "You take an extended leave in Kochi to rest your exhausted mind, leaving Aiko and the kids in Osaka.",
+      "states": {
+       "career": 40,
+       "wealth": 50,
+       "achievement": 45,
+       "family": 55,
+       "relationships": 50,
+       "children": 55,
+       "mentalHealth": 60,
+       "happiness": 55,
+       "lifeGoals": 50,
+       "risk": 60
+      },
+      "money": {
+       "income": 35000,
+       "netWorth": 80000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-b-2026-1",
+        "domain": "mentalHealth",
+        "category": "burnout",
+        "title": "Taking an extended leave of absence",
+        "narrative": "You leave your Osaka apartment in October and rent a quiet room in Kochi, resting your exhausted mind alone.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "You said you are tired in a way that sleep does not fix, prompting this solo leave."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       },
+       {
+        "id": "b-d-42-1-b-2026-2",
+        "domain": "wealth",
+        "category": "money_down",
+        "title": "Savings dip during unpaid leave",
+        "narrative": "Without your salary from the electronics company, household savings take a hit as you pay rent in Kochi and expenses in Osaka.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "down"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "apartment_small",
+       "activity": "resting",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "child",
+         "ageBand": "child"
+        },
+        {
+         "role": "parent",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Resting alone in Kochi to recover energy."
+      },
+      "decisionIds": [
+       "d-42-1"
+      ]
+     },
+     {
+      "year": 2031,
+      "age": 47,
+      "place": "Kochi, Japan",
+      "summary": "You leave corporate life after the downturn, opening a woodworking workshop in Kochi as your family joins you.",
+      "states": {
+       "career": 50,
+       "wealth": 55,
+       "achievement": 60,
+       "family": 70,
+       "relationships": 75,
+       "children": 65,
+       "mentalHealth": 70,
+       "happiness": 68,
+       "lifeGoals": 75,
+       "risk": 45
+      },
+      "money": {
+       "income": 45000,
+       "netWorth": 110000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-b-2031-1",
+        "domain": "career",
+        "category": "job_loss",
+        "title": "The corporate era ends in the downturn",
+        "narrative": "During the 2030 downturn, your long-term employer restructures, and you take a severance package rather than returning to Osaka management.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q1",
+         "reason": "You spent nineteen years at the same electronics company before the downturn made staying impossible."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-42-1-b-2031-2",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "Opening a small woodworking workshop",
+        "narrative": "Using your severance and savings, you finally rent a small storefront in Kochi and begin building custom wooden tables.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You always wanted to learn woodworking and open a small furniture workshop."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-b-2031-3",
+        "domain": "family",
+        "category": "move",
+        "title": "Aiko and the kids join you",
+        "narrative": "With your parents needing more care and your workshop taking root, Aiko and the children move down to Kochi permanently.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q3",
+         "reason": "Your wife suggested moving closer to aging parents in Kochi."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "parent",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": null,
+       "caption": "Building custom wooden furniture in Kochi."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2036,
+      "age": 52,
+      "place": "Kochi, Japan",
+      "summary": "Your Kochi furniture workshop thrives, bringing you daily peace and a strong connection to your aging parents and family.",
+      "states": {
+       "career": 65,
+       "wealth": 65,
+       "achievement": 70,
+       "family": 80,
+       "relationships": 80,
+       "children": 75,
+       "mentalHealth": 80,
+       "happiness": 78,
+       "lifeGoals": 80,
+       "risk": 35
+      },
+      "money": {
+       "income": 62000,
+       "netWorth": 160000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-b-2036-1",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Finding steady work in local craft",
+        "narrative": "Your small furniture workshop gains steady local clients, and you spend your days working with your hands without corporate pressure.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-b-2036-2",
+        "domain": "relationships",
+        "category": "friendship",
+        "title": "A tight community of local makers",
+        "narrative": "You befriend other artisans in Kochi, sharing tools and collaborating on small exhibitions at the community center.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-b-2036-3",
+        "domain": "mentalHealth",
+        "category": "health_habit",
+        "title": "Daily walks along the Kochi coast",
+        "narrative": "You establish a steady morning routine of walking by the water before opening the workshop doors each day.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "summer",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "bright",
+       "moment": null,
+       "caption": "A quiet life of woodworking and family near"
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.5
+   },
+   {
+    "id": "b-d-42-1-d",
+    "forkDecisionId": "d-42-1",
+    "optionId": "d",
+    "title": "Stay in Osaka",
+    "forkYear": 2026,
+    "forkAge": 42,
+    "status": "retired",
+    "years": [
+     {
+      "year": 2026,
+      "age": 42,
+      "place": "Osaka, Japan",
+      "summary": "Staying in Osaka brings career stability, but the monthly drives to Kochi and late nights drain you.",
+      "states": {
+       "career": 60,
+       "wealth": 50,
+       "achievement": 55,
+       "family": 55,
+       "relationships": 50,
+       "children": 60,
+       "mentalHealth": 40,
+       "happiness": 45,
+       "lifeGoals": 50,
+       "risk": 40
+      },
+      "money": {
+       "income": 65000,
+       "netWorth": 97000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-d-2026-1",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Staying put in Osaka",
+        "narrative": "In 2026, you remain at your electronics firm in Osaka to keep stability for your children, while visiting Kochi once a month.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q3",
+         "reason": "You decided to keep the children in their Osaka schools despite your parents needing help in Kochi."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       },
+       {
+        "id": "b-d-42-1-d-2026-2",
+        "domain": "mentalHealth",
+        "category": "burnout",
+        "title": "Exhaustion catches up",
+        "narrative": "By late 2026, working until 9pm most nights leaves you tired in a way that sleep simply does not fix.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "Your deep fatigue reflects your words about being tired in a way that sleep does not fix."
+        },
+        "baseRate": null,
+        "tone": "down"
+       }
+      ],
+      "scene": {
+       "setting": "city_dense",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "office_work",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "night",
+       "weather": "rain",
+       "mood": "tense",
+       "moment": "new_job",
+       "caption": "Late nights in the Osaka QA department."
+      },
+      "decisionIds": [
+       "d-42-1"
+      ]
+     },
+     {
+      "year": 2031,
+      "age": 47,
+      "place": "Osaka, Japan",
+      "summary": "A midlife financial squeeze hits, but your weekend woodworking provides a quiet counterweight to office stress.",
+      "states": {
+       "career": 55,
+       "wealth": 55,
+       "achievement": 55,
+       "family": 60,
+       "relationships": 55,
+       "children": 65,
+       "mentalHealth": 45,
+       "happiness": 50,
+       "lifeGoals": 55,
+       "risk": 35
+      },
+      "money": {
+       "income": 70000,
+       "netWorth": 177000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-d-2031-1",
+        "domain": "wealth",
+        "category": "money_down",
+        "title": "An unexpected financial squeeze",
+        "narrative": "Between 2027 and 2031, rising care costs in Kochi and household expenses create a notable money setback.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q7",
+         "reason": "Your worries about family health translate into real financial strains as care needs increase."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-42-1-d-2031-2",
+        "domain": "career",
+        "category": "career_change",
+        "title": "A quiet shift in craft",
+        "narrative": "In 2030, you finally set up a small woodworking bench in your garage, spending weekends making simple shelves.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_dense",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "remote_work",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Weekend woodworking brings a sense of craft."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2036,
+      "age": 52,
+      "place": "Osaka, Japan",
+      "summary": "You reach age 52 with steady corporate work, grown children, and a growing passion for woodworking.",
+      "states": {
+       "career": 60,
+       "wealth": 60,
+       "achievement": 65,
+       "family": 65,
+       "relationships": 60,
+       "children": 65,
+       "mentalHealth": 55,
+       "happiness": 60,
+       "lifeGoals": 65,
+       "risk": 30
+      },
+      "money": {
+       "income": 72000,
+       "netWorth": 177000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-d-2036-1",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Section manager stability",
+        "narrative": "Leading up to 2036, you successfully navigate another corporate restructuring and remain a section manager in QA.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q1",
+         "reason": "Your long tenure at the same electronics company anchors your stability through company changes."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-d-2036-2",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "A first small furniture exhibit",
+        "narrative": "In 2035, you display a handcrafted oak dining table at a local community art center in Osaka.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_dense",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        }
+       ],
+       "season": "summer",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": "new_job",
+       "caption": "An exhibit of handcrafted oak furniture."
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.5
+   },
+   {
+    "id": "b-d-46-1-a",
+    "forkDecisionId": "d-46-1",
+    "optionId": "a",
+    "title": "Apprentice in Wood",
+    "forkYear": 2030,
+    "forkAge": 46,
+    "status": "retired",
+    "years": [
+     {
+      "year": 2030,
+      "age": 46,
+      "place": "Osaka, Japan",
+      "summary": "Leaving corporate management behind in 2030, you take your first bench seat as a woodworking apprentice.",
+      "states": {
+       "career": 35,
+       "wealth": 55,
+       "achievement": 48,
+       "family": 58,
+       "relationships": 55,
+       "children": 60,
+       "mentalHealth": 52,
+       "happiness": 54,
+       "lifeGoals": 60,
+       "risk": 45
+      },
+      "money": {
+       "income": 35000,
+       "netWorth": 160000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-a-2030-1",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Resigning from corporate life",
+        "narrative": "In 2030, you leave your nineteen-year desk at the electronics firm to begin a full-time apprenticeship in traditional woodwork.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You said you'd love to open a small furniture workshop, so you finally traded the office for a chisel."
+        },
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_midrise",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "bright",
+       "moment": "new_job",
+       "caption": "A cedar plane curls thin ribbons in morning"
+      },
+      "decisionIds": [
+       "d-46-1"
+      ]
+     },
+     {
+      "year": 2035,
+      "age": 51,
+      "place": "Osaka, Japan",
+      "summary": "By 2035, the workshop is real and exhausting, punctuated by a quiet gallery showing of your joinery.",
+      "states": {
+       "career": 48,
+       "wealth": 54,
+       "achievement": 60,
+       "family": 56,
+       "relationships": 54,
+       "children": 58,
+       "mentalHealth": 42,
+       "happiness": 48,
+       "lifeGoals": 62,
+       "risk": 40
+      },
+      "money": {
+       "income": 48000,
+       "netWorth": 170000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-a-2035-1",
+        "domain": "mentalHealth",
+        "category": "burnout",
+        "title": "The weight of the workshop",
+        "narrative": "Between 2031 and 2035, running your own bench under tight margins leaves you waking up at 4am with tight shoulders.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "You were already tired in a way sleep wouldn't fix, and solo craftsmanship added physical strain."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-46-1-a-2035-2",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "Your first gallery exhibition",
+        "narrative": "In 2034, you exhibit twelve joinery pieces at a small gallery in Umeda, selling your signature walnut low table.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_midrise",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "golden",
+       "weather": "cloudy",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Walnut shavings pile deep around your workshop stool."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2040,
+      "age": 56,
+      "place": "Osaka, Japan",
+      "summary": "Approaching 2040, material costs pinch your savings, but your workshop name is known among local architects.",
+      "states": {
+       "career": 52,
+       "wealth": 53,
+       "achievement": 62,
+       "family": 58,
+       "relationships": 56,
+       "children": 62,
+       "mentalHealth": 48,
+       "happiness": 52,
+       "lifeGoals": 64,
+       "risk": 38
+      },
+      "money": {
+       "income": 54000,
+       "netWorth": 210000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-a-2040-1",
+        "domain": "wealth",
+        "category": "money_down",
+        "title": "Cost of timber and repairs",
+        "narrative": "Between 2036 and 2040, rising imported timber prices and major saw maintenance eat into your modest workshop savings.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q7",
+         "reason": "You always worried about security and expenses, and running a craft business leaves little cushion."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-46-1-a-2040-2",
+        "domain": "family",
+        "category": "caregiving",
+        "title": "Supporting Kochi from afar",
+        "narrative": "In 2038, you arrange regular care services for your aging parents in Kochi while visiting every month by train.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "city_midrise",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "winter",
+       "timeOfDay": "night",
+       "weather": "rain",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Late lamps glow over hand tools laid in"
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.26
+   },
+   {
+    "id": "b-d-54-1-d",
+    "forkDecisionId": "d-54-1",
+    "optionId": "d",
+    "title": "Move to Kochi",
+    "forkYear": 2038,
+    "forkAge": 54,
+    "status": "retired",
+    "years": [
+     {
+      "year": 2038,
+      "age": 54,
+      "place": "Kochi, Japan",
+      "summary": "You relocate to Kochi in 2038 to care for your parents and open a small timber workshop.",
+      "states": {
+       "career": 45,
+       "wealth": 52,
+       "achievement": 60,
+       "family": 74,
+       "relationships": 72,
+       "children": 64,
+       "mentalHealth": 62,
+       "happiness": 64,
+       "lifeGoals": 65,
+       "risk": 22
+      },
+      "money": {
+       "income": 52000,
+       "netWorth": 180000
+      },
+      "events": [
+       {
+        "id": "b-d-54-1-d-2038-1",
+        "domain": "family",
+        "category": "move",
+        "title": "Moving to Kochi with Aiko",
+        "narrative": "In 2038, you pack the remaining boxes in Osaka and drive south to Kochi, setting up the workshop next to your father's house.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q3",
+         "reason": "You said your parents in Kochi are getting older and your wife suggested moving closer, leading to this relocation."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-54-1-d-2038-2",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Opening the timber workshop",
+        "narrative": "By 2038, you clear out the old shed in Kochi, buying a secondhand planer and laying out cedar planks for custom orders.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": "moving_in",
+       "caption": "Wood shavings pile high in the Kochi shed."
+      },
+      "decisionIds": [
+       "d-54-1"
+      ]
+     },
+     {
+      "year": 2043,
+      "age": 59,
+      "place": "Kochi, Japan",
+      "summary": "Your Kochi workshop gains local recognition between 2039 and 2043 while you share daily care for your parents.",
+      "states": {
+       "career": 48,
+       "wealth": 55,
+       "achievement": 68,
+       "family": 75,
+       "relationships": 75,
+       "children": 65,
+       "mentalHealth": 68,
+       "happiness": 68,
+       "lifeGoals": 70,
+       "risk": 20
+      },
+      "money": {
+       "income": 58000,
+       "netWorth": 230000
+      },
+      "events": [
+       {
+        "id": "b-d-54-1-d-2043-1",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "First solo furniture exhibition",
+        "narrative": "Between 2039 and 2043, you complete twenty bespoke cedar tables and exhibit them at a local gallery in downtown Kochi.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You always wanted to learn woodworking and open a small workshop, which culminates in this local exhibition."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-54-1-d-2043-2",
+        "domain": "family",
+        "category": "caregiving",
+        "title": "Daily care routines settle",
+        "narrative": "By 2043, mornings involve tea with your father on the engawa while Aiko manages the workshop accounts and local deliveries.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "family_time",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": "first_show",
+       "caption": "Morning tea on the wooden engawa."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2048,
+      "age": 64,
+      "place": "Kochi, Japan",
+      "summary": "By 2048, your workshop runs at a gentle pace with an apprentice, and your health feels well-rested.",
+      "states": {
+       "career": 42,
+       "wealth": 58,
+       "achievement": 65,
+       "family": 72,
+       "relationships": 74,
+       "children": 65,
+       "mentalHealth": 75,
+       "happiness": 72,
+       "lifeGoals": 72,
+       "risk": 15
+      },
+      "money": {
+       "income": 45000,
+       "netWorth": 265000
+      },
+      "events": [
+       {
+        "id": "b-d-54-1-d-2048-1",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Passing on the woodworking tools",
+        "narrative": "From 2044 to 2048, you slow down workshop hours, taking on an apprentice from the neighborhood to learn hand-jointing techniques.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-54-1-d-2048-2",
+        "domain": "mentalHealth",
+        "category": "health_habit",
+        "title": "Lasting physical ease",
+        "narrative": "By 2048, the chronic exhaustion from your corporate days has faded, replaced by steady rhythms of physical work and evening rest.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "exercising",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "adult"
+        },
+        {
+         "role": "friend",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "summer",
+       "timeOfDay": "dawn",
+       "weather": "clear",
+       "mood": "bright",
+       "moment": null,
+       "caption": "Quiet mornings bring a deep sense of relief."
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.57
+   },
+   {
+    "id": "b-d-42-1-c",
+    "forkDecisionId": "d-42-1",
+    "optionId": "c",
+    "title": "Move to Kochi",
+    "forkYear": 2026,
+    "forkAge": 42,
+    "status": "active",
+    "years": [
+     {
+      "year": 2026,
+      "age": 42,
+      "place": "Kochi, Japan",
+      "summary": "You relocate your family to Kochi, leaving electronics behind to start woodworking near your parents.",
+      "states": {
+       "career": 60,
+       "wealth": 50,
+       "achievement": 65,
+       "family": 80,
+       "relationships": 75,
+       "children": 70,
+       "mentalHealth": 70,
+       "happiness": 70,
+       "lifeGoals": 75,
+       "risk": 40
+      },
+      "money": {
+       "income": 58000,
+       "netWorth": 92000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2026-1",
+        "domain": "family",
+        "category": "move",
+        "title": "Moving the family to Kochi",
+        "narrative": "In 2026, you leave Osaka and rent a house in Kochi to be near your aging parents.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q3",
+         "reason": "You said your parents in Kochi are getting older and your wife suggested moving closer."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       },
+       {
+        "id": "b-d-42-1-c-2026-2",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Starting over near the river",
+        "narrative": "Between 2026 and 2030, you leave corporate QA behind and begin apprenticing at a local woodworking shop.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You always wanted to learn woodworking and open a small furniture workshop."
+        },
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": "moving_in",
+       "caption": "A quieter street by the river."
+      },
+      "decisionIds": [
+       "d-42-1"
+      ]
+     },
+     {
+      "year": 2031,
+      "age": 47,
+      "place": "Kochi, Japan",
+      "summary": "Your woodworking shop survives the downturn while you support your aging parents in Kochi.",
+      "states": {
+       "career": 65,
+       "wealth": 55,
+       "achievement": 70,
+       "family": 85,
+       "relationships": 80,
+       "children": 75,
+       "mentalHealth": 65,
+       "happiness": 65,
+       "lifeGoals": 75,
+       "risk": 35
+      },
+      "money": {
+       "income": 64000,
+       "netWorth": 150000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2031-1",
+        "domain": "wealth",
+        "category": "money_down",
+        "title": "A tight workshop budget",
+        "narrative": "Between 2030 and 2031, tool upgrades and slow sales during the downturn strain your savings.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "You faced chronic exhaustion and financial friction when shifting to an independent craft."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-42-1-c-2031-2",
+        "domain": "mentalHealth",
+        "category": "health_habit",
+        "title": "Walking by the water",
+        "narrative": "Over the past five years, morning walks along the Kagami River help ease your deep work fatigue.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "exercising",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "child",
+         "ageBand": "teen"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "dawn",
+       "weather": "rain",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Morning walk along the river bank."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2036,
+      "age": 52,
+      "place": "Kochi, Japan",
+      "summary": "You gain local recognition for your furniture workshop, living close to family in Kochi.",
+      "states": {
+       "career": 75,
+       "wealth": 65,
+       "achievement": 80,
+       "family": 85,
+       "relationships": 85,
+       "children": 80,
+       "mentalHealth": 75,
+       "happiness": 78,
+       "lifeGoals": 85,
+       "risk": 30
+      },
+      "money": {
+       "income": 74000,
+       "netWorth": 195000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2036-1",
+        "domain": "career",
+        "category": "achievement",
+        "title": "First solo furniture exhibition",
+        "narrative": "Between 2031 and 2036, you exhibit your handmade cedar tables at a regional gallery in Shikoku.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You finally built the small furniture workshop you dreamed of running."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-c-2036-2",
+        "domain": "family",
+        "category": "caregiving",
+        "title": "Quiet evenings with family",
+        "narrative": "Over these years, your children grow into adulthood and you spend quiet weekends visiting your parents.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "summer",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": "first_show",
+       "caption": "Cedar shavings on the workshop floor."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2041,
+      "age": 57,
+      "place": "Kochi, Japan",
+      "summary": "Your woodworking shop gains steady commissions while you care for your aging parents in Kochi.",
+      "states": {
+       "career": 75,
+       "wealth": 70,
+       "achievement": 82,
+       "family": 80,
+       "relationships": 82,
+       "children": 75,
+       "mentalHealth": 78,
+       "happiness": 78,
+       "lifeGoals": 85,
+       "risk": 30
+      },
+      "money": {
+       "income": 78000,
+       "netWorth": 261000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2041-1",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "A custom walnut dining table",
+        "narrative": "In 2039, you finish a large custom dining table for the local library, carved from local walnut.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-c-2041-2",
+        "domain": "career",
+        "category": "texture",
+        "title": "Quiet mornings in the shop",
+        "narrative": "In 2040, you spend your mornings planing cedar boards before your parents call for help with groceries.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "young_adult"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Quiet woodshop commissions in Kochi."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2046,
+      "age": 62,
+      "place": "Kochi, Japan",
+      "summary": "Managing family care in Kochi while gradually easing into retirement from your woodworking shop.",
+      "states": {
+       "career": 70,
+       "wealth": 75,
+       "achievement": 80,
+       "family": 82,
+       "relationships": 84,
+       "children": 78,
+       "mentalHealth": 75,
+       "happiness": 76,
+       "lifeGoals": 82,
+       "risk": 25
+      },
+      "money": {
+       "income": 72000,
+       "netWorth": 285000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2046-1",
+        "domain": "family",
+        "category": "caregiving",
+        "title": "Caring for aging parents in Kochi",
+        "narrative": "Between 2041 and 2046, you spend your afternoons visiting your parents in Kochi, managing medical appointments while running the furniture workshop.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q3",
+         "reason": "You said your parents in Kochi were getting older and needed you to move closer."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       },
+       {
+        "id": "b-d-42-1-c-2046-2",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Stepping back toward retirement",
+        "narrative": "You begin handing over larger commissions to your apprentice in Kochi, reducing your hours in the workshop as you reach 62.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q1",
+         "reason": "You spent decades working steadily, and now the rhythm of the shop begins to slow down."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-c-2046-3",
+        "domain": "wealth",
+        "category": "money_up",
+        "title": "Finalizing workshop workshop savings",
+        "narrative": "Through steady local commissions and careful saving, your net worth reaches stable levels as you approach your sixties.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "caregiving",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "child",
+         "ageBand": "adult"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "night",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": "retirement",
+       "caption": "A quiet autumn in Kochi near family."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2051,
+      "age": 67,
+      "place": "Kochi, Japan",
+      "summary": "A transition year in Kochi with reduced workshop hours, smaller living space, and family memories.",
+      "states": {
+       "career": 62,
+       "wealth": 65,
+       "achievement": 70,
+       "family": 78,
+       "relationships": 80,
+       "children": 75,
+       "mentalHealth": 76,
+       "happiness": 74,
+       "lifeGoals": 78,
+       "risk": 20
+      },
+      "money": {
+       "income": 22000,
+       "netWorth": 290000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2051-1",
+        "domain": "wealth",
+        "category": "money_down",
+        "title": "Workshop equipment repairs",
+        "narrative": "Between 2047 and 2050, unexpected workshop expenses strain your savings as your father passes away peacefully in his late eighties.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q7",
+         "reason": "You worried about your father's health and memory, and now that he is gone, the workshop repairs add financial strain."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-42-1-c-2051-2",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Stepping back to part-time",
+        "narrative": "By 2051, you reduce your hours in the woodworking shop to part-time, focusing on simple custom pieces.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       },
+       {
+        "id": "b-d-42-1-c-2051-3",
+        "domain": "family",
+        "category": "move",
+        "title": "Moving closer to the children",
+        "narrative": "In 2049, you and Aiko move into a smaller home in Kochi, closer to public transit as the children settle in Osaka.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q3",
+         "reason": "You moved for your parents, and now that they are gone, you and Aiko adjust your living space while staying connected to the kids."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "child",
+         "ageBand": "adult"
+        },
+        {
+         "role": "child",
+         "ageBand": "adult"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Quiet days in the Kochi workshop"
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2054,
+      "age": 70,
+      "place": "Kochi, Japan",
+      "summary": "A peaceful life in Kochi, marked by steady woodworking, river walks, and close local friendships.",
+      "states": {
+       "career": 60,
+       "wealth": 65,
+       "achievement": 68,
+       "family": 76,
+       "relationships": 82,
+       "children": 75,
+       "mentalHealth": 80,
+       "happiness": 78,
+       "lifeGoals": 76,
+       "risk": 15
+      },
+      "money": {
+       "income": 21000,
+       "netWorth": 294000
+      },
+      "events": [
+       {
+        "id": "b-d-42-1-c-2054-1",
+        "domain": "relationships",
+        "category": "friendship",
+        "title": "Joining the local craft circle",
+        "narrative": "Between 2052 and 2053, you join a weekly wood carving meetup by the river, building close friendships with local retirees.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-42-1-c-2054-2",
+        "domain": "mentalHealth",
+        "category": "health_habit",
+        "title": "Morning walks along the river",
+        "narrative": "By 2054, you establish a daily morning walking routine along the Kagamigawa River, easing your long-standing exhaustion.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "apartment",
+       "activity": "exercising",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "friend",
+         "ageBand": "senior"
+        },
+        {
+         "role": "friend",
+         "ageBand": "senior"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": null,
+       "caption": "Morning walks by the Kochi river"
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.56
+   },
+   {
+    "id": "b-d-46-1-b",
+    "forkDecisionId": "d-46-1",
+    "optionId": "b",
+    "title": "The Kochi Workshop",
+    "forkYear": 2030,
+    "forkAge": 46,
+    "status": "active",
+    "years": [
+     {
+      "year": 2030,
+      "age": 46,
+      "place": "Kochi, Japan",
+      "summary": "You relocate to Kochi in 2030 to open a woodworking shop, supporting your aging parents daily.",
+      "states": {
+       "career": 45,
+       "wealth": 55,
+       "achievement": 48,
+       "family": 70,
+       "relationships": 68,
+       "children": 60,
+       "mentalHealth": 55,
+       "happiness": 54,
+       "lifeGoals": 58,
+       "risk": 40
+      },
+      "money": {
+       "income": 50000,
+       "netWorth": 160000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-b-2030-1",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Leaving corporate life for the Kochi workshop",
+        "narrative": "In 2030, you leave Osaka to open a small woodworking shop in Kochi near your parents, trading corporate security for hand tools.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q8",
+         "reason": "You said you would revisit the situation when circumstances changed, and you chose to move south."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       },
+       {
+        "id": "b-d-46-1-b-2030-2",
+        "domain": "career",
+        "category": "job_loss",
+        "title": "Restructuring hits the Osaka electronics company",
+        "narrative": "Between 2026 and 2030, the company implements severe cuts, validating your decision to step away before the layoffs arrived.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q1",
+         "reason": "You spent nineteen years at the electronics company before the structural downturn forced the issue."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-46-1-b-2030-3",
+        "domain": "family",
+        "category": "caregiving",
+        "title": "Settle near aging parents in Kochi",
+        "narrative": "You spend your afternoons visiting your father and mother, bringing groceries and helping around their house as their memory fades.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": "new_job",
+       "caption": "Opening the Kochi woodworking shop from scratch"
+      },
+      "decisionIds": [
+       "d-46-1"
+      ]
+     },
+     {
+      "year": 2035,
+      "age": 51,
+      "place": "Kochi, Japan",
+      "summary": "Your Kochi workshop slowly finds its footing while you care for your aging parents nearby.",
+      "states": {
+       "career": 52,
+       "wealth": 58,
+       "achievement": 56,
+       "family": 72,
+       "relationships": 70,
+       "children": 62,
+       "mentalHealth": 58,
+       "happiness": 59,
+       "lifeGoals": 64,
+       "risk": 35
+      },
+      "money": {
+       "income": 58000,
+       "netWorth": 175000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-b-2035-1",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "First custom dining table sold locally",
+        "narrative": "Between 2031 and 2035, your workshop gains a quiet reputation, and you sell your first major custom Hinoki table.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You always wanted to open a small furniture workshop, and the craft finally sustains your daily routine."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-46-1-b-2035-2",
+        "domain": "family",
+        "category": "caregiving",
+        "title": "Caring for aging parents in Kochi",
+        "narrative": "You and Aiko balance daily visits to your parents' home, adapting your workshop hours around medical appointments and quiet dinners.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "parent",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": "first_show",
+       "caption": "Handcrafting Hinoki tables in the Kochi sunlight"
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2040,
+      "age": 56,
+      "place": "Kochi, Japan",
+      "summary": "You navigate a tiring stretch in the Kochi workshop by bringing in an apprentice to help.",
+      "states": {
+       "career": 50,
+       "wealth": 60,
+       "achievement": 55,
+       "family": 68,
+       "relationships": 67,
+       "children": 65,
+       "mentalHealth": 48,
+       "happiness": 52,
+       "lifeGoals": 60,
+       "risk": 30
+      },
+      "money": {
+       "income": 62000,
+       "netWorth": 190000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-b-2040-1",
+        "domain": "mentalHealth",
+        "category": "burnout",
+        "title": "Exhaustion from balancing care and orders",
+        "narrative": "Between 2036 and 2040, the physical strain of manual woodworking alongside family care leads to a prolonged stretch of deep fatigue.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "The familiar heavy exhaustion returns, reminding you that physical labor demands careful pacing and real rest."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-46-1-b-2040-2",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Stepping back to part-time orders",
+        "narrative": "You hire a local apprentice for a few hours a week to take the physical weight off your shoulders.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "resting",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "winter",
+       "timeOfDay": "night",
+       "weather": "rain",
+       "mood": "tense",
+       "moment": null,
+       "caption": "Quiet evenings recovering in the Kochi house"
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2045,
+      "age": 61,
+      "place": "Kochi, Japan",
+      "summary": "A quieter rhythm in Kochi as your workshop transitions and your days slow down after sixty.",
+      "states": {
+       "career": 48,
+       "wealth": 68,
+       "achievement": 58,
+       "family": 68,
+       "relationships": 70,
+       "children": 68,
+       "mentalHealth": 52,
+       "happiness": 56,
+       "lifeGoals": 62,
+       "risk": 25
+      },
+      "money": {
+       "income": 74000,
+       "netWorth": 261000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-b-2045-1",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "Finishing the cedar pavilion for the shrine",
+        "narrative": "In 2043, you complete a handcrafted cedar pavilion for the neighborhood shrine, drawing visitors from across Kochi.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-46-1-b-2045-2",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Stepping back from active workshop commissions",
+        "narrative": "In 2044, you hand over the daily workbench duties to your apprentice, easing your schedule as you turn sixty.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "You said you are tired in a way that sleep does not fix, leading you to finally step back from heavy commissions."
+        },
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "resting",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "friend",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": "retirement",
+       "caption": "Passing the tools to a steady apprentice."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2050,
+      "age": 66,
+      "place": "Kochi, Japan",
+      "summary": "Between 2046 and 2050, you pace your woodworking commissions, managing lingering fatigue with long afternoon walks by the river.",
+      "states": {
+       "career": 42,
+       "wealth": 65,
+       "achievement": 55,
+       "family": 62,
+       "relationships": 68,
+       "children": 65,
+       "mentalHealth": 48,
+       "happiness": 52,
+       "lifeGoals": 58,
+       "risk": 20
+      },
+      "money": {
+       "income": 24000,
+       "netWorth": 285000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-b-2050-1",
+        "domain": "mentalHealth",
+        "category": "burnout",
+        "title": "Fatigue catches up with you in the workshop",
+        "narrative": "In 2048, after finishing a large municipal order, you feel a bone-deep tiredness that sleeping does not cure, echoing the exhaustion you felt in Osaka decades ago.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q2",
+         "reason": "You said you were tired in a way that sleep does not fix, and the long hours at the bench finally caught up with your body."
+        },
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-46-1-b-2050-2",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "Exhibiting handmade cedar stools at the regional hall",
+        "narrative": "In 2049, you display a collection of small cedar stools at the Kochi community center, drawing quiet praise from local woodworkers.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Quiet workshop hours in Kochi."
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2054,
+      "age": 70,
+      "place": "Kochi, Japan",
+      "summary": "Between 2051 and 2054, you transition toward mentoring local apprentices, enjoying slower days and a quiet home life with Aiko.",
+      "states": {
+       "career": 40,
+       "wealth": 68,
+       "achievement": 56,
+       "family": 65,
+       "relationships": 72,
+       "children": 68,
+       "mentalHealth": 55,
+       "happiness": 60,
+       "lifeGoals": 60,
+       "risk": 18
+      },
+      "money": {
+       "income": 21000,
+       "netWorth": 298000
+      },
+      "events": [
+       {
+        "id": "b-d-46-1-b-2054-1",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Stepping into a consulting role for young makers",
+        "narrative": "In 2052, you begin advising a handful of apprentices two mornings a week, trading heavy physical commissions for teaching traditional joinery.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You always wanted to build a small furniture workshop, and now you pass those skills to the next generation on your own terms."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-46-1-b-2054-2",
+        "domain": "wealth",
+        "category": "money_up",
+        "title": "Modest savings growth from years of careful craft",
+        "narrative": "In 2053, steady sales of small home goods and reduced overhead bring your household finances to a stable, comfortable plateau in Kochi.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "small_town",
+       "flavor": "east_asia",
+       "placeLabel": "Kochi, Japan",
+       "home": "house",
+       "activity": "exercising",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "colleague",
+         "ageBand": "young_adult"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": "retirement",
+       "caption": "Teaching joinery to new apprentices."
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.43
+   },
+   {
+    "id": "b-d-58-1-b",
+    "forkDecisionId": "d-58-1",
+    "optionId": "b",
+    "title": "Open the Workshop",
+    "forkYear": 2042,
+    "forkAge": 58,
+    "status": "active",
+    "years": [
+     {
+      "year": 2042,
+      "age": 58,
+      "place": "Osaka, Japan",
+      "summary": "Between 2038 and 2042, you leave the electronics firm behind to open a small furniture workshop in Tennoji.",
+      "states": {
+       "career": 25,
+       "wealth": 55,
+       "achievement": 70,
+       "family": 70,
+       "relationships": 75,
+       "children": 60,
+       "mentalHealth": 80,
+       "happiness": 78,
+       "lifeGoals": 75,
+       "risk": 30
+      },
+      "money": {
+       "income": 35000,
+       "netWorth": 245000
+      },
+      "events": [
+       {
+        "id": "b-d-58-1-b-2042-1",
+        "domain": "career",
+        "category": "career_change",
+        "title": "Stepping into the Tennoji workshop",
+        "narrative": "In 2042, you take early retirement from the electronics company and open a small rental woodworking workshop near Tennoji Station.",
+        "isTurningPoint": true,
+        "cause": {
+         "quoteId": "q6",
+         "reason": "You said you'd love to open a small furniture workshop, so stepping away from corporate life to work the lathe was inevitable."
+        },
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-58-1-b-2042-2",
+        "domain": "wealth",
+        "category": "money_down",
+        "title": "Adjusting to self-employed earnings",
+        "narrative": "Between 2038 and 2042, your income dips as you trade a corporate salary for workshop commissions and modest savings draws.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "down"
+       },
+       {
+        "id": "b-d-58-1-b-2042-3",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "First custom order in Tennoji",
+        "narrative": "You finish a Japanese cedar display shelf for a local tea shop, your first major piece made entirely under your own roof.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_dense",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "middle"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "bright",
+       "moment": "new_job",
+       "caption": "Sawdust on the floor of Tennoji workshop"
+      },
+      "decisionIds": [
+       "d-58-1"
+      ]
+     },
+     {
+      "year": 2047,
+      "age": 63,
+      "place": "Osaka, Japan",
+      "summary": "From 2043 to 2047, your Tennoji workshop gains steady local recognition as you balance commissions with weekend teaching.",
+      "states": {
+       "career": 20,
+       "wealth": 50,
+       "achievement": 72,
+       "family": 68,
+       "relationships": 72,
+       "children": 60,
+       "mentalHealth": 75,
+       "happiness": 72,
+       "lifeGoals": 70,
+       "risk": 25
+      },
+      "money": {
+       "income": 28000,
+       "netWorth": 230000
+      },
+      "events": [
+       {
+        "id": "b-d-58-1-b-2047-1",
+        "domain": "career",
+        "category": "achievement",
+        "title": "Exhibiting handmade joinery in Umeda",
+        "narrative": "Between 2043 and 2047, your handcrafted tables and stools are featured in a small neighborhood craft exhibition near Umeda.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-58-1-b-2047-2",
+        "domain": "career",
+        "category": "career_move",
+        "title": "Starting weekend woodworking classes",
+        "narrative": "When custom furniture commissions slow down, you begin hosting weekend joinery workshops to introduce local neighbors to hand tools.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "mixed"
+       }
+      ],
+      "scene": {
+       "setting": "city_dense",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "spring",
+       "timeOfDay": "golden",
+       "weather": "clear",
+       "mood": "calm",
+       "moment": null,
+       "caption": "Weekend students gather around your Tennoji workbench"
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2052,
+      "age": 68,
+      "place": "Osaka, Japan",
+      "summary": "Between 2048 and 2052, you settle into a peaceful rhythm of teaching, writing, and quiet woodworking in Osaka.",
+      "states": {
+       "career": 20,
+       "wealth": 55,
+       "achievement": 75,
+       "family": 70,
+       "relationships": 75,
+       "children": 60,
+       "mentalHealth": 82,
+       "happiness": 80,
+       "lifeGoals": 75,
+       "risk": 20
+      },
+      "money": {
+       "income": 30000,
+       "netWorth": 260000
+      },
+      "events": [
+       {
+        "id": "b-d-58-1-b-2052-1",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "Publishing a guide on traditional joinery",
+        "narrative": "Between 2048 and 2052, you compile decades of workshop notes into a self-published booklet on hand-cut Japanese joinery.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-58-1-b-2052-2",
+        "domain": "mentalHealth",
+        "category": "health_habit",
+        "title": "Establishing morning stretches and quiet tea",
+        "narrative": "You adopt a strict morning routine of physical stretching and green tea on the balcony to keep your hands and shoulders limber.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_dense",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "exercising",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        }
+       ],
+       "season": "summer",
+       "timeOfDay": "dawn",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": null,
+       "caption": "Morning tea and stretches before opening the workshop"
+      },
+      "decisionIds": []
+     },
+     {
+      "year": 2054,
+      "age": 70,
+      "place": "Osaka, Japan",
+      "summary": "Between 2050 and 2054, your Tennoji workshop thrives with exhibitions and weekly gatherings of young makers.",
+      "states": {
+       "career": 15,
+       "wealth": 60,
+       "achievement": 80,
+       "family": 70,
+       "relationships": 80,
+       "children": 65,
+       "mentalHealth": 85,
+       "happiness": 82,
+       "lifeGoals": 80,
+       "risk": 15
+      },
+      "money": {
+       "income": 21000,
+       "netWorth": 294000
+      },
+      "events": [
+       {
+        "id": "b-d-58-1-b-2054-1",
+        "domain": "achievement",
+        "category": "achievement",
+        "title": "Exhibiting handmade cedar furniture in Kyoto",
+        "narrative": "In 2053, your Tennoji workshop pieces are shown in a gallery near Higashiyama, bringing quiet praise from traditional joinery masters.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       },
+       {
+        "id": "b-d-58-1-b-2054-2",
+        "domain": "relationships",
+        "category": "friendship",
+        "title": "Weekly woodturners gathering in Umeda",
+        "narrative": "Between 2050 and 2054, you host a regular Saturday morning circle where younger makers test chisels and share tea.",
+        "isTurningPoint": false,
+        "cause": null,
+        "baseRate": null,
+        "tone": "up"
+       }
+      ],
+      "scene": {
+       "setting": "city_midrise",
+       "flavor": "east_asia",
+       "placeLabel": "Osaka, Japan",
+       "home": "apartment",
+       "activity": "studio_creating",
+       "people": [
+        {
+         "role": "self",
+         "ageBand": "senior"
+        },
+        {
+         "role": "partner",
+         "ageBand": "middle"
+        },
+        {
+         "role": "friend",
+         "ageBand": "middle"
+        },
+        {
+         "role": "colleague",
+         "ageBand": "young_adult"
+        }
+       ],
+       "season": "autumn",
+       "timeOfDay": "day",
+       "weather": "clear",
+       "mood": "joyful",
+       "moment": null,
+       "caption": "Exhibiting handcrafted joinery in Kyoto galleries."
+      },
+      "decisionIds": []
+     }
+    ],
+    "verdictAtEnd": null,
+    "divergence": 0.33
+   }
+  ],
+  "interludes": [
+   [
+    {
+     "branchId": "b-d-42-1-b",
+     "title": "Take Solo Leave",
+     "age": 42,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "apartment_small",
+      "activity": "resting",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "child",
+        "ageBand": "child"
+       },
+       {
+        "role": "parent",
+        "ageBand": "middle"
+       },
+       {
+        "role": "parent",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "day",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": null,
+      "caption": "Resting alone in Kochi to recover energy."
+     },
+     "caption": "In Kochi alone: the seaside room is quiet. Aiko calls on Sundays."
+    },
+    {
+     "branchId": "b-d-42-1-d",
+     "title": "Stay in Osaka",
+     "age": 42,
+     "scene": {
+      "setting": "city_dense",
+      "flavor": "east_asia",
+      "placeLabel": "Osaka, Japan",
+      "home": "apartment",
+      "activity": "office_work",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "night",
+      "weather": "rain",
+      "mood": "tense",
+      "moment": "new_job",
+      "caption": "Late nights in the Osaka QA department."
+     },
+     "caption": "Still in Osaka: late at the desk again. The commute takes two hours."
+    },
+    {
+     "branchId": "b-d-42-1-c",
+     "title": "Move to Kochi",
+     "age": 42,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": "moving_in",
+      "caption": "A quieter street by the river."
+     },
+     "caption": "In Kochi with the family: sawdust on the floor, the river runs high."
+    }
+   ],
+   [
+    {
+     "branchId": "b-d-42-1-c",
+     "title": "Move to Kochi",
+     "age": 46,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": "moving_in",
+      "caption": "A quieter street by the river."
+     },
+     "caption": "In Kochi: the river shop pays the bills, barely. Your mother lives next door."
+    },
+    {
+     "branchId": "b-d-46-1-b",
+     "title": "The Kochi Workshop",
+     "age": 46,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "spring",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": "new_job",
+      "caption": "Opening the Kochi woodworking shop from scratch"
+     },
+     "caption": "Running the Kochi workshop now. Sales are steady, and your parents need daily help."
+    },
+    {
+     "branchId": "b-d-46-1-a",
+     "title": "Apprentice in Wood",
+     "age": 46,
+     "scene": {
+      "setting": "city_midrise",
+      "flavor": "east_asia",
+      "placeLabel": "Osaka, Japan",
+      "home": "apartment",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       },
+       {
+        "role": "child",
+        "ageBand": "teen"
+       }
+      ],
+      "season": "spring",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "bright",
+      "moment": "new_job",
+      "caption": "A cedar plane curls thin ribbons in morning"
+     },
+     "caption": "In Osaka as an apprentice: the bench fee is steep, but the tools are finally yours."
+    }
+   ],
+   [
+    {
+     "branchId": "b-d-42-1-c",
+     "title": "Move to Kochi",
+     "age": 54,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "young_adult"
+       },
+       {
+        "role": "child",
+        "ageBand": "young_adult"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       }
+      ],
+      "season": "summer",
+      "timeOfDay": "day",
+      "weather": "clear",
+      "mood": "joyful",
+      "moment": "first_show",
+      "caption": "Cedar shavings on the workshop floor."
+     },
+     "caption": "In Kochi at 54: the furniture workshop runs daily, with your parents next door."
+    },
+    {
+     "branchId": "b-d-54-1-d",
+     "title": "Move to Kochi",
+     "age": 54,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "child",
+        "ageBand": "young_adult"
+       }
+      ],
+      "season": "spring",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": "moving_in",
+      "caption": "Wood shavings pile high in the Kochi shed."
+     },
+     "caption": "Just arrived in Kochi: setting up the timber tools while your parents settle in."
+    },
+    {
+     "branchId": "b-d-46-1-b",
+     "title": "The Kochi Workshop",
+     "age": 54,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "joyful",
+      "moment": "first_show",
+      "caption": "Handcrafting Hinoki tables in the Kochi sunlight"
+     },
+     "caption": "In Kochi at 54: custom orders cover the rent and your parents visit weekly."
+    }
+   ],
+   [
+    {
+     "branchId": "b-d-42-1-c",
+     "title": "Move to Kochi",
+     "age": 58,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "child",
+        "ageBand": "young_adult"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": null,
+      "caption": "Quiet woodshop commissions in Kochi."
+     },
+     "caption": "In Kochi at 58: the workshop pays the bills, parent sleeps down the hall."
+    },
+    {
+     "branchId": "b-d-58-1-b",
+     "title": "Open the Workshop",
+     "age": 58,
+     "scene": {
+      "setting": "city_dense",
+      "flavor": "east_asia",
+      "placeLabel": "Osaka, Japan",
+      "home": "apartment",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "day",
+      "weather": "clear",
+      "mood": "bright",
+      "moment": "new_job",
+      "caption": "Sawdust on the floor of Tennoji workshop"
+     },
+     "caption": "In Tennoji at 58: the new shop covers rent. Partner helps with the books."
+    },
+    {
+     "branchId": "b-d-46-1-b",
+     "title": "The Kochi Workshop",
+     "age": 58,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "resting",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "winter",
+      "timeOfDay": "night",
+      "weather": "rain",
+      "mood": "tense",
+      "moment": null,
+      "caption": "Quiet evenings recovering in the Kochi house"
+     },
+     "caption": "Back in Kochi at 58: apprentice handles the morning cuts, you take the afternoons."
+    }
+   ],
+   [
+    {
+     "branchId": "b-d-42-1-c",
+     "title": "Move to Kochi",
+     "age": 62,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "caregiving",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "senior"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "parent",
+        "ageBand": "senior"
+       },
+       {
+        "role": "child",
+        "ageBand": "adult"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "night",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": "retirement",
+      "caption": "A quiet autumn in Kochi near family."
+     },
+     "caption": "In Kochi at 62: the woodworking shop winds down as caregiving takes over."
+    },
+    {
+     "branchId": "b-d-46-1-b",
+     "title": "The Kochi Workshop",
+     "age": 62,
+     "scene": {
+      "setting": "small_town",
+      "flavor": "east_asia",
+      "placeLabel": "Kochi, Japan",
+      "home": "house",
+      "activity": "resting",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "senior"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       },
+       {
+        "role": "friend",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "spring",
+      "timeOfDay": "golden",
+      "weather": "clear",
+      "mood": "calm",
+      "moment": "retirement",
+      "caption": "Passing the tools to a steady apprentice."
+     },
+     "caption": "Still in Kochi, semi-retired. The cedar shrine pavilion stands finished outside town."
+    },
+    {
+     "branchId": "b-d-58-1-b",
+     "title": "Open the Workshop",
+     "age": 62,
+     "scene": {
+      "setting": "city_dense",
+      "flavor": "east_asia",
+      "placeLabel": "Osaka, Japan",
+      "home": "apartment",
+      "activity": "studio_creating",
+      "people": [
+       {
+        "role": "self",
+        "ageBand": "middle"
+       },
+       {
+        "role": "partner",
+        "ageBand": "middle"
+       }
+      ],
+      "season": "autumn",
+      "timeOfDay": "day",
+      "weather": "clear",
+      "mood": "bright",
+      "moment": "new_job",
+      "caption": "Sawdust on the floor of Tennoji workshop"
+     },
+     "caption": "In the Tennoji apartment at 62. The small furniture shop pays the bills."
+    }
+   ]
+  ],
+  "settings": [
+   {
+    "id": "woodworking_workspace",
+    "type": "select",
+    "label": "Where you craft your furniture",
+    "hint": "Controls whether you rent a real workshop or keep tools on the apartment balcony.",
+    "options": [
+     {
+      "value": "balcony_only",
+      "label": "Apartment balcony in Osaka"
+     },
+     {
+      "value": "tennoji_shared",
+      "label": "Shared community space in Tennoji"
+     },
+     {
+      "value": "tennoji_storefront",
+      "label": "Dedicated Tennoji rental workshop"
+     },
+     {
+      "value": "kochi_family_home",
+      "label": "Old family shed in Kochi"
+     }
+    ],
+    "multi": false,
+    "leftLabel": null,
+    "rightLabel": null,
+    "value": "balcony_only",
+    "sourceQuoteIds": [
+     "q6",
+     "q11",
+     "q12"
+    ]
+   },
+   {
+    "id": "living_location",
+    "type": "select",
+    "label": "Where you and Aiko live",
+    "hint": "Shifts your daily pace and proximity between Osaka routines and family roots.",
+    "options": [
+     {
+      "value": "osaka_apartment",
+      "label": "Osaka apartment"
+     },
+     {
+      "value": "split_osaka_kochi",
+      "label": "Split time between Osaka and"
+     },
+     {
+      "value": "relocate_kochi",
+      "label": "Return fully to Kochi"
+     }
+    ],
+    "multi": false,
+    "leftLabel": null,
+    "rightLabel": null,
+    "value": "osaka_apartment",
+    "sourceQuoteIds": [
+     "q3",
+     "q10"
+    ]
+   },
+   {
+    "id": "savings_preservation",
+    "type": "slider",
+    "label": "Retirement savings risk posture",
+    "hint": "Determines how freely you spend pension capital on crafts versus guarding reserves.",
+    "options": [],
+    "multi": false,
+    "leftLabel": "Preserve every yen",
+    "rightLabel": "Invest in personal projects",
+    "value": "15",
+    "sourceQuoteIds": [
+     "q11",
+     "q12"
+    ]
+   },
+   {
+    "id": "retirement_daily_focus",
+    "type": "chips",
+    "label": "What fills your retirement days",
+    "hint": "Shapes how daily hours divide across family, craft, health, and community.",
+    "options": [
+     {
+      "value": "woodworking",
+      "label": "Woodworking & joinery"
+     },
+     {
+      "value": "time_with_aiko",
+      "label": "Quiet routines with Aiko"
+     },
+     {
+      "value": "visiting_kids",
+      "label": "Visiting Haruto and Mei"
+     },
+     {
+      "value": "kochi_care",
+      "label": "Tending Kochi family home"
+     },
+     {
+      "value": "local_walks",
+      "label": "Walking Nagai Park"
+     }
+    ],
+    "multi": true,
+    "leftLabel": null,
+    "rightLabel": null,
+    "value": "woodworking,time_with_aiko,local_walks",
+    "sourceQuoteIds": [
+     "q6",
+     "q10",
+     "q12"
+    ]
+   }
+  ],
+  "ending": {
+   "verdict": "You traded the open workshop for unbroken dinners and a safe margin, and your family always knew when you were coming home.",
+   "branchVerdicts": {
+    "b-d-42-1-c": "Harder physical days and leaner initial margins gave your parents your daily presence and gave your hands real cedar to shape.",
+    "b-d-46-1-b": "You waited until the kids were grounded before stepping out, paying for the late start with sore joints and earning an honest craft.",
+    "b-d-58-1-b": "You waited out every corporate duty until the safety was total, then filled your seventies with cedar shavings and young apprentices."
+   },
+   "fiveYear": {
+    "chosen": "In five years I see myself working a predictable schedule in QA documentation so I can be home for dinner by six. I want to make sure Haruto finishes his middle school terms without unnecessary upheaval, and I plan to attend every one of Mei's recitals. On weekends, I will keep building simple furniture on our balcony and taking the express bus to check on my parents in Kochi.",
+    "b-d-42-1-c": "In five years I see myself running a modest, solvent woodworking shop near the river in Kochi. I want our family settled in a house where my parents have direct daily support as they grow older. It will be a major adjustment after nineteen years in Osaka electronics, but I expect to have my first line of handmade tables completed and a sustainable local clientele.",
+    "b-d-46-1-b": "In five years I see myself managing a small furniture workshop in Kochi, taking custom orders for regional cedar furniture. Having Haruto settled into high school gives me the room to step away from corporate QA and be physically close to my father while his health needs attention. I expect the income will be tighter, but I will be doing tangible work with wood every day.",
+    "b-d-58-1-b": "In five years I see myself running an independent wood studio near Tennoji, keeping the doors open for custom joinery and small weekend classes. The corporate pension gives us the security we need, so the shop can focus on quality rather than rapid volume. I want to spend my mornings turning wood on a real lathe and my afternoons teaching people how to care for hand tools."
+   }
+  },
+  "chat": "I wish I'd known that the exhaustion wasn't permanent, but it wouldn't fix itself without giving something up. Taking the pay cut and stepping down into documentation gave me my evenings back, and dinner at six with the kids was worth every yen we didn't save. I also wish I'd known that you don't need a real commercial studio to be a craftsman. The balcony is cramped and the neighbors hear the planer, but the cedar smells just as good out there."
+ }
+}
