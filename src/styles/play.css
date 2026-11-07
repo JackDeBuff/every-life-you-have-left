@@ -332,6 +332,9 @@
 .settings { transition: border-color var(--t-slow) var(--e-tide); }
 .settings[data-big="true"] { border-bottom-color: transparent; }
 .settings[data-big="true"] .settings-head { height: 0; opacity: 0; overflow: hidden; }
+/* Opened by hand while a card is up: the settings give way first (down to a few rows), so the card
+   stays whole and the list scrolls inside. */
+.right[data-card="true"] .settings[data-open="true"] { flex: 0 1000 auto; min-height: 150px; }
 
 /* Fold: 0fr ↔ 1fr animates to the real content height; the body scrolls when it hits the cap. */
 .settings-fold {
