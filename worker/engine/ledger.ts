@@ -209,6 +209,10 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     }),
   );
   const sinceOf = (quoteIds: string[] | undefined) => (quoteIds?.length ? Math.min(...quoteIds.map((id) => quoteYear.get(id) ?? start)) : start);
+  const ageSources = [
+    ...profile.quotes.map((q) => ({ text: q.text, year: quoteYear.get(q.id) ?? start })),
+    ...profile.facts.map((f) => ({ text: f.value, year: sinceOf(f.quoteIds) })),
+  ].sort((a, b) => a.year - b.year);
   let pluralKids = false;
   for (const pp of profile.people) {
     const role = roleOf(pp.relation, pp.label);
@@ -230,11 +234,18 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     const name = generic ? `your ${pp.label.trim().replace(/^(your|my|the)\s+/i, "").toLowerCase()}` : pp.label.trim();
     let born: number | null = null;
     let ageKnown = false;
-    const stated = ageMentions(corpus, [name.split(/\s+/)[0]!]);
-    if (stated.length) {
-      born = start - stated[0]!.age;
+    // An age counts from the year it was said: "Leo is nineteen" in an answer at 46 is not his
+    // age on day one (an eval session aged Leo 11 years at once when a fold added it). The
+    // earliest statement wins; facts count from their earliest quote.
+    const first = name.split(/\s+/)[0]!;
+    for (const src of ageSources) {
+      const m = ageMentions(src.text, [first]);
+      if (!m.length) continue;
+      born = src.year - m[0]!.age;
       ageKnown = true;
-    } else if (role === "parent") born = profile.birthYear - 30;
+      break;
+    }
+    if (!ageKnown && role === "parent") born = profile.birthYear - 30;
     const species = role === "pet" ? speciesOf(`${pp.relation} ${pp.label}`) : null;
     add({
       since: sinceOf(pp.quoteIds),

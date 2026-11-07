@@ -99,7 +99,7 @@ function initialState(persona: Persona): SessionState {
   };
 }
 
-export async function runSession(llm: LlmPort, persona: Persona, heavy: string, ledger: Ledger, log: (s: string) => void, opts: { smalls?: number } = {}): Promise<SessionResult> {
+export async function runSession(llm: LlmPort, persona: Persona, heavy: string, ledger: Ledger, log: (s: string) => void, opts: { smalls?: number; singleSmalls?: boolean } = {}): Promise<SessionResult> {
   const t0 = Date.now();
   const usages: UsageEvent[] = [];
   const metrics: YearMetric[] = [];
@@ -164,14 +164,23 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
     // framing variety and that small cards respect the life as it stands.
     let smallsLeft = opts.smalls ?? 0;
     const smallSlots = smallsLeft ? engine.planSlots({ ...state, speed: "2x" }).filter((s) => s.kind === "small") : [];
+    // D-089: written in batches of up to 4 (one fast call each), as the session agent does, and
+    // each card bound to its slot against the life then (kit.bindSmall); --single-smalls = one call per card.
+    const batched = !opts.singleSmalls;
     const writeSmalls = async (from: number, to: number) => {
-      for (const sl of smallSlots.filter((s) => s.year >= from && s.year <= to)) {
-        if (smallsLeft <= 0) return;
-        smallsLeft--;
-        const sd = await engine.makeDecision(state, sl);
-        sd.status = "slid";
-        state.decisions.push(sd);
-        log(`     small ${sd.year} (${sd.age}): ${sd.prompt}`);
+      const due = smallSlots.filter((s) => s.year >= from && s.year <= to).slice(0, Math.max(0, smallsLeft));
+      for (let i = 0; i < due.length; i += batched ? 4 : 1) {
+        const group = due.slice(i, i + (batched ? 4 : 1));
+        const cards = batched ? await engine.small.smallBatch(state, group) : [await engine.makeDecision(state, group[0]!)];
+        group.forEach((sl, k) => {
+          smallsLeft--;
+          const card = cards[k];
+          const sd = card && batched ? engine.small.bindSmall(state, card, sl) : card;
+          if (!sd) return;
+          sd.status = "slid";
+          state.decisions.push(sd);
+          log(`     small ${sd.year} (${sd.age}): ${sd.prompt}`);
+        });
       }
     };
     log(`  slots: ${slots.map((s) => `${s.age}(${s.reason.split(":").slice(1, 3).join(":")})`).join(" ")}`);

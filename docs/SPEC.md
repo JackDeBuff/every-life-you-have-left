@@ -46,15 +46,17 @@ The life runs from the user's current age to `endAge` (70, or current age + 15 i
 
 | Speed | Small decisions (whole life) | Big decisions | Pace (target) |
 |---|---|---|---|
-| 1× | ~45 (about 1 a year) | ~20 | ~6 s per year + decisions (a long, deep session) |
+| 1× | ~150 (a conversation: several a year, as fast as you answer) | ~20 | ~6 s per year (12 s while a card is up) + decisions (a long, deep session) |
 | 2× | ~30 (1 every ~1.5 years) | ~10 | ~4 s per year |
 | 4× | ~15 (1 every ~3 years) | ~5 | ~2 s per year |
 | **Auto (judge mode)** | **0** | **5** | ~1.5 s per year. The whole run takes **≤3 min**, decisions included |
 
 - **Small decisions** don't stop time. They slide into the chat and the clock slows to 0.5×. If
   there's no answer within ~12 s (2×) / ~10 s (4×) of idle time (no limit at 1×), the decision
-  fades as "let it slide". One small card at a time; none next to a fork. (Numbers amended Sat
-  Nov 7, see D-081.)
+  fades as "let it slide". One small card at a time; none in a fork's year (at 2×/4× not in the
+  year after it either). At 1× they come one after another, written ahead in batches (D-089) so
+  each appears at once; cards the playhead passes are dropped, never queued up. (Numbers amended
+  Sat Nov 7 twice, see D-081.)
   That is logged, and the life follows its inertia. They are spread across the life and **weighted
   toward the domains the user worries about**. Their job is to learn who the user is, so each one
   should cover a gap in the profile.
@@ -184,8 +186,9 @@ Big-decision rows mark the fork.
     with why, a `SceneSpec`, and the decisions scheduled in it.
   - A buffer of at least 2 years ahead is the target. If generation falls behind, the clock slows,
     and a "life is thinking…" state in the world is acceptable.
-- **Re-tune.** Any answer or settings nudge invalidates the buffered future and regenerates from the
-  current year.
+- **Re-tune.** A big decision or a settings nudge invalidates the buffered future and regenerates
+  from the current year. A small answer never does (D-089): it becomes a quote at once, is folded
+  into the profile in batches, and shapes the next years written.
 - **Content rules** (all carry over): personal over global; worry weighting changes attention, not
   odds; at most 2 world events per life; no repeated catastrophes; no death or serious illness for
   the user, and never a partner's or child's death; a parent's old-age death at most once, gently;

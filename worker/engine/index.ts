@@ -54,9 +54,18 @@ import { nowIso } from "./util";
 import { worldTimeline } from "./world";
 import { chosenPath } from "./money";
 import { decisionIdsIn, writeYears, type WriterEnv, type YearMetric } from "./years";
+import { createSmallKit, type SmallDecisionKit } from "./smalls";
 import { warmupWith, type WarmupPort } from "./warmup";
 
 export type { EngineModels, UsageEvent, YearMetric, WarmupPort };
+export type { SmallDecisionKit, FoldItem, FoldResult, Thread } from "./smalls";
+
+/**
+ * The engine plus D-089's small-decision kit (batched cards, code-side quotes, batched folding).
+ * CONTRACT-REQUEST: add these to shared/engine.ts Engine (optional). Until then the session agent
+ * reads `small` from the engine object (worker/engine-select.ts passes it through).
+ */
+export type EngineWithSmalls = Engine & { small: SmallDecisionKit };
 export { createFetchLlm } from "./llm-port";
 export type { LlmPort } from "./llm-port";
 
@@ -71,6 +80,11 @@ export interface EngineDeps {
   onMetric?: (m: YearMetric) => void;
 }
 
+/** Small answers this many years back still reach the next stretch written (the buffer's depth). */
+const SMALL_LOOKBACK = 5;
+/** ...and at most this many of them (1x answers several a year). */
+const MUST_SHOW_SMALLS = 6;
+
 const endYearOf = (s: SessionState) => s.profile!.birthYear + (s.endAge || s.profile!.endAge);
 
 /** The shared world timeline for a session (deterministic; the same for every life). */
@@ -79,7 +93,7 @@ export function worldFor(state: SessionState) {
   return worldTimeline(p.sessionId, p.startYear, endYearOf(state));
 }
 
-export function createEngine(deps: EngineDeps): Engine {
+export function createEngine(deps: EngineDeps): EngineWithSmalls {
   const models: EngineModels = {
     ...DEFAULT_MODELS,
     ...deps.models,
@@ -109,7 +123,12 @@ export function createEngine(deps: EngineDeps): Engine {
   function mustShowFor(state: SessionState, from: number, to: number): { text: string; focus: string[] } {
     const lines: string[] = [];
     const focus: string[] = [];
-    for (const d of state.decisions.filter((x) => x.year >= from - 1 && x.year <= to && x.status !== "pending")) {
+    // Small answers come in while the buffer is ahead of the playhead and never rewrite it
+    // (D-089): they shape the next stretch written, so look back over the buffer's depth.
+    const inWindow = state.decisions.filter((x) => x.year >= from - (x.kind === "small" ? SMALL_LOOKBACK : 1) && x.year <= to && x.status !== "pending");
+    // A small card shelved by a fork (slid, no answer record) was never seen: nothing to show.
+    const smalls = inWindow.filter((x) => x.kind === "small" && (x.status === "answered" || state.answers.some((a) => a.decisionId === x.id))).slice(-MUST_SHOW_SMALLS);
+    for (const d of inWindow.filter((x) => x.kind === "big" || smalls.includes(x))) {
       const a = state.answers.find((x) => x.decisionId === d.id);
       const opt = a?.optionId ? d.options.find((o) => o.id === a.optionId) : undefined;
       const qid = a?.quoteId ?? d.whyQuoteId ?? state.profile!.quotes[0]?.id;
@@ -123,7 +142,7 @@ export function createEngine(deps: EngineDeps): Engine {
         );
       } else {
         lines.push(
-          `${d.year}: small moment "${d.prompt}" -> ${opt ? `"${opt.label}"` : "their own answer"}${a?.text ? `, "${a.text}"` : ""}. Let it colour this year or the next (texture, or a turning point citing ${qid} if it really turns something).`,
+          `${d.year}: small moment "${d.prompt}" -> ${opt ? `"${opt.label}"` : "their own answer"}${a?.text ? `, "${a.text}"` : ""}. Let it colour the years ahead (texture, or a turning point citing ${qid} if it really turns something).`,
         );
       }
     }
@@ -341,7 +360,7 @@ export function createEngine(deps: EngineDeps): Engine {
       return safetyCheck(call, text);
     },
   };
-  return engine;
+  return Object.assign(engine, { small: createSmallKit(call, today, at) });
 }
 
 /**
