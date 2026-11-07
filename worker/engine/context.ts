@@ -24,6 +24,13 @@ export function personBlock(p: Profile): string {
         .join("; ")}`,
     );
   if (p.constraints.length) lines.push(`Constraints: ${p.constraints.map((c) => c.text).join("; ")}`);
+  const plans = (p.plans ?? []).filter((x) => x.year >= p.startYear);
+  if (plans.length)
+    lines.push(
+      `KNOWN PLANS (they told us; baseline reality in this life: it happens on time unless a decision in this life changed it):\n${plans
+        .map((x) => `- ${x.year}${x.when ? ` (${x.when})` : ""}: ${x.text} [${x.certainty}${x.quoteIds[0] ? `, ${x.quoteIds[0]}` : ""}]`)
+        .join("\n")}`,
+    );
   const m = p.money;
   lines.push(
     `Money: feels ${m.feel}` +

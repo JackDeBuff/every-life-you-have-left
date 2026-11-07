@@ -22,7 +22,8 @@ You read what the person told us (their quotes, verbatim, with ids) and any docu
    - unjudged: what they'd do if nobody judged them.
    If they only gave one line, infer the seeds from it, honestly, and cite the quote anyway.
 9. Never record, guess or use race, ethnicity, religion, sexual orientation, gender, health diagnoses or immigration status (gender comes from the start screen, separately). If they volunteered one, keep only their own framing, as an "other" or "background" fact sourced to their quote.
-10. Facts use keys: occupation, education, location, living, relationship, children, background, health_habits, interests, other. Labels are 1-2 words ("Work", "Home", "Love").`;
+10. Facts use keys: occupation, education, location, living, relationship, children, background, health_habits, interests, other. Labels are 1-2 words ("Work", "Home", "Love").
+11. Plans: every concrete plan they state with a time goes in plans, even in passing ("I'll return to Thailand in early 2027 for a Management Associate program", "we're moving to Denver in June", "the wedding is next spring"). year = the year it happens (resolve "next year" from today's year), when = their finer timing or null, kind = move | job | study | family | money | other, certainty = fixed if it's committed (a contract, a scholarship bond, a signed offer, a booked date), likely if they intend it, hoped if they only wish it. Cite the quote. Keep it in their framing; a plan is not a guess, so never invent one. Also record what it implies elsewhere (a location constraint, a fact). [] if there are none.`;
 
 /** The currency they think in, the fixed rates, and every amount they wrote, converted by code. */
 export function moneyContext(input: Pick<StartInput, "currency" | "country">, text: string): string {
@@ -41,7 +42,7 @@ export function moneyContext(input: Pick<StartInput, "currency" | "country">, te
 export function profilePrompt(input: StartInput, quotes: { id: string; text: string }[], docs: DocInput[], existing: Profile | null): string {
   const parts: string[] = [];
   parts.push(
-    `PERSON: ${input.firstName}, ${input.age}, lives in ${[input.city, input.region, input.country].filter(Boolean).join(", ")}. They answered "What's on your mind lately?" (${input.via}).`,
+    `PERSON: ${input.firstName}, ${input.age}, lives in ${[input.city, input.region, input.country].filter(Boolean).join(", ")}. Today is ${new Date().getUTCFullYear()}. They answered "What's on your mind lately?" (${input.via}).`,
   );
   parts.push(moneyContext(input, [input.line, ...quotes.map((q) => q.text), ...docs.map((d) => d.text)].join("\n")));
   parts.push(`THEIR WORDS (verbatim, cite these ids):\n${quotes.map((q) => `${q.id}: "${q.text}"`).join("\n") || "(none)"}`);
@@ -56,6 +57,7 @@ export function profilePrompt(input: StartInput, quotes: { id: string; text: str
         money: existing.money,
         worries: existing.worries,
         seeds: existing.seeds,
+        plans: (existing.plans ?? []).map(({ text, year, when, kind, certainty, quoteIds }) => ({ text, year, when, kind, certainty, quoteIds })),
       })}`,
     );
   }

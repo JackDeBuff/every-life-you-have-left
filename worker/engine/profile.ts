@@ -5,7 +5,7 @@
 import { currencyForCountry, displayCurrency, fixUnconverted, statedAmounts, type CurrencyCode } from "../../shared/currency";
 import type { DocInput } from "../../shared/engine";
 import { DOMAIN_KEYS } from "../../shared/domains";
-import { endAgeFor, type DomainWeights, type Profile, type Quote } from "../../shared/schema";
+import { endAgeFor, type DomainWeights, type PlannedEvent, type Profile, type Quote } from "../../shared/schema";
 import type { Decision, DecisionAnswer, SessionState, StartInput } from "../../shared/sim";
 import { personBlock, quotesBlock } from "./context";
 import type { Caller } from "./models";
@@ -119,8 +119,17 @@ function applyDraft(base: Profile, draft: ProfileLLM, quotes: Quote[]): Profile 
     worries: Object.fromEntries(DOMAIN_KEYS.map((d) => [d, clamp(w[d] ?? 0.1, 0, 1)])) as DomainWeights,
     seeds: { path: seed(draft.seeds.path), leap: seed(draft.seeds.leap), careful: seed(draft.seeds.careful), unjudged: seed(draft.seeds.unjudged) },
     assumptions: draft.assumptions.slice(0, 8),
+    plans: plansFrom(draft.plans, cite, base.startYear),
     quotes,
   };
+}
+
+/** Dated plans from the model: ids by code, citations to real quotes, years from today on. */
+function plansFrom(drafts: ProfileLLM["plans"], cite: (ids: string[]) => string[], startYear: number, offset = 0): PlannedEvent[] {
+  return drafts
+    .filter((d) => d.text.trim() && Number.isInteger(d.year) && d.year >= startYear && d.year <= startYear + 60)
+    .slice(0, 5)
+    .map((d, i) => ({ id: `pl${offset + i + 1}`, text: truncateWords(d.text.trim(), 16), year: d.year, when: d.when, kind: d.kind, certainty: d.certainty, quoteIds: cite(d.quoteIds) }));
 }
 
 /** Verbatim doc quotes → real quotes; returns them and the ref → id map. */
@@ -196,6 +205,7 @@ export function emptyProfile(input: StartInput, startYear: number, sessionId: st
     },
     quotes,
     assumptions: [{ field: "money.feel", value: "okay", reason: "Not asked yet" }],
+    plans: [],
     knowMeScore: 10,
     updatedAt: at,
   };
@@ -342,6 +352,9 @@ export async function foldAnswer(
           : profile.money,
       };
       next.money = guardMoney(next.money, text, displayCurrency(profile));
+      const had = profile.plans ?? [];
+      const fresh = plansFrom(d.plans, cite, profile.startYear, had.length).filter((x) => !had.some((h) => h.year === x.year && norm(h.text) === norm(x.text)));
+      if (fresh.length) next.plans = [...had, ...fresh].slice(-6);
     }
   } catch {
     /* keep the quote even if the fold failed */

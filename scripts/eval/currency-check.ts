@@ -1,5 +1,6 @@
 /**
- * Currency checks (unit asserts, then an optional live profile extraction).
+ * Currency checks (unit asserts), then an optional live profile extraction that also checks a
+ * dated plan ("return to Bangkok in early 2027") is captured as a planned event.
  *   npx tsx scripts/eval/currency-check.ts          # pure: parsing, conversion, formatting, the guard
  *   npx tsx scripts/eval/currency-check.ts --live   # + Gemini profile extraction for a Thai and a US persona
  * Exits non-zero on any failure. Personas are fictional.
@@ -68,6 +69,8 @@ if (process.argv.includes("--live")) {
     const p: Profile = await engine.startProfile(input, []);
     console.log(`\n${who}: currency ${p.currency} gender ${p.gender ?? "-"} money ${JSON.stringify(p.money)}`);
     check(`${who}: savings converted to ~$${wantSavings}`, near(p.money.savingsUsd, wantSavings, 0.25), String(p.money.savingsUsd));
+    const plans = p.plans ?? [];
+    check(`${who}: the dated 2027 plan is captured`, plans.some((x) => x.year === 2027), plans.map((x) => `${x.year} ${x.when ?? ""} ${x.text} [${x.certainty}]`).join("; "));
   }
 }
 

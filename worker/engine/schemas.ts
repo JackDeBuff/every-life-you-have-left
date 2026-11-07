@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { BASE_RATE_IDS } from "../../shared/baseRates";
-import { DomainKey, DomainStates, DomainWeights, EventCategory, FearKind, MoneyFeel, Tone } from "../../shared/schema";
+import { DomainKey, DomainStates, DomainWeights, EventCategory, FearKind, MoneyFeel, PLAN_KINDS, Tone } from "../../shared/schema";
 import {
   ACTIVITIES, AGE_BANDS, FLAVORS, HOMES, MOMENTS, MOODS, ROLES, SEASONS, SETTINGS_PLACE, SettingType, TIMES, WEATHERS,
 } from "../../shared/sim";
@@ -54,6 +54,14 @@ const MoneyDraft = z.object({
   supportsFamily: z.boolean(),
   assumed: z.boolean().describe("true if any money number was guessed"),
 });
+const PlanDraft = z.object({
+  text: z.string().describe("The plan in their framing, <= 16 words"),
+  year: int().describe("The year it happens (resolve 'next year' from today's year)"),
+  when: z.string().nullable().describe('Finer timing if they said it, e.g. "early 2027"'),
+  kind: z.enum(PLAN_KINDS),
+  certainty: z.enum(["fixed", "likely", "hoped"]),
+  quoteIds: z.array(z.string()),
+});
 const SeedDraft = z.object({ text: z.string().describe("<= 14 words"), quoteIds: z.array(z.string()) });
 
 export const ProfileLLM = z.object({
@@ -69,6 +77,7 @@ export const ProfileLLM = z.object({
   money: MoneyDraft,
   worries: DomainWeights.describe("0..1 per domain; 0.1 default; what they worry about or keep coming back to"),
   seeds: z.object({ path: SeedDraft, leap: SeedDraft, careful: SeedDraft, unjudged: SeedDraft }),
+  plans: z.array(PlanDraft).describe("Concrete plans they stated with a time; [] if none"),
   assumptions: z.array(z.object({ field: z.string(), value: z.string(), reason: z.string() })),
 });
 export type ProfileLLM = z.infer<typeof ProfileLLM>;
@@ -83,6 +92,7 @@ export const AnswerDeltaLLM = z.object({
   values: z.array(ValueDraft),
   constraints: z.array(ConstraintDraft),
   money: MoneyDraft.nullable().describe("Only if the answer changes what we know about money"),
+  plans: z.array(PlanDraft).describe("New dated plans this answer states; [] if none"),
 });
 export type AnswerDeltaLLM = z.infer<typeof AnswerDeltaLLM>;
 

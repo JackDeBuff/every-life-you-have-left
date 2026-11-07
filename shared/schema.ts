@@ -175,6 +175,23 @@ export const Assumption = z.object({
   reason: z.string(),
 });
 
+export const PLAN_KINDS = ["move", "job", "study", "family", "money", "other"] as const;
+/**
+ * A concrete plan they stated, with a date ("I'll return to Bangkok in early 2027 for a Management
+ * Associate program"). Baseline reality for the chosen life: it happens on time unless a decision
+ * in that life changes it. A big decision may still fork around it when it's genuinely uncertain.
+ */
+export const PlannedEvent = z.object({
+  id: z.string().describe('"pl1", "pl2", ...'),
+  text: z.string().describe("In their framing, <= 16 words"),
+  year: int().describe("The year it happens"),
+  when: z.string().nullable().describe('Finer timing if they said it: "early 2027", "June"'),
+  kind: z.enum(PLAN_KINDS),
+  certainty: z.enum(["fixed", "likely", "hoped"]).describe("fixed = committed (a contract, a bond, a booked date); likely = intended; hoped = wished"),
+  quoteIds: ids("quotes"),
+});
+export type PlannedEvent = z.infer<typeof PlannedEvent>;
+
 /**
  * Self-identified gender, picked on the start screen (Appearance.gender). Never inferred from a
  * selfie, a name or anything the user wrote. Not set (null) or "undisclosed" = they/them.
@@ -208,6 +225,7 @@ export const Profile = z.object({
   seeds: Seeds,
   quotes: z.array(Quote),
   assumptions: z.array(Assumption),
+  plans: z.array(PlannedEvent).optional().describe("Dated plans they stated; baseline reality for the chosen life"),
   knowMeScore: score().describe("How well we know the user; >= TWIN_THRESHOLD unlocks the twin chat (D-026)"),
   updatedAt: z.string(),
 });
