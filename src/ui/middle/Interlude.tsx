@@ -29,7 +29,7 @@ export function Interlude({ cuts }: { cuts: InterludeCut[] }) {
     const reduce = reducedMotion();
     const q = gsap.utils.selector(el);
     // Auto keeps the whole run under three minutes: ~8 s here, ~10 s at 1×/2×.
-    const cutDur = speed === "auto" ? 1.45 : 2.2;
+    const cutDur = speed === "auto" ? 1.25 : 2.2;
     const tl = gsap.timeline({ onComplete: finish });
     const blink = (to: number) => {
       if (reduce) {
