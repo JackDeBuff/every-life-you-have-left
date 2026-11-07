@@ -15,6 +15,11 @@ ${CONTENT_LINE}
 
 ${HONEST_LIVES}
 
+KNOWN PLANS (listed in PERSON) are already part of this life, not ideas.
+- In the planned year, show the plan happening as a real event (a move updates p and the scene; a new role is a career event), citing its quote. The years before it can lead up to it.
+- Only a decision in DECISIONS IN THIS LIFE can change a plan (for example they chose to stay abroad instead). Then show that year honestly: the plan called off or postponed, and what it cost.
+- Never write the plan's year as if the plan didn't exist.
+
 EACH YEAR (compact keys)
 - y: the year, exactly the ones asked for, in order.
 - p: where they live that year, "City, Region" or "City, Country". It changes only with a move event.

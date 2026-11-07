@@ -9,7 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
-import { money, ROMAN } from "../ui/format";
+import { CURRENCIES, RATES_AS_OF } from "../../shared/currency";
+import { money, moneyHint, ROMAN, useCurrency } from "../ui/format";
 import { Icon } from "../ui/icons";
 import { MiniRose } from "../ui/left/LifeRose";
 import { Portrait } from "../ui/left/Portrait";
@@ -30,6 +31,7 @@ interface LifeCol {
 
 export default function Ending() {
   const s = useSim((x) => x);
+  const cur = useCurrency();
   const root = useRef<HTMLDivElement>(null);
   const [talkLife, setTalkLife] = useState("chosen");
   const talkRef = useRef<HTMLElement>(null);
@@ -123,7 +125,7 @@ export default function Ending() {
                 </div>
                 <div>
                   <dt className="label">Net worth</dt>
-                  <dd className="data">{money(l.last.money.netWorth)}</dd>
+                  <dd className="data" title={moneyHint(l.last.money.netWorth, cur)}>{money(l.last.money.netWorth, cur)}</dd>
                 </div>
               </dl>
             )}
@@ -139,7 +141,7 @@ export default function Ending() {
             </button>
           </article>
         ))}
-        <p className="lives-note small faint">Side by side, not ranked. Money is a projection in today's dollars, not a prediction.</p>
+        <p className="lives-note small faint">Side by side, not ranked. Money is a projection in today's {CURRENCIES[cur].noun}, not a prediction{cur === "USD" ? "" : ` ($1 = ${CURRENCIES[cur].symbol}${CURRENCIES[cur].perUsd}, ${RATES_AS_OF})`}.</p>
       </section>
 
       <section className="end-sec post-sec">

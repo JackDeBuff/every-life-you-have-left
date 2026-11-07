@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import { BASE_RATE_IDS } from "./baseRates";
+import { CURRENCY_CODES } from "./currency";
 import { DOMAIN_KEYS } from "./domains";
 import { LIFE_KEYS } from "./lives";
 
@@ -174,13 +175,42 @@ export const Assumption = z.object({
   reason: z.string(),
 });
 
+export const PLAN_KINDS = ["move", "job", "study", "family", "money", "other"] as const;
+/**
+ * A concrete plan they stated, with a date ("I'll return to Bangkok in early 2027 for a Management
+ * Associate program"). Baseline reality for the chosen life: it happens on time unless a decision
+ * in that life changes it. A big decision may still fork around it when it's genuinely uncertain.
+ */
+export const PlannedEvent = z.object({
+  id: z.string().describe('"pl1", "pl2", ...'),
+  text: z.string().describe("In their framing, <= 16 words"),
+  year: int().describe("The year it happens"),
+  when: z.string().nullable().describe('Finer timing if they said it: "early 2027", "June"'),
+  kind: z.enum(PLAN_KINDS),
+  certainty: z.enum(["fixed", "likely", "hoped"]).describe("fixed = committed (a contract, a bond, a booked date); likely = intended; hoped = wished"),
+  quoteIds: ids("quotes"),
+});
+export type PlannedEvent = z.infer<typeof PlannedEvent>;
+
+/**
+ * Self-identified gender, picked on the start screen (Appearance.gender). Never inferred from a
+ * selfie, a name or anything the user wrote. Not set (null) or "undisclosed" = they/them.
+ */
+export const GENDERS = ["woman", "man", "nonbinary", "undisclosed"] as const;
+export const Gender = z.enum(GENDERS);
+export type Gender = z.infer<typeof Gender>;
+export const pronounsFor = (g: Gender | null | undefined): "she/her" | "he/him" | "they/them" =>
+  g === "woman" ? "she/her" : g === "man" ? "he/him" : "they/them";
+
 export const Profile = z.object({
   sessionId: z.string(),
   profileVersion: int().describe("Bumps on every answer or pause; lives record which version they used"),
   firstName: z.string().nullable(),
+  gender: Gender.nullable().optional().describe("Code-owned copy of Appearance.gender from the start screen; models never set it"),
   age: int().min(18).max(110),
   birthYear: int(),
   country: z.string().describe("ISO 3166-1 alpha-2, e.g. US. Base rates are US (approximate elsewhere)."),
+  currency: z.enum(CURRENCY_CODES).optional().describe("Code-owned display currency (their pick, else the country's). Every number stays USD; the UI converts"),
   region: z.string().nullable().describe('State/province, e.g. "NC"'),
   city: z.string().nullable(),
   startYear: int().describe("The year the lives start (today)"),
@@ -195,6 +225,7 @@ export const Profile = z.object({
   seeds: Seeds,
   quotes: z.array(Quote),
   assumptions: z.array(Assumption),
+  plans: z.array(PlannedEvent).optional().describe("Dated plans they stated; baseline reality for the chosen life"),
   knowMeScore: score().describe("How well we know the user; >= TWIN_THRESHOLD unlocks the twin chat (D-026)"),
   updatedAt: z.string(),
 });
@@ -207,6 +238,8 @@ export type Profile = z.infer<typeof Profile>;
 export const ProfileDraft = Profile.omit({
   sessionId: true,
   profileVersion: true,
+  gender: true,
+  currency: true,
   startYear: true,
   endAge: true,
   quotes: true,

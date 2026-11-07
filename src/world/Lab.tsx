@@ -194,7 +194,7 @@ export default function Lab() {
           <legend>Appearance (self)</legend>
           <label className="wl-field">
             <span>use</span>
-            <input type="checkbox" checked={!!appearance} onChange={(e) => setAppearance(e.target.checked ? { hairStyle: "curly", hairColor: "dark_brown", skinTone: "tone4", glasses: false, facialHair: false } : null)} />
+            <input type="checkbox" checked={!!appearance} onChange={(e) => setAppearance(e.target.checked ? { hairStyle: "curly", hairColor: "dark_brown", skinTone: "tone4", glasses: false, facialHair: false, gender: null } : null)} />
           </label>
           {appearance && (
             <>
@@ -206,6 +206,9 @@ export default function Lab() {
               </label>
               <label className="wl-field"><span>skinTone</span>
                 <select value={appearance.skinTone ?? ""} onChange={(e) => setAppearance({ ...appearance, skinTone: e.target.value as never })}>{SKINS.map((h) => <option key={h}>{h}</option>)}</select>
+              </label>
+              <label className="wl-field"><span>gender</span>
+                <select value={appearance.gender ?? ""} onChange={(e) => setAppearance({ ...appearance, gender: (e.target.value || null) as never })}>{["", "woman", "man", "nonbinary", "undisclosed"].map((h) => <option key={h} value={h}>{h || "not set"}</option>)}</select>
               </label>
             </>
           )}

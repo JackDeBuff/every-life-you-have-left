@@ -93,7 +93,7 @@ async function main() {
   const input: StartInput = {
     firstName: "Sam", age: 27, city: "Durham", region: "NC", country: "US",
     line: "I keep thinking about moving to Lisbon, but my mom is here and money is tight.",
-    via: "text", speed, appearance: null, hasSelfie: false,
+    via: "text", speed, appearance: null, hasSelfie: false, currency: null,
   };
   await call("start", input);
   log("start() sent");

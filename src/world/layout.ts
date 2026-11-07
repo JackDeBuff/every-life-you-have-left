@@ -771,8 +771,21 @@ const AGE: Record<AgeBand, { scale: number; stoop: number; grey: number }> = {
   senior: { scale: 0.96, stoop: 1, grey: 0.85 },
 };
 
+/** The self's figure: the user's own gender (if they gave one) picks the clothing silhouette, the hair style picks within it. */
 function selfModel(app: Appearance | null): PersonModel {
-  switch (app?.hairStyle) {
+  const hair = app?.hairStyle ?? null;
+  if (app?.gender === "woman") {
+    if (hair === "long" || hair === "bun") return "Casual_Female";
+    if (hair === "curly" || hair === "coily") return "Casual2_Female";
+    return "Casual3_Female";
+  }
+  if (app?.gender === "man") {
+    if (hair === "shaved") return "Casual_Bald";
+    if (hair === "curly" || hair === "coily" || hair === "long" || hair === "bun") return "Casual_Male";
+    if (hair === "short") return "Casual2_Male";
+    return "Casual3_Male";
+  }
+  switch (hair) {
     case "long":
     case "bun":
       return "Casual_Female";

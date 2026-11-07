@@ -30,15 +30,15 @@ const TIMEOUT_MS = Number(flag("timeout", "420000"));
 
 const PERSONAS: Record<string, StartInput> = {
   alex: {
-    firstName: "Alex", age: 25, city: "Durham", region: "NC", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false,
+    firstName: "Alex", age: 25, city: "Durham", region: "NC", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: "USD",
     line: "I'm a data analyst at a regional bank. Singapore offered me a transfer and I haven't answered. Money scares me, I still have $28k in loans. If nobody judged me, I'd paint for a living.",
   },
   maya: {
-    firstName: "Maya", age: 31, city: "Columbus", region: "OH", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false,
+    firstName: "Maya", age: 31, city: "Columbus", region: "OH", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: "USD",
     line: "I'm an ER nurse and I'm tired. A friend wants me to co-found a home-care startup with her. My husband wants a second kid. I'm scared of losing the pension.",
   },
   dev: {
-    firstName: "Dev", age: 28, city: "Austin", region: "TX", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false,
+    firstName: "Dev", age: 28, city: "Austin", region: "TX", country: "US", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: "USD",
     line: "I'm a software engineer up for a manager role. Part of me wants to quit and build furniture. My dad is getting older back in Ohio.",
   },
 };
