@@ -170,6 +170,7 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 .crisis b { font-weight: 650; }
 .crisis a { color: inherit; font-weight: 600; }
+.crisis a.btn { color: var(--b-fg); }
 .crisis .icon { margin-top: 2px; }
 .crisis .actions { display: flex; gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap; }
 .crisis .btn { --b-bg: var(--calm-ink); --b-fg: var(--calm); height: 30px; font-size: 13px; }

@@ -22,7 +22,7 @@
  *   endAge  → step branches to the end, ending(), phase ended.
  */
 import { Agent, callable, type Connection, type ConnectionContext } from "agents";
-import type { DecisionSlot, DocInput, Engine, Ending } from "../../shared/engine";
+import type { DecisionSlot, DocInput, Engine, Ending, SafetyResult } from "../../shared/engine";
 import { endAgeFor } from "../../shared/schema";
 import {
   SPEED_CONFIG,
@@ -53,6 +53,7 @@ const BRANCH_STEP = 5; // hidden branches advance coarsely in 5-year steps
 // finish (and after the fork moment); this only resumes a session whose client went away.
 const INTERLUDE_S = 30;
 const FLUSH_MS = 50; // patch coalescing
+const HEDGE_MS = 9000; // no year streamed after this long → the fast writer races the stretch
 const PERSIST_MS = 1000; // setState debounce
 const AGENT_LOG_KINDS = new Set(["decision", "nudge", "fork", "interlude", "slid"]);
 
@@ -252,7 +253,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     }
     this.bg("start", async () => {
       try {
-        const safety = parsed.line.trim() ? await engine.safety(parsed.line) : null;
+        const safety = parsed.line.trim() ? await this.screen(engine, parsed.line, `Asked "What's on your mind lately?"`) : null;
         if (safety?.flagged) this.update({ safety });
         const profile = this.withId(await engine.startProfile(parsed, this.pendingDocs));
         this.pendingDocs = [];
@@ -333,7 +334,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       let folded: Awaited<ReturnType<Engine["applyAnswer"]>>;
       let safety: Awaited<ReturnType<Engine["safety"]>> | null;
       try {
-        [safety, folded] = await Promise.all([rec.text ? engine.safety(rec.text) : Promise.resolve(null), engine.applyAnswer(this.s, answered, rec)]);
+        [safety, folded] = await Promise.all([rec.text ? this.screen(engine, rec.text, `Answering the question "${d.prompt}"`) : Promise.resolve(null), engine.applyAnswer(this.s, answered, rec)]);
       } finally {
         if (this.holdGen) {
           this.holdGen = false;
@@ -478,7 +479,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const msg = String(text ?? "").trim().slice(0, 4000);
     if (!msg) return;
     const engine = await this.eng();
-    const safety = await engine.safety(msg);
+    const safety = await this.screen(engine, msg, life === "interviewer" ? "Telling a life-planning guide about themselves" : `Writing to an imagined version of themselves at ${age}`);
     if (safety.flagged) this.update({ safety });
     const history = this.s.chat.filter((m) => m.life === life && m.done).slice(-20).map((m) => ({ role: m.role, text: m.text }));
     const user: ChatMessage = { id: `m-${crypto.randomUUID().slice(0, 8)}`, life, age, role: "user", text: msg, done: true, at: nowIso() };
@@ -600,6 +601,18 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     });
   }
 
+  /**
+   * Safety screen with a second look. The fast classifier reads an answer like "I'd do it, but
+   * only if…" as self-harm when it can't see the question; a flag stands only if it also holds
+   * with the context. Real signals flag both ways (and the engine's regex runs on both).
+   */
+  private async screen(engine: Engine, text: string, context: string): Promise<SafetyResult> {
+    const first = await engine.safety(text);
+    if (!first.flagged) return first;
+    const second = await engine.safety(`${context}, they wrote: "${text}"`);
+    return second.flagged ? second : { flagged: false, kind: null };
+  }
+
   /** The engine seeds the world timeline from profile.sessionId: always the real one. */
   private withId(p: Profile): Profile {
     return p.sessionId === this.name ? p : { ...p, sessionId: this.name };
@@ -665,19 +678,31 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const epoch = this.epoch;
     this.genRunning = epoch;
     this.bg("generate", async () => {
-      const engine = await this.eng();
-      try {
-        await engine.generateYears(this.s, from, count, (y: SimYear) => {
-          if (epoch !== this.epoch) return;
-          this.update((st) => {
-            if (st.years.some((x) => x.year === y.year) || y.year <= (st.years.at(-1)?.year ?? -Infinity)) {
-              const years = st.years.map((x) => (x.year === y.year ? y : x));
-              return { years };
-            }
-            return { years: [...st.years, y], bufferedTo: y.year };
-          });
-          this.catchUpLog();
+      const { engine, backup } = await this.engInfo();
+      let got = 0;
+      // A year is accepted once, when it continues the buffer: with the hedge racing, the first
+      // version of a year wins (and the per-call mock fallback can't overwrite a real year).
+      const accept = (y: SimYear) => {
+        if (epoch !== this.epoch) return;
+        got++;
+        this.update((st) => {
+          if (st.years.some((x) => x.year === y.year)) return {};
+          const last = st.years.at(-1)?.year ?? this.startYear - 1;
+          if (y.year !== last + 1) return {};
+          return { years: [...st.years, y], bufferedTo: y.year };
         });
+        this.catchUpLog();
+      };
+      // Hedge the slow-first-token tail (25-60 s stalls on the heavy model): if nothing has
+      // streamed after HEDGE_MS, a fast writer races the same stretch; first version wins.
+      const hedge =
+        backup &&
+        setTimeout(() => {
+          if (got || epoch !== this.epoch) return;
+          void backup.generateYears(this.s, from, count, accept).catch((e) => console.error("hedge generateYears failed", e instanceof Error ? e.name : "error"));
+        }, HEDGE_MS);
+      try {
+        await engine.generateYears(this.s, from, count, accept);
         this.genFailures = 0;
       } catch (e) {
         this.genFailures++;
@@ -686,6 +711,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         if (this.genFailures > 3) return;
         await new Promise((r) => setTimeout(r, 1500 * this.genFailures));
       } finally {
+        if (hedge) clearTimeout(hedge);
         if (this.genRunning === epoch) this.genRunning = null;
       }
       if (epoch === this.epoch) {

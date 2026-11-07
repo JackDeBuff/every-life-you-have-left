@@ -33,6 +33,8 @@ export interface LoadedEngine {
   reason: string;
   /** Code-only profile from the start screen (real engine only), for the first card in parallel. */
   provisional?: (input: StartInput) => Profile;
+  /** Real engine only: the same engine with the fast model writing every year, to race stalls. */
+  backup?: Engine;
 }
 
 const REAL = import.meta.glob<EngineModule>("./engine/index.ts");
@@ -51,16 +53,26 @@ export async function loadEngine(env: Env): Promise<LoadedEngine> {
   if (!load) return { engine: createMockEngine(), kind: "mock", reason: "engine_missing" };
   try {
     const mod = await load();
+    const llm =
+      typeof mod.createFetchLlm === "function"
+        ? mod.createFetchLlm({ apiKey: env.GCP_API_KEY, project: env.GCP_PROJECT, location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global" })
+        : null;
+    type Create = (d: { llm: unknown; models?: Record<string, unknown> }) => Engine;
     const made =
-      typeof mod.createEngine === "function" && typeof mod.createFetchLlm === "function"
-        ? (mod.createEngine as (d: { llm: unknown }) => Engine)({
-            llm: mod.createFetchLlm({ apiKey: env.GCP_API_KEY, project: env.GCP_PROJECT, location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global" }),
-          })
+      typeof mod.createEngine === "function" && llm
+        ? (mod.createEngine as Create)({ llm })
       : typeof mod.createEngine === "function" ? (mod.createEngine as (env: Env) => Engine)(env)
       : isEngine(mod.engine) ? mod.engine
       : typeof mod.default === "function" ? (mod.default as (env: Env) => Engine)(env)
       : mod.default;
-    if (isEngine(made)) return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile };
+    // The hedge writer: every year on the fast model (no heavy lead after forks). No mock fallback:
+    // if it fails, the primary simply keeps going.
+    const FAST = env.MODEL_FAST || "gemini-3.5-flash-lite";
+    const backup =
+      typeof mod.createEngine === "function" && llm
+        ? (mod.createEngine as Create)({ llm, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
+        : undefined;
+    if (isEngine(made)) return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile, backup: isEngine(backup) ? backup : undefined };
     return { engine: createMockEngine(), kind: "mock", reason: "engine_bad_export" };
   } catch (e) {
     console.error("engine load failed", e instanceof Error ? e.name : "error");

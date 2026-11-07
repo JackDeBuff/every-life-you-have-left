@@ -37,6 +37,7 @@ export function LiveSettings({ collapsed }: { collapsed: boolean }) {
         <Icon name={show ? "caretUp" : "caretDown"} size={13} />
       </button>
       <div className="settings-body" ref={body}>
+        {!settings.length && <p className="settings-empty small faint">Writing a few controls from what you told me…</p>}
         {settings.map((s) => (
           <SettingRow key={s.id} s={s} nextAge={age + 1} />
         ))}
