@@ -560,17 +560,33 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
   private updateBudgets(): void {
-    const left = this.slots.filter((sl) => !this.materialized(sl));
+    const ph = this.s.playhead.year;
+    const left = this.slots.filter((sl) => !this.materialized(sl) && sl.year >= ph);
     this.update({
       budgets: { smallLeft: left.filter((x) => x.kind === "small").length, bigLeft: left.filter((x) => x.kind === "big").length },
     });
   }
 
-  /** Create decisions shortly before the playhead reaches them (serialized). */
+  /**
+   * Create decisions shortly before the playhead reaches them (serialized). At most ONE small
+   * decision exists at a time (pending or being written): the next one is written only after it is
+   * answered or slides, and small slots the playhead passes meanwhile are dropped, so cards never
+   * queue up (owner, Sat Nov 7: a backlog slid in bursts). No small card next to an open fork.
+   */
   private ensureDecisions(): void {
     const s = this.s;
     if (!s.profile || s.phase === "ended") return;
     const ph = s.playhead.year;
+    let smallBusy =
+      s.decisions.some((d) => d.kind === "small" && d.status === "pending") || [...this.making].some((k) => k.startsWith("small-"));
+    // The next fork that isn't answered yet (pending, or its slot not written yet).
+    const openFork = Math.min(
+      ...s.decisions.filter((d) => d.kind === "big" && d.status === "pending").map((d) => d.year),
+      ...this.slots.filter((sl) => sl.kind === "big" && sl.year >= ph && !this.materialized(sl)).map((sl) => sl.year),
+      Infinity,
+    );
+    // ...and the fork just answered: its consequence year plays without a small card.
+    const lastFork = Math.max(...s.decisions.filter((d) => d.kind === "big" && d.status === "answered").map((d) => d.year), -Infinity);
     const byKindYear = new Map<string, number>();
     for (const sl of this.slots) {
       const k = `${sl.kind}-${sl.year}`;
@@ -580,6 +596,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       if (sl.year < ph) continue; // passed while we were busy: skip it
       const key = this.slotKey(sl, idx);
       if (this.making.has(key) || this.materialized(sl)) continue;
+      if (sl.kind === "small") {
+        if (smallBusy || openFork <= sl.year + 1 || sl.year <= lastFork) continue;
+        smallBusy = true;
+      }
       this.queueDecision(sl, key);
     }
   }

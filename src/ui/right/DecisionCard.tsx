@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { SPEED_CONFIG, type Decision } from "../../../shared/sim";
+import { rightPaneBusy } from "../activity";
 import { clock } from "../clock";
 import { HoldToTalk } from "../HoldToTalk";
 import { Icon } from "../icons";
@@ -45,31 +46,40 @@ export function DecisionCard({ d }: { d: Decision }) {
     };
   }, [big]);
 
-  // "Let it slide": a hairline drains over the timeout at 2×/4×. Engaging stops it.
-  const drainTw = useRef<gsap.core.Tween | null>(null);
-  // The countdown only runs while life is playing (not during an interlude or a fork).
-  const running = useSim((s) => s.phase === "playing" && !s.playhead.paused);
-  useEffect(() => {
-    drainTw.current?.paused(!running);
-  }, [running]);
+  // "Let it slide" (2×/4× only; 1× waits forever): a hairline drains over the timeout. It counts
+  // only while life is playing, the card is on screen and the user is idle: any scroll, pointer,
+  // key or focus in the right pane, an open dropdown, or the pointer resting on the card holds
+  // it, and it resumes ~4 s after the last one. Choosing or typing stops it for good.
   useEffect(() => {
     if (!timeout || engaged || busy) return;
-    const p = { v: 1 };
+    const el = card.current;
+    let remaining = timeout;
+    let shown = timeout;
+    let lastT = performance.now();
+    let onScreen = true;
+    let raf = 0;
     setLeft(timeout);
-    const tw = (drainTw.current = gsap.to(p, {
-      v: 0,
-      duration: timeout,
-      ease: "none",
-      onUpdate: () => {
-        if (drain.current) drain.current.style.transform = `scaleX(${p.v})`;
-        setLeft(Math.ceil(p.v * timeout));
-      },
-      onComplete: () => void slide(),
-      paused: sim().phase !== "playing" || sim().playhead.paused,
-    }));
+    const io = el && typeof IntersectionObserver !== "undefined" ? new IntersectionObserver((e) => (onScreen = e[0]?.isIntersecting ?? true), { threshold: 0.5 }) : null;
+    if (el && io) io.observe(el);
+    const step = () => {
+      const now = performance.now();
+      const dt = Math.min(0.25, (now - lastT) / 1000);
+      lastT = now;
+      const s = sim();
+      const counting = s.phase === "playing" && !s.playhead.paused && !document.hidden && onScreen && !rightPaneBusy(el);
+      if (counting) remaining = Math.max(0, remaining - dt);
+      if (drain.current) drain.current.style.transform = `scaleX(${remaining / timeout})`;
+      if (Math.ceil(remaining) !== shown) setLeft((shown = Math.ceil(remaining)));
+      if (remaining <= 0) {
+        void slide();
+        return;
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
     return () => {
-      tw.kill();
-      drainTw.current = null;
+      cancelAnimationFrame(raf);
+      io?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeout, engaged, busy]);
