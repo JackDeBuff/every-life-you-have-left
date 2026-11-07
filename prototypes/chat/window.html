@@ -1,0 +1,974 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Window</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Prototype of The Window: a chat where four future selves develop like photographs as you talk.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a framed window high on a quiet wall (four poster plates that develop as Alex talks), the conversation set low like subtitles, a museum label on the sill. */
+:root{
+  --wall:#E2E4DF; --paper:#F1F2EE; --mat:#D6D9D3;
+  --ink:#141618; --ink-2:#464B48; --ink-3:#737975; --hair:rgba(20,22,24,.17);
+  --path:#24493B; --path-on:#E9EEE8; --path-art:#3C6B56; --path-t:#24493B;
+  --leap:#D99B2B; --leap-on:#1B1711; --leap-art:#F1C468; --leap-t:#875807;
+  --careful:#33435A; --careful-on:#E6EAF0; --careful-art:#4D6283; --careful-t:#33435A;
+  --unjudged:#A13A4D; --unjudged-on:#F7ECEE; --unjudged-art:#C65B6E; --unjudged-t:#97314A;
+  --f-display:"Big Shoulders Display","Big Shoulders","Oswald","Arial Narrow",sans-serif;
+  --f-serif:"Newsreader","Iowan Old Style","Georgia",serif;
+  --f-sans:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+  --ease:cubic-bezier(.65,0,.2,1);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --wall:#161817; --paper:#1F2221; --mat:#232625;
+  --ink:#E6E8E3; --ink-2:#AEB3AE; --ink-3:#80857F; --hair:rgba(230,232,227,.16);
+  --path:#2A5545; --path-on:#E9EEE8; --path-art:#3F7661; --path-t:#8FC4AA;
+  --leap:#D6A03A; --leap-on:#1B1711; --leap-art:#EDC266; --leap-t:#E5B65C;
+  --careful:#3A4C68; --careful-on:#E6EAF0; --careful-art:#566F98; --careful-t:#A6B8D7;
+  --unjudged:#A84256; --unjudged-on:#F7ECEE; --unjudged-art:#C9687B; --unjudged-t:#E88D9D;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --wall:#161817; --paper:#1F2221; --mat:#232625;
+  --ink:#E6E8E3; --ink-2:#AEB3AE; --ink-3:#80857F; --hair:rgba(230,232,227,.16);
+  --path:#2A5545; --path-on:#E9EEE8; --path-art:#3F7661; --path-t:#8FC4AA;
+  --leap:#D6A03A; --leap-on:#1B1711; --leap-art:#EDC266; --leap-t:#E5B65C;
+  --careful:#3A4C68; --careful-on:#E6EAF0; --careful-art:#566F98; --careful-t:#A6B8D7;
+  --unjudged:#A84256; --unjudged-on:#F7ECEE; --unjudged-art:#C9687B; --unjudged-t:#E88D9D;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--wall);color:var(--ink);font-family:var(--f-sans);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.cap{font-family:var(--f-sans);font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase}
+.num,.tab{font-variant-numeric:tabular-nums}
+.instant *,.instant *::before,.instant *::after{transition:none!important;animation-duration:0s!important;animation-delay:0s!important}
+
+/* ---------- frame of the app ---------- */
+.app{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr);max-width:1260px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 0}
+.bar{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding-block:4px 10px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand b{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.brand span{color:var(--ink-3)}
+.ctrl{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+.ctrl button{background:none;border:0;padding:4px 0;font-size:13px;font-weight:500;color:var(--ink-2);border-bottom:1px solid transparent}
+.ctrl button:hover{color:var(--ink);border-bottom-color:var(--hair)}
+.ctrl .play{color:var(--ink);font-weight:600;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--ink);padding:5px 12px 5px 10px;border-radius:2px}
+.ctrl .play svg{width:11px;height:11px}
+.ctrl .play:hover{background:var(--ink);color:var(--wall)}
+.skip{display:flex;align-items:baseline;gap:12px}
+.skip .cap{color:var(--ink-3)}
+.skip button[aria-current="step"]{color:var(--ink);border-bottom-color:var(--ink)}
+.skipsel{display:none;background:none;border:1px solid var(--hair);padding:4px 6px;font-size:13px;border-radius:2px}
+.proto{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:30;color:var(--ink-3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;pointer-events:none}
+
+/* ---------- the window ---------- */
+.window{position:relative;border:1px solid var(--ink);padding:8px;background:var(--mat)}
+.window::after{content:"";position:absolute;inset:7px;border:1px solid var(--hair);pointer-events:none}
+.win-head{display:flex;justify-content:space-between;gap:12px;padding:4px 6px 9px;color:var(--ink-2)}
+.win-head .cap:last-child{color:var(--ink-3);text-align:right}
+.stage{position:relative;height:clamp(300px,50vh,540px)}
+.posters{position:absolute;inset:0;display:flex;gap:10px}
+.empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);transition:opacity .8s}
+.empty p{font-family:var(--f-serif);font-style:italic;font-size:17px;max-width:30ch;text-align:center;margin:0}
+.stage.has-life .empty{opacity:0}
+.sill{display:flex;gap:18px;align-items:baseline;padding:10px 2px 2px;min-height:38px}
+.sill .cap{color:var(--ink);white-space:nowrap}
+.sill p{margin:0;font-size:12.5px;color:var(--ink-2);max-width:80ch}
+.sill p q{font-family:var(--f-serif);font-style:italic;font-size:13.5px;color:var(--ink)}
+.pager{display:none}
+
+/* ---------- posters ---------- */
+.poster{position:relative;flex:1 1 0px;min-width:0;--exp:0;opacity:0;transition:flex .95s var(--ease),opacity 1.4s ease;container-type:size;color:var(--pfg);cursor:default}
+.poster.on{opacity:1}
+.field{position:absolute;inset:0;background:var(--pbg);overflow:hidden;
+  filter:grayscale(calc(1 - var(--exp))) blur(calc((1 - var(--exp)) * 14px)) contrast(calc(.62 + var(--exp) * .38));
+  opacity:calc(.72 + var(--exp) * .28);transition:filter 1.7s ease,opacity 1.7s ease}
+.art{position:absolute;left:0;top:0;width:100%;height:62%;display:block}
+.art *{fill:var(--part)}
+.art .ln2{fill:none;stroke:var(--part);stroke-width:.8}
+.poster.is-card .art{animation:drift 26s ease-in-out infinite alternate}
+.poster.frozen .art{animation-play-state:paused}
+.poster.frozen .field{filter:grayscale(.85) contrast(.85)!important}
+@keyframes drift{from{transform:scale(1) translate(0,0)}to{transform:scale(1.08) translate(-2%,1.5%)}}
+
+.ph{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:12px 13px 13px;overflow:hidden;transition:opacity .5s ease .7s}
+.poster.is-strip .ph,.poster.is-card .ph{transition-delay:0s}
+.p-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.p-top .no{font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;opacity:.75}
+.f-name{font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;text-align:right}
+.p-body{display:flex;flex-direction:column;gap:7px}
+.f{transition:filter 1.1s ease,opacity 1.1s ease;position:relative}
+.f:not(.known){filter:blur(6px);opacity:.22;pointer-events:none}
+.f.known[data-q]{cursor:help}
+.f.known[data-q]:hover,.f.known[data-q]:focus-visible,.f.lit{outline:none}
+.f.known[data-q]::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:1px;background:currentColor;opacity:0;transform:scaleX(.2);transform-origin:left;transition:opacity .3s,transform .5s var(--ease)}
+.f.known[data-q]:hover::after,.f.known[data-q]:focus-visible::after,.f.lit::after{opacity:.85;transform:scaleX(1)}
+.f-year{display:flex;gap:10px}
+.f-year .cap{opacity:.8}
+.f-place{font-family:var(--f-display);font-weight:700;text-transform:uppercase;font-size:clamp(22px,11.5cqw,40px);line-height:.88;letter-spacing:.005em;text-wrap:balance}
+.p-pair{display:grid;gap:5px}
+.f-role,.f-people{display:grid;grid-template-columns:40px 1fr;gap:6px;font-size:12.5px;line-height:1.3;align-items:baseline}
+.f-role .cap,.f-people .cap{font-size:8.5px;opacity:.7}
+.f-money{display:grid;grid-template-columns:auto 1fr;align-items:end;column-gap:8px;padding-top:2px}
+.f-money .num{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,15cqw,50px);line-height:.85;letter-spacing:-.005em}
+.f-money .cap{font-size:8.5px;opacity:.75;line-height:1.25;padding-bottom:3px}
+.f-money .was{grid-column:1/-1;font-size:11px;opacity:.7;text-decoration:line-through;min-height:0}
+.f-money .was:empty{display:none}
+.spark{grid-column:1/-1;width:100%;height:20px;display:block;margin-top:5px;overflow:visible}
+.spark .z,.spk .z{stroke:currentColor;stroke-width:1;stroke-dasharray:2 3;opacity:.4;vector-effect:non-scaling-stroke}
+.spark .l,.spk .l{fill:none;stroke:currentColor;stroke-width:1.4;vector-effect:non-scaling-stroke}
+.spark .t,.spk .t{stroke:currentColor;stroke-width:1;vector-effect:non-scaling-stroke}
+.spark .a,.spk .a{fill:currentColor;opacity:.12}
+.f-line{font-family:var(--f-serif);font-style:italic;font-size:13.5px;line-height:1.3;text-wrap:pretty}
+.delta{border-top:1px solid currentColor;padding-top:7px;display:grid;gap:5px;font-size:11.5px;line-height:1.3}
+.delta .cap{font-size:8.5px;opacity:.8}
+.delta s{opacity:.62}
+.delta .yr{font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.03em;margin-right:4px}
+.delta .ar{opacity:.7;padding-inline:3px}
+.poster.has-delta .f-people,.poster.has-delta .f-line{display:none}
+@container (max-height:380px){.f-role,.f-people{font-size:11.5px}.f-line{font-size:12.5px}.p-body{gap:5px}.art{height:48%}}
+@container (max-height:330px){.f-people{display:none}}
+
+/* strip state */
+.strip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s}
+.strip span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
+.poster.is-strip{flex:0 0 34px}
+.poster.is-strip .ph,.poster.is-strip .card{opacity:0;pointer-events:none}
+.poster.is-strip .strip{opacity:1;transition-delay:.5s}
+
+/* title card state */
+.card{position:absolute;inset:0;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .7s .35s;display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(18px,3vw,48px);padding:clamp(16px,2.4vw,34px);align-items:end}
+.poster.is-card .ph{opacity:0;pointer-events:none}
+.poster.is-card .card{opacity:1;pointer-events:auto}
+.tc-age{display:flex;flex-direction:column;gap:4px;align-self:end}
+.tc-age b{font-family:var(--f-display);font-weight:800;font-size:clamp(120px,24cqh,270px);line-height:.78;letter-spacing:-.02em}
+.tc-main{display:grid;gap:12px;min-width:0;align-content:end}
+.tc-kicker{display:flex;gap:14px;flex-wrap:wrap;opacity:.85}
+.tc-place{font-family:var(--f-display);font-weight:700;text-transform:uppercase;font-size:clamp(40px,7.4cqw,104px);line-height:.85;margin:0;text-wrap:balance}
+.tc-line{font-family:var(--f-serif);font-size:clamp(17px,2cqw,24px);line-height:1.3;max-width:40ch;margin:0;font-style:italic}
+.tc-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 20px;margin:4px 0 0;border-top:1px solid currentColor;padding-top:10px}
+.tc-facts .f{display:grid;gap:3px;font-size:13px;line-height:1.3}
+.tc-facts .cap{font-size:8.5px;opacity:.75}
+.tc-facts .big{font-family:var(--f-display);font-weight:800;font-size:28px;line-height:.9}
+.tc-spark{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:9px;opacity:.9}
+.tc-spark svg{height:30px;width:100%}
+
+/* freeze */
+.freeze{position:absolute;inset:0;display:grid;align-content:center;justify-items:start;gap:14px;padding:clamp(18px,4vw,64px);
+  background:color-mix(in srgb,var(--wall) 84%,transparent);opacity:0;pointer-events:none;transition:opacity .8s ease}
+.freeze.on{opacity:1;pointer-events:auto}
+.freeze .cap{color:var(--ink-2)}
+.freeze .fq{font-family:var(--f-serif);font-size:clamp(22px,3vw,38px);line-height:1.18;max-width:28ch;margin:0;color:var(--life-t,var(--ink));text-wrap:balance}
+.freeze .fs{font-size:13px;color:var(--ink-2);margin:0}
+
+/* ending */
+.ending{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,1fr);gap:12px;opacity:0;pointer-events:none;transition:opacity 1s ease}
+.ending.on{opacity:1;pointer-events:auto}
+.stage.at-end .posters{opacity:0;transition:opacity .9s;pointer-events:none}
+.postcard{background:var(--paper);border:1px solid var(--ink);display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0}
+.plates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:10px 10px 0;min-height:0}
+.plate{position:relative;background:var(--pbg);color:var(--pfg);padding:10px 10px 11px;display:flex;flex-direction:column;justify-content:space-between;min-height:0;overflow:hidden}
+.plate .art{height:70%;opacity:.9}
+.plate .cap{font-size:8.5px;position:relative}
+.plate .vd{position:relative;font-family:var(--f-serif);font-size:clamp(14px,1.35vw,18px);line-height:1.2;margin:0;text-wrap:balance}
+.plate .mm{position:relative;font-size:10.5px;opacity:.85;margin-top:6px}
+.pc-back{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;padding:12px 14px 14px}
+.pc-msg{font-family:var(--f-serif);font-style:italic;font-size:14px;line-height:1.38;margin:0;color:var(--ink)}
+.pc-addr{border-left:1px solid var(--hair);padding-left:14px;display:grid;align-content:space-between;gap:8px;position:relative}
+.pc-addr .to{font-size:12.5px;line-height:1.5}
+.pc-addr .to i{font-family:var(--f-serif);font-size:15px}
+.stamp{justify-self:end;border:1px dashed var(--ink-2);padding:4px 7px;text-align:center;line-height:1}
+.stamp b{font-family:var(--f-display);font-weight:800;font-size:26px;display:block}
+.stamp span{font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.postmark{position:absolute;right:58px;top:-4px;width:84px;height:84px;color:var(--ink-3);transform:rotate(-12deg)}
+.postmark text{font-size:7.4px;letter-spacing:.9px;font-family:var(--f-sans);font-weight:600;fill:currentColor}
+.postmark circle{fill:none;stroke:currentColor}
+.five{border:1px solid var(--ink);background:var(--paper);padding:16px 18px;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;gap:12px;min-height:0;opacity:0;transform:translateY(8px);transition:opacity .9s ease .2s,transform .9s var(--ease) .2s}
+.five.on{opacity:1;transform:none}
+.five h2{font-family:var(--f-serif);font-weight:500;font-size:clamp(20px,2vw,27px);line-height:1.12;margin:0;text-wrap:balance}
+.tabs{display:flex;flex-wrap:wrap;gap:4px 14px;border-bottom:1px solid var(--hair)}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:4px 0 6px;font-size:12px;font-weight:600;color:var(--ink-3);margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--tc)}
+.five-text{font-size:15px;line-height:1.5;margin:0;overflow:auto;min-height:0;max-width:62ch}
+.five-act{display:flex;gap:10px;align-items:center}
+.five-act button{background:none;border:1px solid var(--ink);padding:6px 12px;font-size:12.5px;font-weight:600;border-radius:2px;display:inline-flex;gap:7px;align-items:center}
+.five-act button:hover{background:var(--ink);color:var(--paper)}
+.five-act svg{width:13px;height:13px}
+.five-act .msg{font-size:12px;color:var(--ink-3)}
+
+/* footnote (the why thread) */
+.foot{position:absolute;z-index:20;width:min(320px,calc(100% - 24px));background:var(--paper);border:1px solid var(--ink);padding:11px 13px 12px;font-size:12.5px;line-height:1.4;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .25s,transform .25s}
+.foot.on{opacity:1;transform:none}
+.foot .cap{color:var(--ink-3);display:flex;justify-content:space-between}
+.foot .fq{font-family:var(--f-serif);font-style:italic;font-size:15px;line-height:1.3;margin:6px 0 8px;color:var(--ink)}
+.foot .fb{margin:0;padding-top:8px;border-top:1px solid var(--hair);color:var(--ink-2)}
+.foot .src{display:block;margin-top:3px;font-size:10.5px;color:var(--ink-3)}
+
+/* ---------- the conversation ---------- */
+.talk{display:grid;grid-template-rows:minmax(0,1fr) auto;width:min(800px,100%);margin:0 auto;min-height:0;padding-top:4px}
+.log{overflow-y:auto;min-height:0;padding:28px 0 10px;scrollbar-width:thin;-webkit-mask-image:linear-gradient(transparent 0,#000 44px);mask-image:linear-gradient(transparent 0,#000 44px)}
+.ln{display:grid;grid-template-columns:118px minmax(0,1fr);gap:20px;padding:7px 0;transition:opacity .6s}
+.ln.past{opacity:.42}
+.ln.past:hover{opacity:.9}
+.who{font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);text-align:right;padding-top:.62em;line-height:1.3}
+.txt{min-width:0;margin:0}
+.ln-iv .txt{font-family:var(--f-serif);font-style:italic;font-size:20px;line-height:1.36;color:var(--ink-2);max-width:46ch}
+.ln-me .txt{font-family:var(--f-sans);font-size:17.5px;line-height:1.45;color:var(--ink);max-width:54ch}
+.ln-me .who{color:var(--ink)}
+.ln-fu .txt{font-family:var(--f-serif);font-size:23px;line-height:1.32;color:var(--lt);max-width:44ch;font-variation-settings:"opsz" 30}
+.ln-fu .who{color:var(--lt)}
+.ln-sys .txt{display:grid;gap:7px;font-size:13.5px;color:var(--ink-2);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);padding:9px 0}
+.ln-sys .row{display:grid;grid-template-columns:118px 1fr;gap:12px}
+.ln-sys .row b{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--lt);padding-top:2px}
+.ln-end .txt{font-size:13px;color:var(--ink-3)}
+.w{opacity:0;animation:wIn .55s ease forwards;animation-delay:calc(var(--d) * 1ms)}
+@keyframes wIn{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:blur(0)}}
+.q{border-bottom:1px solid var(--hair);transition:background .3s,border-color .3s;cursor:help}
+.q.lit{background:color-mix(in srgb,var(--qc,var(--leap)) 26%,transparent);border-bottom-color:var(--qc,var(--leap))}
+
+.composer{display:grid;grid-template-columns:118px minmax(0,1fr) auto;gap:20px;align-items:end;padding:12px 0 calc(16px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--hair)}
+.composer .who{padding-top:0;padding-bottom:9px;color:var(--ink)}
+.composer input{width:100%;border:0;border-bottom:1px solid var(--ink);background:transparent;padding:8px 0;font-size:17px;border-radius:0}
+.composer input::placeholder{color:var(--ink-3);opacity:1}
+.composer input:focus{outline:none;border-bottom-width:2px;padding-bottom:7px}
+.composer input:disabled{border-bottom-color:var(--hair)}
+.send{background:var(--ink);color:var(--wall);border:0;padding:8px 14px;font-size:13px;font-weight:600;border-radius:2px;display:inline-flex;gap:8px;align-items:center}
+.send:disabled{opacity:.3;cursor:default}
+.send svg{width:13px;height:13px}
+.hint{grid-column:2/-1;font-size:11.5px;color:var(--ink-3);margin-top:-12px;min-height:1em}
+.chooser{grid-column:2/-1;display:none;gap:10px 18px;align-items:baseline;flex-wrap:wrap}
+.composer.choosing .chooser{display:flex}
+.composer.choosing input,.composer.choosing .send,.composer.choosing .hint{display:none}
+.chooser .grp{display:flex;gap:6px;flex-wrap:wrap;align-items:baseline}
+.chooser .cap{color:var(--ink-3);margin-right:4px}
+.chooser button.opt{background:none;border:1px solid var(--hair);padding:6px 10px;font-size:13px;border-radius:2px}
+.chooser button.opt[aria-pressed="true"]{border-color:var(--lt,var(--ink));color:var(--lt,var(--ink));box-shadow:inset 0 0 0 1px var(--lt,var(--ink))}
+.chooser .go{background:var(--ink);color:var(--wall);border:0;padding:7px 14px;font-size:13px;font-weight:600;border-radius:2px}
+.composer.done input,.composer.done .send{visibility:hidden}
+
+[data-life="path"]{--lt:var(--path-t);--qc:var(--path)}
+[data-life="leap"]{--lt:var(--leap-t);--qc:var(--leap)}
+[data-life="careful"]{--lt:var(--careful-t);--qc:var(--careful)}
+[data-life="unjudged"]{--lt:var(--unjudged-t);--qc:var(--unjudged)}
+
+/* ---------- smaller desktops ---------- */
+@media (max-width:1100px){.proto{position:static;display:block;padding:0 0 6px}.app{grid-template-rows:auto auto auto minmax(0,1fr)}}
+@media (max-height:760px) and (min-width:721px){.stage{height:clamp(280px,46vh,460px)}.ln-fu .txt{font-size:21px}.ln-iv .txt{font-size:18.5px}}
+
+/* ---------- phone: the window stays on screen as a swipeable stack, the conversation scrolls beneath ---------- */
+@media (max-width:720px){
+  .bar{padding-bottom:6px}
+  .brand span{display:none}
+  .brand b{font-size:19px}
+  .skip{display:none}
+  .skipsel{display:inline-block}
+  .ctrl{gap:12px}
+  .proto{font-size:9px;padding-bottom:6px}
+  .window{padding:6px}
+  .window::after{inset:5px}
+  .win-head{padding:2px 4px 7px}
+  .win-head .cap:last-child{max-width:45%}
+  .stage{height:clamp(290px,47vh,420px)}
+  .stage.at-end{height:clamp(320px,60vh,560px)}
+  .posters{overflow-x:auto;scroll-snap-type:x mandatory;gap:8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  .posters::-webkit-scrollbar{display:none}
+  .poster{flex:0 0 84%;scroll-snap-align:center}
+  .poster.is-strip{display:none}
+  .poster.is-card{flex:0 0 100%}
+  .stage.talking .posters{overflow:hidden}
+  .card{grid-template-columns:1fr;align-content:end;gap:6px;padding:14px}
+  .tc-age{flex-direction:row;align-items:baseline;gap:10px}
+  .tc-age b{font-size:72px}
+  .tc-place{font-size:38px}
+  .tc-main{gap:8px}
+  .tc-facts{grid-template-columns:1fr 1fr;gap:8px 14px;padding-top:8px}
+  .tc-facts .big{font-size:22px}
+  .tc-line{font-size:15.5px}
+  .tc-spark{display:none}
+  .pager{display:flex;justify-content:space-between;padding:7px 2px 0;color:var(--ink-3)}
+  .stage.talking~.pager,.stage.at-end~.pager{visibility:hidden}
+  .ending{overflow-y:auto;grid-template-columns:1fr;grid-auto-rows:max-content;align-content:start}
+  .postcard,.five{min-height:auto}
+  .postcard{grid-template-rows:auto auto}
+  .plates{grid-template-columns:1fr 1fr}
+  .plate{min-height:132px}
+  .pc-back{grid-template-columns:1fr}
+  .pc-addr{border-left:0;border-top:1px solid var(--hair);padding:10px 0 0}
+  .postmark{right:70px;top:4px}
+  .five{grid-template-rows:auto}
+  .freeze{padding:18px}
+  .freeze .fq{font-size:21px}
+  .sill{gap:10px;min-height:0;padding-top:7px}
+  .sill p{font-size:11.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .talk{padding-top:0}
+  .log{padding-top:22px}
+  .ln{grid-template-columns:1fr;gap:1px;padding:7px 0}
+  .who{text-align:left;padding-top:0}
+  .ln-iv .txt{font-size:17px}.ln-me .txt{font-size:15.5px}.ln-fu .txt{font-size:19px}
+  .ln-sys .row{grid-template-columns:1fr;gap:1px}
+  .composer{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding-top:8px}
+  .composer .who{grid-column:1/-1;padding-bottom:0}
+  .composer input{font-size:16px}
+  .hint{grid-column:1/-1;margin-top:0}
+  .chooser{grid-column:1/-1;gap:8px 12px}
+  .chooser button.opt{padding:5px 8px;font-size:12.5px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation:none!important}
+  .w{opacity:1}
+}
+</style>
+
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand"><b>The Window</b><span class="cap">Every life you have left</span></div>
+    <nav class="ctrl" aria-label="Playback">
+      <button class="play" id="play" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path id="playIcon" d="M2 1l9 5-9 5z" fill="currentColor"/></svg><span id="playLabel">Play</span></button>
+      <div class="skip" id="skip"><span class="cap">Skip to</span>
+        <button data-skip="interview">Interview</button>
+        <button data-skip="four">Four of you</button>
+        <button data-skip="talk">Talk</button>
+        <button data-skip="pause">The pause</button>
+        <button data-skip="ending">Ending</button>
+      </div>
+      <select class="skipsel" id="skipSel" aria-label="Skip to">
+        <option value="">Skip to</option><option value="interview">Interview</option><option value="four">Four of you</option><option value="talk">Talk</option><option value="pause">The pause</option><option value="ending">Ending</option>
+      </select>
+      <button id="restart">Restart</button>
+    </nav>
+  </header>
+  <div class="proto">Prototype · The Window · sample person, no AI</div>
+
+  <section class="window" id="win" aria-label="A window onto your futures">
+    <div class="win-head"><span class="cap" id="winTitle">A window onto your futures</span><span class="cap tab" id="winMeta">Empty frame</span></div>
+    <div class="stage" id="stage">
+      <div class="empty"><p>Nothing here yet. Each answer you give exposes a little more of what's on the other side.</p></div>
+      <div class="posters" id="posters"></div>
+      <div class="freeze" id="freeze" aria-live="polite"></div>
+      <div class="ending" id="ending"></div>
+    </div>
+    <div class="pager cap" id="pager"><span id="pagerL">Swipe through all four</span><span id="pagerR" class="tab"></span></div>
+    <div class="sill"><span class="cap" id="sillT">Label</span><p id="sillP">The window develops as you talk. Hover or tap any fact for the sentence that caused it.</p></div>
+    <div class="foot" id="foot" role="tooltip"></div>
+  </section>
+
+  <section class="talk" aria-label="Conversation">
+    <div class="log" id="log" aria-live="polite"></div>
+    <form class="composer" id="composer" autocomplete="off">
+      <div class="who" id="cwho">Alex, 25</div>
+      <input id="answer" type="text" aria-label="Your answer" disabled>
+      <button class="send" id="send" type="submit" disabled>Answer <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7h11M8 3l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+      <div class="hint" id="hint"></div>
+      <div class="chooser" id="chooser">
+        <div class="grp" id="chLife"><span class="cap">Talk to</span></div>
+        <div class="grp" id="chAge"><span class="cap">at</span></div>
+        <button type="button" class="go" id="chGo">Begin</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+const D = {"lives":[{"key":"path","title":"Durham, Steady","tagline":"You stay. Life arrives anyway.","verdict":"Steady, and quieter than you planned.","years":[[2026,"Durham, NC",68000,-20000,"You're 25, in Durham, with a Singapore email you haven't answered.",[]],[2027,"Durham, NC",69500,-15000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2028,"Durham, NC",71000,-10000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2029,"Durham, NC",73000,-4000,"The offer comes around one last time.",[["You turn down Singapore","The offer comes around one last time. You don't even ask your mom; you already know her face. You write 'Not right now' and mean 'no'.","q1",null,1,"career"]]],[2030,"Durham, NC",79500,8000,"You repaint the bathroom and call it a creative project.",[]],[2031,"Durham, NC",86000,20000,"A bigger desk, a title on the email signature, and your own quarterly report.",[["Promoted to senior analyst","A bigger desk, a title on the email signature, and your own quarterly report. Your mom frames the announcement.","q4","tenure",1,"career"]]],[2032,"Durham, NC",88000,33000,"Hiring freezes, a round of layoffs two floors down.",[["The downturn reaches the bank","Hiring freezes, a round of layoffs two floors down. You keep your job and your head down.",null,"recessions",0,"career"]]],[2033,"Durham, NC",90000,45000,"A friend's birthday at a brewery off Rigsbee.",[["You meet Sam","A friend's birthday at a brewery off Rigsbee. Sam laughs at the wrong part of your story and you decide to tell it again.","q1",null,1,"relationships"]]],[2034,"Durham, NC",92500,60000,"A long weekend at the coast. Nobody checks email.",[]],[2035,"Durham, NC",95000,75000,"A small wedding at the gardens.",[["You marry Sam","A small wedding at the gardens. Your mom sits in the front row and pretends she isn't crying.","q1","marriage_age",1,"relationships"]]],[2036,"Durham, NC",98000,90000,"School pickups, a slow cooker, an early night.",[]],[2037,"Durham, NC",101000,105000,"Seven pounds, two ounces, and loud.",[["Your first child","Seven pounds, two ounces, and loud. Your mom becomes the weekday babysitter before anyone asks.","q1","first_birth_age",1,"children"]]],[2038,"Durham, NC",103500,123000,"You learn the names of every tree on your street.",[]],[2039,"Durham, NC",106000,140000,"A good year, mostly. Nothing you'd put in a letter.",[]],[2040,"Durham, NC",107000,145000,"A walk on the Eno most mornings.",[]],[2041,"Durham, NC",108000,150000,"You are 40, in the same building, and tired in a way sleep doesn't fix.",[["The burnout year","You are 40, in the same building, and tired in a way sleep doesn't fix. You take six weeks off and sit in the car before going in.","q4","stress_work",1,"mentalHealth"]]],[2042,"Durham, NC",90000,158000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2043,"Durham, NC",72000,165000,"Night classes at the community college: twelve adults learning pivot tables.",[["You start teaching data","Night classes at the community college: twelve adults learning pivot tables. Less money, more eye contact.","q4","occ_switch",1,"career"]]],[2044,"Durham, NC",73500,182000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2045,"Durham, NC",74500,198000,"You repaint the bathroom and call it a creative project.",[]],[2046,"Durham, NC",76000,215000,"A long weekend at the coast. Nobody checks email.",[]],[2047,"Durham, NC",78000,233000,"Nothing is wrong, exactly.",[["A flat stretch","Nothing is wrong, exactly. The days are full and a little grey.",null,"happiness_u",0,"happiness"]]],[2048,"Durham, NC",80000,250000,"The spare room becomes her room.",[["Your mom moves in","The spare room becomes her room. Her coffee mug lives by the sink now, and so does her opinion of your cooking.","q1","caregiving",1,"family"]]],[2049,"Durham, NC",81500,270000,"School pickups, a slow cooker, an early night.",[]],[2050,"Durham, NC",83000,290000,"You learn the names of every tree on your street.",[]],[2051,"Durham, NC",84500,315000,"A good year, mostly. Nothing you'd put in a letter.",[]],[2052,"Durham, NC",86000,340000,"Saturday mornings in the garage with the door open.",[["You paint again","Saturday mornings in the garage with the door open. The first canvas is bad. The fourth one you keep.","q3",null,1,"lifeGoals"]]],[2053,"Durham, NC",86500,362000,"A walk on the Eno most mornings.",[]],[2054,"Durham, NC",87500,383000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2055,"Durham, NC",88000,405000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2056,"Durham, NC",88500,427000,"Three old friends from college start a standing Sunday dinner.",[["Sunday dinners","Three old friends from college start a standing Sunday dinner. Nobody cancels.",null,"close_friends",0,"relationships"]]],[2057,"Durham, NC",89500,448000,"You repaint the bathroom and call it a creative project.",[]],[2058,"Durham, NC",90000,470000,"You carry the last box to the car and stand in the driveway longer than you need to.",[["Your kid leaves home","You carry the last box to the car and stand in the driveway longer than you need to.",null,null,0,"children"]]],[2059,"Durham, NC",83000,494000,"A long weekend at the coast. Nobody checks email.",[]],[2060,"Durham, NC",75500,518000,"School pickups, a slow cooker, an early night.",[]],[2061,"Durham, NC",68500,541000,"You learn the names of every tree on your street.",[]],[2062,"Durham, NC",61000,565000,"A good year, mostly. Nothing you'd put in a letter.",[]],[2063,"Durham, NC",54000,589000,"A walk on the Eno most mornings.",[]],[2064,"Durham, NC",46500,613000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2065,"Durham, NC",39500,636000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2066,"Durham, NC",32000,660000,"Your last class gives you a card with a pivot table drawn on it.",[["You retire","Your last class gives you a card with a pivot table drawn on it. You wait until the numbers say yes, and they do.","q2","retire_age",1,"career"]]],[2067,"Durham, NC",31500,668000,"You repaint the bathroom and call it a creative project.",[]],[2068,"Durham, NC",31000,676000,"A long weekend at the coast. Nobody checks email.",[]],[2069,"Durham, NC",31000,684000,"School pickups, a slow cooker, an early night.",[]],[2070,"Durham, NC",30500,692000,"You learn the names of every tree on your street.",[]],[2071,"Durham, NC",30000,700000,"Steady, and quieter than you planned.",[]]]},{"key":"leap","title":"The Singapore Years","tagline":"You said yes to Singapore.","verdict":"Louder than you planned.","years":[[2026,"Durham, NC",68000,-20000,"You're 25, in Durham, with a Singapore email you haven't answered.",[]],[2027,"Singapore",96000,-14000,"You tell your mom on a Sunday.",[["You say yes to Singapore","You tell your mom on a Sunday. She says 'okay' in the voice that means it isn't. Three weeks later you're on the 28th floor in Raffles Place.","q5","jobs_by_age",1,"career"]]],[2028,"Singapore",100000,-2000,"You call your mom every Sunday; twelve time zones make it her Saturday night.",[["The loneliest year","You call your mom every Sunday; twelve time zones make it her Saturday night. You eat dinner at your desk more than you admit.","q1","loneliness",0,"relationships"]]],[2029,"Singapore",104000,10000,"A quiet year. Monsoon afternoons, deadline nights.",[]],[2030,"Singapore",110000,28000,"Ren sits two desks over and corrects your Mandarin without being asked.",[["You meet Ren","Ren sits two desks over and corrects your Mandarin without being asked. Dinner turns into a habit.","q5",null,1,"relationships"]]],[2031,"Singapore",66000,29000,"You learn to cook rendang badly and then well.",[]],[2032,"Singapore",22000,30000,"The downturn hits all four of you, but only this you loses the job.",[["Laid off in a restructuring","The downturn hits all four of you, but only this you loses the job. The regional office is the first one cut.","q5","displacement",1,"career"]]],[2033,"Singapore",40000,18000,"No job to lose and nobody watching.",[["You start freelance illustration","No job to lose and nobody watching. You post three drawings a week and land a hotel chain's menu art.","q3","jobs_by_age",1,"career"]]],[2034,"Singapore",45000,23000,"A long Sunday call with your mom; she sounds older.",[]],[2035,"Singapore",50000,29000,"Work, the river, a lot of coffee. A good year.",[]],[2036,"Lisbon, Portugal",55000,34000,"A fourth-floor walk-up in Graca with bad plumbing and a view of the river.",[["You move to Lisbon with Ren","A fourth-floor walk-up in Graca with bad plumbing and a view of the river. Rent is half of Singapore.","q4","moving",1,"lifeGoals"]]],[2037,"Lisbon, Portugal",59000,43000,"You sketch strangers on the 28 tram.",[]],[2038,"Lisbon, Portugal",62500,52000,"Two weeks, a suitcase of hot sauce, one argument about when you're coming home.",[["Your mom visits Lisbon","Two weeks, a suitcase of hot sauce, one argument about when you're coming home.","q1",null,0,"family"]]],[2039,"Lisbon, Portugal",66500,61000,"A summer of small commissions and long walks.",[]],[2040,"Lisbon, Portugal",70000,70000,"Forty drawings in a gallery in Principe Real.",[["Your first show","Forty drawings in a gallery in Principe Real. Your mom watches the opening on a video call at 3pm her time.","q3",null,1,"achievement"]]],[2041,"Lisbon, Portugal",74500,80000,"Nothing big happens. You're grateful.",[]],[2042,"Lisbon, Portugal",79000,90000,"A quiet year. Monsoon afternoons, deadline nights.",[]],[2043,"Lisbon, Portugal",83000,100000,"You learn to cook rendang badly and then well.",[]],[2044,"Lisbon, Portugal",87500,110000,"A long Sunday call with your mom; she sounds older.",[]],[2045,"Lisbon, Portugal",92000,120000,"Three illustrators, one long table, and a lease you read four times.",[["You open a studio","Three illustrators, one long table, and a lease you read four times. You sign it anyway.","q5","biz_survival",1,"career"]]],[2046,"Lisbon, Portugal",89500,127000,"Work, the river, a lot of coffee. A good year.",[]],[2047,"Lisbon, Portugal",86500,133000,"You sketch strangers on the 28 tram.",[]],[2048,"Lisbon, Portugal",84000,140000,"A summer of small commissions and long walks.",[]],[2049,"Lisbon, Portugal",94500,170000,"Two clients leave, the studio scrapes by, and you are 48 and tired of being brave.",[["A lean, flat year","Two clients leave, the studio scrapes by, and you are 48 and tired of being brave.",null,"happiness_u",0,"happiness"]]],[2050,"Lisbon, Portugal",104500,200000,"Nothing big happens. You're grateful.",[]],[2051,"Lisbon, Portugal",115000,230000,"A quiet year. Monsoon afternoons, deadline nights.",[]],[2052,"Lisbon, Portugal",125000,260000,"A publisher signs the studio for a six-book series.",[["The studio turns a real profit","A publisher signs the studio for a six-book series. For the first time, the accounts don't scare you.","q2","earnings_growth",1,"wealth"]]],[2053,"Lisbon, Portugal",124000,287000,"You learn to cook rendang badly and then well.",[]],[2054,"Lisbon, Portugal",123500,313000,"A long Sunday call with your mom; she sounds older.",[]],[2055,"Lisbon, Portugal",122500,340000,"Work, the river, a lot of coffee. A good year.",[]],[2056,"Lisbon, Portugal",121500,367000,"You sketch strangers on the 28 tram.",[]],[2057,"Lisbon, Portugal",121000,393000,"A summer of small commissions and long walks.",[]],[2058,"Lisbon, Portugal",120000,420000,"You fly back to Durham to help after her hip surgery.",[["Three months home with your mom","You fly back to Durham to help after her hip surgery. Her kitchen, her rules, your old bedroom.","q1","caregiving",1,"family"]]],[2059,"Lisbon, Portugal",114000,465000,"Nothing big happens. You're grateful.",[]],[2060,"Lisbon, Portugal",108000,510000,"A quiet year. Monsoon afternoons, deadline nights.",[]],[2061,"Lisbon, Portugal",102000,555000,"You learn to cook rendang badly and then well.",[]],[2062,"Lisbon, Portugal",96000,600000,"A long Sunday call with your mom; she sounds older.",[]],[2063,"Lisbon, Portugal",90000,645000,"Work, the river, a lot of coffee. A good year.",[]],[2064,"Lisbon, Portugal",84000,690000,"You sketch strangers on the 28 tram.",[]],[2065,"Lisbon, Portugal",78000,735000,"A summer of small commissions and long walks.",[]],[2066,"Lisbon, Portugal",72000,780000,"The Thursday dinner crowd turns out to be your people too.",[["Ren's friends become yours","The Thursday dinner crowd turns out to be your people too. You stop calling it 'Ren's dinner'.",null,"close_friends",0,"relationships"]]],[2067,"Lisbon, Portugal",69500,794000,"Nothing big happens. You're grateful.",[]],[2068,"Lisbon, Portugal",67000,808000,"A quiet year. Monsoon afternoons, deadline nights.",[]],[2069,"Lisbon, Portugal",65000,822000,"Forty years of drawings on one wall.",[["A retrospective in Porto","Forty years of drawings on one wall. You find the first Singapore sketch and laugh at how sure you look.",null,null,0,"achievement"]]],[2070,"Lisbon, Portugal",62500,836000,"You learn to cook rendang badly and then well.",[]],[2071,"Lisbon, Portugal",60000,850000,"Louder than you planned.",[]]]},{"key":"careful","title":"The Safe Ladder","tagline":"Fear decides, and it decides well on paper.","verdict":"Safe, and you know exactly what it cost.","years":[[2026,"Durham, NC",68000,-20000,"You're 25, in Durham, with a Singapore email you haven't answered.",[]],[2027,"Durham, NC",70000,-12000,"You reply the same afternoon.",[["You say no to Singapore, fast","You reply the same afternoon. A move abroad with $28k in loans feels like stepping off a roof.","q2",null,1,"career"]]],[2028,"Durham, NC",72500,-3000,"A quiet year. You max out the 401(k) match.",[]],[2029,"Durham, NC",75500,6000,"Sunday lunch at your mom's. You fix her gutters.",[]],[2030,"Durham, NC",78000,15000,"The last $412 payment goes through on a Tuesday.",[["The loans are gone","The last $412 payment goes through on a Tuesday. You check the balance three times.","q2",null,1,"wealth"]]],[2031,"Durham, NC",82000,30000,"Jordan has a 401(k) match and a five-year plan.",[["You meet Jordan","Jordan has a 401(k) match and a five-year plan. Your mom approves at first sight.","q1",null,1,"relationships"]]],[2032,"Durham, NC",84000,45000,"Layoffs two floors down.",[["The downturn: you keep your head down","Layoffs two floors down. You volunteer for nothing and keep your job.",null,"recessions",0,"career"]]],[2033,"Durham, NC",86000,60000,"A sensible wedding with a sensible budget.",[["You marry Jordan","A sensible wedding with a sensible budget. It is a lovely day.","q1","marriage_age",1,"relationships"]]],[2034,"Durham, NC",94000,83000,"A spreadsheet for the vacation, then the vacation.",[]],[2035,"Durham, NC",102000,105000,"Two titles in eighteen months.",[["Promoted, then promoted again","Two titles in eighteen months. Your cubicle becomes an office with a door.","q4","tenure",1,"career"]]],[2036,"Cary, NC",104000,120000,"Three bedrooms in Cary, twenty minutes from your mom.",[["You buy a house at 35","Three bedrooms in Cary, twenty minutes from your mom. You pick the paint colors from a list called 'resale'.","q2","first_home",1,"wealth"]]],[2037,"Cary, NC",108500,143000,"You get very good at your job and slightly bored.",[]],[2038,"Cary, NC",113500,167000,"A good year on paper.",[]],[2039,"Cary, NC",118000,190000,"No villain.",[["The marriage ends","No villain. Jordan says you planned everything except the two of you. You don't argue, which is the problem.","q2","marriage_survival",1,"relationships"]]],[2040,"Cary, NC",120000,200000,"The house is quiet and a little bigger than it should be.",[["Two heavy years","The house is quiet and a little bigger than it should be. You work late because the office has people in it.","q4","stress_work",1,"mentalHealth"]]],[2041,"Cary, NC",125000,230000,"You learn to make your mom's soup, and make it every Sunday.",[]],[2042,"Cary, NC",130000,260000,"The tools write the quarterly decks now.",[["AI takes half your team's reports","The tools write the quarterly decks now. You become the person who checks them.",null,null,0,"career"]]],[2043,"Cary, NC",148500,347000,"Golf with the regional team. You're better than you let on.",[]],[2044,"Cary, NC",166500,433000,"A quiet year. You max out the 401(k) match.",[]],[2045,"Cary, NC",185000,520000,"The safest ladder in the building, climbed all the way.",[["You make VP","The safest ladder in the building, climbed all the way. The nameplate is heavier than it looks.","q2","earnings_growth",1,"career"]]],[2046,"Cary, NC",188500,600000,"Sunday lunch at your mom's. You fix her gutters.",[]],[2047,"Cary, NC",191500,680000,"Good salary, good house, and a Tuesday that feels like every other Tuesday.",[["The grey middle","Good salary, good house, and a Tuesday that feels like every other Tuesday.",null,"happiness_u",0,"happiness"]]],[2048,"Cary, NC",195000,760000,"A spreadsheet for the vacation, then the vacation.",[]],[2049,"Cary, NC",197500,840000,"You get very good at your job and slightly bored.",[]],[2050,"Cary, NC",200000,920000,"Someone from your old painting nights messages: 'Do you still draw?' You meet for coffee and stay for four hours.",[["Old friends find you","Someone from your old painting nights messages: 'Do you still draw?' You meet for coffee and stay for four hours.","q3","close_friends",1,"relationships"]]],[2051,"Cary, NC",201500,1007000,"A good year on paper.",[]],[2052,"Cary, NC",203500,1093000,"You learn to make your mom's soup, and make it every Sunday.",[]],[2053,"Cary, NC",205000,1180000,"You pay for the best help and visit every Sunday.",[["You manage your mom's care","You pay for the best help and visit every Sunday. She tells the aides you're 'the responsible one'.","q1","caregiving",1,"family"]]],[2054,"Cary, NC",191500,1292000,"Golf with the regional team. You're better than you let on.",[]],[2055,"Cary, NC",178000,1404000,"A quiet year. You max out the 401(k) match.",[]],[2056,"Cary, NC",164500,1516000,"Sunday lunch at your mom's. You fix her gutters.",[]],[2057,"Cary, NC",151000,1628000,"A spreadsheet for the vacation, then the vacation.",[]],[2058,"Cary, NC",137500,1740000,"You get very good at your job and slightly bored.",[]],[2059,"Cary, NC",124000,1852000,"A good year on paper.",[]],[2060,"Cary, NC",110500,1964000,"You learn to make your mom's soup, and make it every Sunday.",[]],[2061,"Cary, NC",97000,2076000,"Golf with the regional team. You're better than you let on.",[]],[2062,"Cary, NC",83500,2188000,"A quiet year. You max out the 401(k) match.",[]],[2063,"Cary, NC",70000,2300000,"Sixty-two and the numbers are more than fine.",[["You retire early, with room to spare","Sixty-two and the numbers are more than fine. Your farewell lunch has a slideshow of spreadsheets.","q2","retire_age",1,"career"]]],[2064,"Cary, NC",69000,2338000,"Sunday lunch at your mom's. You fix her gutters.",[]],[2065,"Cary, NC",68000,2375000,"A spreadsheet for the vacation, then the vacation.",[]],[2066,"Cary, NC",67000,2413000,"You get very good at your job and slightly bored.",[]],[2067,"Cary, NC",66000,2450000,"A good year on paper.",[]],[2068,"Cary, NC",65000,2488000,"A good set, in a wooden box.",[["You buy paints","A good set, in a wooden box. You put it on the shelf by the window and don't open it.","q3",null,0,"lifeGoals"]]],[2069,"Cary, NC",64000,2525000,"You learn to make your mom's soup, and make it every Sunday.",[]],[2070,"Cary, NC",63000,2563000,"Golf with the regional team. You're better than you let on.",[]],[2071,"Cary, NC",62000,2600000,"Safe, and you know exactly what it cost.",[]]]},{"key":"unjudged","title":"Ink on Your Hands","tagline":"You went to art school.","verdict":"Poorer on paper, richer every Tuesday.","years":[[2026,"Durham, NC",68000,-20000,"You're 25, in Durham, with a Singapore email you haven't answered.",[]],[2027,"Durham, NC",14000,-40000,"You quit the bank in May and start an MFA in August, forty minutes from your mom.",[["You go to art school","You quit the bank in May and start an MFA in August, forty minutes from your mom. The loans double. You don't look at the number.","q3",null,1,"lifeGoals"]]],[2028,"Durham, NC",16000,-55000,"Two jobs, a studio you share with three people, and a car that starts most days.",[["Ramen money","Two jobs, a studio you share with three people, and a car that starts most days.","q2","net_worth_age",0,"wealth"]]],[2029,"Durham, NC",18000,-70000,"Your thesis show is twelve drawings of your mom's kitchen.",[["You finish the MFA","Your thesis show is twelve drawings of your mom's kitchen. She comes twice.","q3",null,1,"achievement"]]],[2030,"Durham, NC",32000,-72000,"Two classes a semester and every commission you can find: wedding invitations, a brewery's cans, a dentist's mural.",[["Adjunct by day, commissions by night","Two classes a semester and every commission you can find: wedding invitations, a brewery's cans, a dentist's mural.",null,"jobs_by_age",0,"career"]]],[2031,"Durham, NC",30000,-73000,"A quiet year. Ink on your hands, rent paid, barely.",[]],[2032,"Durham, NC",28000,-74000,"Half your clients pause.",[["The downturn dries up commissions","Half your clients pause. You teach an extra section and eat at your mom's on Sundays.",null,"recessions",0,"wealth"]]],[2033,"Durham, NC",32000,-70000,"You draw your mom's garden in every season.",[]],[2034,"Durham, NC",36000,-66000,"Jules sells pottery at the Saturday market, two stalls from your prints.",[["You meet Jules","Jules sells pottery at the Saturday market, two stalls from your prints. You trade a mug for a drawing.","q1",null,1,"relationships"]]],[2035,"Durham, NC",46000,-58000,"A small press hires you to illustrate a picture book about a lost umbrella.",[["Your first children's book","A small press hires you to illustrate a picture book about a lost umbrella. Your name is on the cover, smaller than you hoped.","q3",null,1,"career"]]],[2036,"Durham, NC",48000,-50000,"In your mom's backyard, under string lights you hung yourself.",[["You marry Jules","In your mom's backyard, under string lights you hung yourself. The cake is lopsided and perfect.","q1","marriage_age",1,"relationships"]]],[2037,"Durham, NC",50000,-45000,"Teaching, drawing, a lot of rice and eggs.",[]],[2038,"Durham, NC",52000,-40000,"She arrives in March.",[["A daughter","She arrives in March. Your mom, twenty minutes away, is the first call and the first visitor.","q1","first_birth_age",1,"children"]]],[2039,"Durham, NC",50000,-37000,"A good year. Nothing sells big; everything gets made.",[]],[2040,"Durham, NC",48000,-35000,"Sunday dinners at your mom's, with Jules's pottery on the table.",[]],[2041,"Durham, NC",46000,-32000,"You fill four sketchbooks.",[]],[2042,"Durham, NC",44000,-30000,"Two publishers fold.",[["A lean year","Two publishers fold. You take a part-time job at the print shop and keep drawing at night.",null,"job_insecurity",0,"wealth"]]],[2043,"Durham, NC",47000,-20000,"A summer of school visits and small checks.",[]],[2044,"Durham, NC",50000,-10000,"A quiet year. Ink on your hands, rent paid, barely.",[]],[2045,"Durham, NC",53000,0,"You draw your mom's garden in every season.",[]],[2046,"Durham, NC",56000,10000,"Her knees go and her stubbornness doesn't.",[["Your mom needs help","Her knees go and her stubbornness doesn't. You're already close, so you're the one who comes.","q1","sandwich",1,"family"]]],[2047,"Durham, NC",60000,30000,"Teaching, drawing, a lot of rice and eggs.",[]],[2048,"Durham, NC",64000,50000,"A good year. Nothing sells big; everything gets made.",[]],[2049,"Durham, NC",68000,70000,"Sunday dinners at your mom's, with Jules's pottery on the table.",[]],[2050,"Durham, NC",72000,90000,"A picture book about your mom's hands wins a national prize.",[["Your book wins an award","A picture book about your mom's hands wins a national prize. She keeps the medal in her purse.","q3",null,1,"achievement"]]],[2051,"Durham, NC",71500,107000,"You fill four sketchbooks.",[]],[2052,"Durham, NC",71500,123000,"A summer of school visits and small checks.",[]],[2053,"Durham, NC",71000,140000,"A quiet year. Ink on your hands, rent paid, barely.",[]],[2054,"Durham, NC",70500,157000,"You draw your mom's garden in every season.",[]],[2055,"Durham, NC",70500,173000,"Teaching, drawing, a lot of rice and eggs.",[]],[2056,"Hillsborough, NC",70000,190000,"Two bedrooms in Hillsborough with a shed that becomes the studio.",[["You finally buy a small house","Two bedrooms in Hillsborough with a shed that becomes the studio. You are 55, and it's yours.","q2","first_home",1,"wealth"]]],[2057,"Hillsborough, NC",67000,208000,"A good year. Nothing sells big; everything gets made.",[]],[2058,"Hillsborough, NC",64000,227000,"Sunday dinners at your mom's, with Jules's pottery on the table.",[]],[2059,"Hillsborough, NC",61000,245000,"You fill four sketchbooks.",[]],[2060,"Hillsborough, NC",58000,263000,"A summer of school visits and small checks.",[]],[2061,"Hillsborough, NC",55000,282000,"A quiet year. Ink on your hands, rent paid, barely.",[]],[2062,"Hillsborough, NC",52000,300000,"Every Tuesday, fifteen kids and a box of crayons.",[["Drawing with kids at the library","Every Tuesday, fifteen kids and a box of crayons. You never miss one.",null,null,0,"lifeGoals"]]],[2063,"Hillsborough, NC",50500,309000,"You draw your mom's garden in every season.",[]],[2064,"Hillsborough, NC",49000,318000,"Teaching, drawing, a lot of rice and eggs.",[]],[2065,"Hillsborough, NC",47500,327000,"A good year. Nothing sells big; everything gets made.",[]],[2066,"Hillsborough, NC",46000,336000,"Sunday dinners at your mom's, with Jules's pottery on the table.",[]],[2067,"Hillsborough, NC",44000,344000,"You fill four sketchbooks.",[]],[2068,"Hillsborough, NC",42500,353000,"Your daughter brings her kid to the shed.",[["Your granddaughter in the studio","Your daughter brings her kid to the shed. She draws on the wall and you don't stop her.",null,null,0,"children"]]],[2069,"Hillsborough, NC",41000,362000,"A summer of school visits and small checks.",[]],[2070,"Hillsborough, NC",39500,371000,"A quiet year. Ink on your hands, rent paid, barely.",[]],[2071,"Hillsborough, NC",38000,380000,"Poorer on paper, richer every Tuesday.",[]]]}],"retunePath":{"key":"path","title":"Durham, With Color","tagline":"You stay, and you keep your weekends.","verdict":"Steady, with color in it.","years":[[2026,"Durham, NC",68000,-20000,"You're 25, in Durham, with a Singapore email you haven't answered.",[]],[2027,"Durham, NC",69500,-15000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2028,"Durham, NC",71000,-10000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2029,"Durham, NC",73000,-4000,"The offer comes around one last time.",[["You turn down Singapore","The offer comes around one last time. You don't even ask your mom; you already know her face. You write 'Not right now' and mean 'no'.","q1",null,1,"career"]]],[2030,"Durham, NC",77500,7000,"You repaint the bathroom and call it a creative project.",[]],[2031,"Durham, NC",82000,18000,"You say no to the team and yes to the Tuesday class.",[["You protect the painting","You say no to the team and yes to the Tuesday class. Your hands are blue to the wrist and you leave smiling.","q6",null,1,"lifeGoals"]]],[2032,"Durham, NC",83500,29000,"Hiring freezes, a round of layoffs two floors down.",[["The downturn reaches the bank","Hiring freezes, a round of layoffs two floors down. You keep your job; the Tuesday class keeps you.",null,"recessions",0,"career"]]],[2033,"Durham, NC",85000,40000,"Sam takes the easel next to yours and steals your cobalt blue.",[["You meet Sam at the class","Sam takes the easel next to yours and steals your cobalt blue. You let it happen twice.","q6",null,1,"relationships"]]],[2034,"Durham, NC",87000,54000,"A long weekend at the coast. Nobody checks email.",[]],[2035,"Durham, NC",89000,68000,"A small wedding at the gardens.",[["You marry Sam","A small wedding at the gardens. Your mom sits in the front row and pretends she isn't crying.","q1","marriage_age",1,"relationships"]]],[2036,"Durham, NC",92000,82000,"School pickups, a slow cooker, an early night.",[]],[2037,"Durham, NC",95000,96000,"Seven pounds, two ounces, and loud.",[["Your first child","Seven pounds, two ounces, and loud. Your mom becomes the weekday babysitter before anyone asks.","q1","first_birth_age",1,"children"]]],[2038,"Durham, NC",97000,112000,"You learn the names of every tree on your street.",[]],[2039,"Durham, NC",99000,128000,"A good year, mostly. Nothing you'd put in a letter.",[]],[2040,"Durham, NC",99500,133000,"A walk on the Eno most mornings.",[]],[2041,"Durham, NC",100000,138000,"Work grinds, and you are tired.",[["A hard year, softer","Work grinds, and you are tired. But Tuesday nights are still yours, and they hold.","q4","stress_work",1,"mentalHealth"]]],[2042,"Durham, NC",85500,145000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2043,"Durham, NC",71000,152000,"Night classes at the community college: twelve adults learning pivot tables.",[["You start teaching data","Night classes at the community college: twelve adults learning pivot tables. Less money, more eye contact.","q4","occ_switch",1,"career"]]],[2044,"Durham, NC",73000,165000,"Six paintings in a cafe on Ninth Street.",[["Your first small exhibition","Six paintings in a cafe on Ninth Street. Someone you don't know buys the little one by the window. You keep the receipt.","q6",null,1,"achievement"]]],[2045,"Durham, NC",74500,184000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2046,"Durham, NC",76000,203000,"You repaint the bathroom and call it a creative project.",[]],[2047,"Durham, NC",77500,221000,"A long weekend at the coast. Nobody checks email.",[]],[2048,"Durham, NC",79000,240000,"The spare room becomes her room.",[["Your mom moves in","The spare room becomes her room. Her coffee mug lives by the sink now, and so does her opinion of your cooking.","q1","caregiving",1,"family"]]],[2049,"Durham, NC",80500,260000,"School pickups, a slow cooker, an early night.",[]],[2050,"Durham, NC",82000,280000,"You learn the names of every tree on your street.",[]],[2051,"Durham, NC",83500,300000,"A good year, mostly. Nothing you'd put in a letter.",[]],[2052,"Durham, NC",85000,320000,"Eight beginners, a church basement, and a coffee urn.",[["You teach a Saturday painting class","Eight beginners, a church basement, and a coffee urn. One of them reminds you of yourself at 30.","q6",null,1,"lifeGoals"]]],[2053,"Durham, NC",85500,342000,"A walk on the Eno most mornings.",[]],[2054,"Durham, NC",86500,363000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2055,"Durham, NC",87000,385000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2056,"Durham, NC",87500,407000,"Three old friends from college start a standing Sunday dinner.",[["Sunday dinners","Three old friends from college start a standing Sunday dinner. Nobody cancels.",null,"close_friends",0,"relationships"]]],[2057,"Durham, NC",88500,428000,"You repaint the bathroom and call it a creative project.",[]],[2058,"Durham, NC",89000,450000,"You carry the last box to the car and stand in the driveway longer than you need to.",[["Your kid leaves home","You carry the last box to the car and stand in the driveway longer than you need to.",null,null,0,"children"]]],[2059,"Durham, NC",82000,474000,"A long weekend at the coast. Nobody checks email.",[]],[2060,"Durham, NC",75500,498000,"School pickups, a slow cooker, an early night.",[]],[2061,"Durham, NC",68500,521000,"You learn the names of every tree on your street.",[]],[2062,"Durham, NC",61500,545000,"A good year, mostly. Nothing you'd put in a letter.",[]],[2063,"Durham, NC",54500,569000,"A walk on the Eno most mornings.",[]],[2064,"Durham, NC",48000,593000,"A quiet year. Spreadsheets by day, a sketchbook on the nightstand.",[]],[2065,"Durham, NC",41000,616000,"Sunday lunch at your mom's. She asks about work; you say it's fine.",[]],[2066,"Durham, NC",34000,640000,"Your last class gives you a card with a pivot table drawn on it.",[["You retire","Your last class gives you a card with a pivot table drawn on it. You wait until the numbers say yes, and they do.","q2","retire_age",1,"career"]]],[2067,"Durham, NC",33500,648000,"You repaint the bathroom and call it a creative project.",[]],[2068,"Durham, NC",33000,656000,"A long weekend at the coast. Nobody checks email.",[]],[2069,"Durham, NC",33000,664000,"School pickups, a slow cooker, an early night.",[]],[2070,"Durham, NC",32500,672000,"You learn the names of every tree on your street.",[]],[2071,"Durham, NC",32000,680000,"Steady, with color in it.",[]]]},"quotes":{"q1":"I can't say no to my mom.","q2":"Money scares me. I still have $28k in loans.","q3":"If nobody judged me, I'd go to art school and draw for a living.","q4":"My biggest fear is waking up at 40 in the same cubicle.","q5":"Singapore offered me a transfer and I haven't answered."},"br":{"jobs_by_age":["People aged 25 to 34 hold about 4.5 jobs on average.","BLS NLSY79 (Aug 2023)"],"tenure":["The typical US worker has been with their employer for about 4 years.","BLS, The Economics Daily (2024)"],"occ_switch":["About 1 in 16 workers changes occupation in a given year.","BLS occupational separations method"],"layoffs_jolts":["About 21 million layoffs and discharges happened in the US in 2025.","BLS JOLTS (Mar 2026)"],"displacement":["6.3 million Americans lost a job to layoffs or closures in 2021 to 2023.","BLS Displaced Worker Survey (Jan 2024)"],"stress_work":["Half of US employees say they felt a lot of stress yesterday.","Gallup State of the Global Workplace (2025)"],"job_insecurity":["More than half of US workers say job insecurity weighs on their stress.","APA Work in America 2025 (via Newswise)"],"biz_survival":["Only about 1 in 3 new businesses is still open 10 years later.","BLS, The Economics Daily (2024)"],"retire_age":["Most people retire around 62, years earlier than they planned.","Gallup via AARP; EBRI Retirement Confidence Survey 2025"],"earnings_growth":["For a typical worker, pay rises about 60% between 25 and 55, mostly before 45.","Guvenen, Karahan, Ozkan & Song, Econometrica (2021)"],"weekly_earnings":["The typical full-time US worker earns about $63,000 a year.","BLS, The Economics Daily (2026)"],"hh_income_edu":["Households led by a college graduate earn about 2.3 times more than high-school-only ones.","US Census Bureau (Sep 2025)"],"net_worth_age":["The typical US household aged 65 to 74 has a net worth of about $410,000.","Federal Reserve SCF 2022 (via secondary tables)"],"first_home":["The typical first-time US home buyer is now 40.","NAR Profile of Home Buyers and Sellers (Nov 2025)"],"own_u35":["Only about 3 in 8 Americans under 35 own their home.","Census HVS (via NAHB, Dec 2025)"],"marriage_age":["Americans now marry for the first time at about 29 to 30.","BGSU NCFMR FP-26-01; Census MS-2"],"never_married_40":["A quarter of 40-year-olds in the US have never been married.","Pew Research Center (2023)"],"marriage_survival":["About 8 in 10 first marriages of college graduates reach 20 years.","CDC NCHS, NHSR No. 49, Table 5"],"marriage_age_risk":["Marriages that start around 28 to 32 are the least likely to end in divorce.","Wolfinger, Institute for Family Studies (NSFG)"],"tfr":["US women now have about 1.6 children on average.","CDC NVSR 75-2 (June 2026)"],"first_birth_age":["The average US mother is now 27.5 at her first birth.","NCHS (June 2025)"],"childless_intent":["Almost half of childless US adults under 50 say they probably won't have kids.","Pew Research Center (July 2024)"],"caregiving":["About 1 in 4 US adults is a family caregiver.","AARP / NAC, Caregiving in the US 2025"],"sandwich":["More than half of Americans in their 40s are caring for both a parent and a child.","Pew Research Center (via Pew Trusts, 2022)"],"loneliness":["1 in 5 US adults felt lonely for much of yesterday; more among under-30s.","Gallup (2024)"],"close_friends":["Friendships tend to grow with age: half of over-65s have five or more close friends.","Pew Research Center (2023)"],"happiness_u":["Life satisfaction dips on average around age 48, then recovers.","Blanchflower, J. Population Economics (2021)"],"moving":["Only about 1 in 9 Americans moved home last year, a record low.","Census CPS (via Point2)"],"adaptation":["People adapt to most big changes within about two years; job loss leaves a longer mark.","Lucas et al. 2003 (JPSP) and 2004 (Psychological Science)"],"recessions":["Since the war, the US has had a recession roughly every six or seven years.","NBER business cycle dating"],"harvard_relationships":["In an 85-year Harvard study, how happy people were in their relationships at 50 predicted their health at 80 better than cholesterol did.","Harvard Study of Adult Development (Waldinger & Schulz, The Good Life, 2023)"]}};
+
+/* ---------- people, places, why ---------- */
+const KEYS = ['path','leap','careful','unjudged'];
+const LIFE = {
+  path:{no:1,name:'Your Path',short:'Your Path'},
+  leap:{no:2,name:'The Leap',short:'The Leap'},
+  careful:{no:3,name:'The Careful Life',short:'Careful'},
+  unjudged:{no:4,name:'The Unjudged Life',short:'Unjudged'}
+};
+const IDX = {path:0,leap:1,careful:2,unjudged:3};
+const SAMPLE_PAUSE = "The painting. I'd keep my weekends and take the class.";
+const PAUSE_Q = "Before I tell you more: it's 2031, you're 30, and you're offered the team lead role, but it eats your weekends. What do you protect first?";
+
+const QUESTIONS = [
+  "Tell me who you are right now: how old you are, where you live, what fills most of your week, and how money feels.",
+  "What's the decision or worry that keeps coming back to you lately?",
+  "Who has a say in what you do next, and what do they expect from you?",
+  "What are you most afraid will be true about your life ten years from now?",
+  "If nobody would judge you, what would you do with the next five years?"
+];
+const ANSWERS = [
+  ["q2","I'm 25, in Durham. I've been a data analyst at a regional bank for two years, and I paint at night when I'm not too tired. [[q2|Money scares me. I still have $28k in loans.]]"],
+  ["q5","[[q5|Singapore offered me a transfer and I haven't answered.]] It's been three weeks. Every day I don't answer feels like an answer."],
+  ["q1","My mom, mostly. She raised me on her own and she lives twenty minutes away. She'd like me close, with a stable job. [[q1|I can't say no to my mom.]]"],
+  ["q4","[[q4|My biggest fear is waking up at 40 in the same cubicle.]] Same badge, same parking spot, still saying next year."],
+  ["q3","[[q3|If nobody judged me, I'd go to art school and draw for a living.]] Children's books, maybe. Something with my hands."]
+];
+
+// role and people over time (year it starts → text). Functions get the year.
+const kid = (born, y) => { const a=y-born; const w=['newborn','one-year-old','two-year-old','three-year-old','four-year-old','five-year-old','six-year-old','seven-year-old','eight-year-old','nine-year-old','ten-year-old','eleven-year-old','twelve-year-old','thirteen-year-old','fourteen-year-old','fifteen-year-old','sixteen-year-old','seventeen-year-old','eighteen-year-old','nineteen-year-old','twenty-year-old']; return w[a]||(a+'-year-old'); };
+const ROLE = {
+  path:[[2026,'Data analyst, regional bank'],[2031,'Senior analyst, same bank'],[2041,'Senior analyst, same building'],[2043,'Teaches data at the community college'],[2066,'Retired teacher']],
+  path_r:[[2026,'Data analyst, regional bank'],[2031,'Analyst who kept the weekends'],[2043,'Teaches data, paints on Tuesdays'],[2052,'Teaches data and a Saturday painting class'],[2066,'Retired, still painting']],
+  leap:[[2026,'Data analyst, regional bank'],[2027,'Analyst, Singapore office'],[2032,'Laid off in the restructuring'],[2033,'Illustrator, freelance since 2033'],[2045,'Runs a three-person studio']],
+  leap_r:[[2026,'Data analyst, regional bank'],[2027,'Analyst, Singapore office'],[2032,'Illustrator, freelance since 2032'],[2045,'Runs a three-person studio']],
+  careful:[[2026,'Data analyst, regional bank'],[2035,'Senior manager, regional bank'],[2045,'VP, regional bank'],[2063,'Retired at 62']],
+  careful_r:[[2026,'Data analyst, regional bank'],[2035,'Senior manager, regional bank'],[2046,'VP, regional bank'],[2063,'Retired at 62']],
+  unjudged:[[2026,'Data analyst, regional bank'],[2027,'MFA student'],[2030,'Adjunct, plus commissions'],[2035,'Picture-book illustrator'],[2050,'Award-winning illustrator'],[2062,'Illustrator, Tuesdays at the library']]
+};
+const PEOPLE = {
+  path:[[2026,'Mom, 20 minutes away'],[2033,'Sam, new. Mom nearby'],[2035,'Married to Sam. Mom nearby'],[2037,y=>`Sam, a ${kid(2037,y)}, Mom 20 minutes away`],[2048,y=>`Sam, a ${kid(2037,y)}, Mom in the spare room`],[2058,'Sam. Mom in the spare room. Your kid, moved out']],
+  leap:[[2026,'Mom, 20 minutes away'],[2027,'Mom, twelve time zones away'],[2030,'Ren. Mom on Sunday calls'],[2036,'Ren. Mom visits once a year'],[2066,"Ren, and Ren's friends. Mom on Sundays"]],
+  careful:[[2026,'Mom, 20 minutes away'],[2031,'Jordan. Mom on Sundays'],[2033,'Married to Jordan. Mom on Sundays'],[2039,'Divorced in 2039. Mom on Sundays'],[2050,'Old friends again. Mom on Sundays'],[2053,'Old friends. Mom, in paid care']],
+  unjudged:[[2026,'Mom, 20 minutes away'],[2027,'Mom, forty minutes away'],[2034,'Jules, new. Mom nearby'],[2036,'Married to Jules. Mom nearby'],[2038,y=>`Jules, a ${kid(2038,y)}, Mom 20 minutes away`],[2046,y=>`Jules, a ${kid(2038,y)}, Mom who needs help`],[2056,'Jules, your daughter. Mom nearby'],[2068,'Jules, your daughter, a granddaughter']]
+};
+// the poster sentence at 41
+const LINE41 = {
+  path:"You are 40, in the same building, and tired in a way sleep doesn't fix.",
+  path_r:"Work grinds, and you are tired. But Tuesday nights are still yours, and they hold.",
+  leap:"Forty drawings in a gallery in Principe Real. Mom watches the opening on a video call.",
+  careful:"You haven't opened a sketchbook since 2027.",
+  careful_r:"Thursday nights, a sketchbook. Nobody at work knows.",
+  unjudged:"Two publishers fold. You take a part-time job at the print shop and keep drawing at night."
+};
+// which sentence caused each fact, plus a base rate
+const WHY = {
+  path:{name:['q1','caregiving'],money:['q2','earnings_growth'],place:['q5','moving'],people:['q1','caregiving'],role:['q4','tenure'],line:['q4','stress_work'],v70:['q6','harvard_relationships']},
+  leap:{name:['q5','jobs_by_age'],money:['q2','displacement'],place:['q5','moving'],people:['q1','loneliness'],role:['q4','jobs_by_age'],line:['q3','adaptation'],v70:['q5','close_friends']},
+  careful:{name:['q2','net_worth_age'],money:['q2','net_worth_age'],place:['q5','first_home'],people:['q1','marriage_survival'],role:['q4','tenure'],line:['q3','happiness_u'],v70:['q2','retire_age']},
+  unjudged:{name:['q3','occ_switch'],money:['q2','weekly_earnings'],place:['q5','moving'],people:['q1','sandwich'],role:['q4','occ_switch'],line:['q3','job_insecurity'],v70:['q3','happiness_u']}
+};
+const VERDICT_R = {path:'Steady, with color in it.'};
+const CHANGES = {
+  path:[['2041','The burnout year','A hard year, softer'],['2044',null,'First small exhibition, Ninth Street']],
+  leap:[['2028','Sketchbook in a drawer','A sketchbook every lunch hour'],['2032','A year without work','Freelance the month of the layoff']],
+  careful:[['2031','Never paints','Thursday nights, a sketchbook'],['2045','VP at 44','VP at 45']],
+  unjudged:[['',null,'Nothing moves. This life already protects the painting.']]
+};
+const SUMMARY = {
+  path:s=>`Because you said ${s}: a softer 2041, a first exhibition in 2044, and color at 70. About $13,000 less by 41.`,
+  leap:()=>`You keep drawing through the Singapore years, so the 2032 layoff finds a portfolio ready. Freelance starts a year sooner.`,
+  careful:()=>`One evening a week stays yours. The VP title comes a year later, and it costs about $80,000 by 70.`,
+  unjudged:()=>`Nothing moves. This life already chose the painting.`
+};
+const FIVE = {
+  path:"In five years I'm 30, still in Durham, still at the bank. They offered me the team lead role and I said no, because it would have eaten my weekends. I take a painting class on Tuesday nights now and come home blue to the wrist. Mom still gets Sunday lunch.",
+  leap:"In five years I'm 30 and living in Singapore, on the 28th floor in Raffles Place. The first year was the loneliest of my life; I called Mom every Sunday, which was her Saturday night. Now there's Ren, two desks over, who corrects my Mandarin. The money is the best it has ever been, and I don't trust it to last.",
+  careful:"In five years I'm 30, still at the bank in Durham, and the loans are gone. The last $412 payment went through on a Tuesday and I checked the balance three times. I've just met Jordan, who has a five-year plan too. I haven't painted in a long time, and I tell myself that's a choice.",
+  unjudged:"In five years I'm 30, with an MFA and about $73,000 of debt. I teach two classes a semester and take every commission I can find, wedding invitations and a dentist's mural included. My thesis show was twelve drawings of Mom's kitchen, and she came twice. It's tight, and it's mine."
+};
+const POSTCARD_TO = "Dear Alex at 25,";
+const POSTCARD = "Four of us made it to seventy. One stayed in Durham and kept Tuesday nights. One said yes to Singapore and ended up in Lisbon. One paid off every loan and bought the house in Cary. One went to art school and never had much money. Each of us paid for something. You get to choose what you pay for.";
+
+// Saul Bass-ish plates: a few flat shapes per life
+const ART = {
+  path:`<svg class="art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMin slice" aria-hidden="true"><circle cx="72" cy="30" r="11"/><rect x="12" y="14" width="7" height="86"/><rect x="24" y="30" width="7" height="70"/><rect x="36" y="22" width="7" height="78"/><rect x="0" y="70" width="100" height="1.4"/></svg>`,
+  leap:`<svg class="art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMin slice" aria-hidden="true"><circle cx="60" cy="52" r="30"/><rect x="0" y="52" width="100" height="48" style="fill:var(--pbg)"/><rect x="0" y="57" width="100" height="1.2"/><rect x="0" y="63" width="100" height="1.2"/><line class="ln2" x1="0" y1="8" x2="100" y2="38"/></svg>`,
+  careful:`<svg class="art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMin slice" aria-hidden="true"><rect x="30" y="0" width="2.4" height="100"/><rect x="56" y="0" width="2.4" height="100"/><rect x="30" y="10" width="28" height="2.4"/><rect x="30" y="22" width="28" height="2.4"/><rect x="30" y="34" width="28" height="2.4"/><rect x="30" y="46" width="28" height="2.4"/><rect x="30" y="58" width="28" height="2.4"/><rect x="30" y="70" width="28" height="2.4"/><rect x="72" y="16" width="14" height="14"/></svg>`,
+  unjudged:`<svg class="art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMin slice" aria-hidden="true"><circle cx="40" cy="38" r="19"/><circle cx="58" cy="30" r="11"/><circle cx="54" cy="52" r="12"/><circle cx="27" cy="58" r="6"/><circle cx="71" cy="54" r="3.5"/><circle cx="18" cy="24" r="2.5"/><line class="ln2" x1="62" y1="70" x2="92" y2="10"/></svg>`
+};
+
+/* ---------- state ---------- */
+const S = {fast:false, playing:false, retuned:false, said:{}, talk:null, pending:null, phase:'interview', done:false, typeTimer:null, choice:{life:'leap',age:41}, five:'path'};
+let RUN = 0;
+class Cancel extends Error{}
+const RM = matchMedia('(prefers-reduced-motion: reduce)');
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const plain = s => s ? s.replace(/\[\[q\d\|(.*?)\]\]/g,'$1') : '';
+const markup = s => s.replace(/\[\[(q\d)\|(.*?)\]\]/g, (m,q,t)=>`<span class="q" data-q="${q}" tabindex="0">${t}</span>`);
+const fmt = n => (n<0?'−$':'$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+const fmtShort = n => n>=1e6 ? '$'+(n/1e6).toFixed(2).replace(/0$/,'')+'M' : fmt(n);
+
+function sleep(ms){
+  const id = RUN;
+  if (S.fast) return Promise.resolve().then(()=>{ if(id!==RUN) throw new Cancel(); });
+  return new Promise((res,rej)=> setTimeout(()=> id===RUN ? res() : rej(new Cancel()), ms));
+}
+function setFast(v){
+  if (v){ S.fast = true; document.documentElement.classList.add('instant'); return; }
+  if (!S.fast) return;
+  S.fast = false; void document.body.offsetWidth;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.documentElement.classList.remove('instant')));
+}
+
+/* ---------- data helpers ---------- */
+function lifeData(k){ return (k==='path' && S.retuned) ? D.retunePath : D.lives[IDX[k]]; }
+function row(k, y){ return lifeData(k).years.find(r=>r[0]===y); }
+function pick(tab, y){ let v=tab[0][1]; for (const [from,t] of tab) if (y>=from) v=t; return typeof v==='function' ? v(y) : v; }
+function netWorth(k, y){
+  let n = row(k,y)[3];
+  if (S.retuned && k==='leap' && y>=2032) n += 4000;
+  if (S.retuned && k==='careful' && y>=2031) n -= Math.round((y-2031)/40*80000/1000)*1000;
+  return n;
+}
+function verdict(k){ return (S.retuned && VERDICT_R[k]) || D.lives[IDX[k]].verdict; }
+function lineFor(k, y){
+  if (y===2042){ const key = (S.retuned && LINE41[k+'_r']) ? k+'_r' : k; return LINE41[key]; }
+  if (y===2071) return verdict(k);
+  const ys = lifeData(k).years;
+  for (let i=ys.length-1;i>=0;i--){ const r=ys[i]; if (r[0]>y) continue; if (y-r[0]>3) break; const ev=r[5].find(e=>e[1]); if (ev) return firstSentence(ev[1]); }
+  return row(k,y)[4];
+}
+const firstSentence = s => (s.match(/^.*?[.!?](\s|$)/)||[s])[0].trim();
+function snap(k, age){
+  const y = 2026 + age - 25; const r = row(k,y);
+  const rk = S.retuned && ROLE[k+'_r'] ? k+'_r' : k;
+  return {k, age, year:y, place:r[1].replace('Graca','Graça'), income:r[2], nw:netWorth(k,y), role:pick(ROLE[rk],y), people:pick(PEOPLE[k],y), line:lineFor(k,y)};
+}
+function quoteText(q){ if (S.said[q]) return S.said[q]; if (q==='q6') return SAMPLE_PAUSE; return D.quotes[q]; }
+
+/* ---------- money line, same scale on all four ---------- */
+const NW_MIN=-80000, NW_MAX=2650000;
+function sparkPts(k){ const pts=[]; for (let y=2026;y<=2071;y++){ const x=(y-2026)/45*100; const v=(netWorth(k,y)-NW_MIN)/(NW_MAX-NW_MIN); pts.push([x, 24-v*24]); } return pts; }
+function spark(k, focal, cls='spark'){
+  const p = sparkPts(k); const d = p.map(([x,y])=>x.toFixed(2)+','+y.toFixed(2)).join(' ');
+  const z = (24-(0-NW_MIN)/(NW_MAX-NW_MIN)*24).toFixed(2); const fx=((focal-2026)/45*100).toFixed(2);
+  return `<svg class="${cls}" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><polygon class="a" points="0,24 ${d} 100,24"/><line class="z" x1="0" y1="${z}" x2="100" y2="${z}"/><polyline class="l" points="${d}"/><line class="t" x1="${fx}" y1="-3" x2="${fx}" y2="27"/></svg>`;
+}
+
+/* ---------- posters ---------- */
+const posters = $('#posters');
+function buildPosters(){
+  posters.innerHTML = KEYS.map(k=>{ const L=LIFE[k]; return `
+  <article class="poster" data-life="${k}" style="--pbg:var(--${k});--pfg:var(--${k}-on);--part:var(--${k}-art)" aria-label="${L.name}">
+    <div class="field">${ART[k]}</div>
+    <div class="ph">
+      <header class="p-top"><span class="no">No. ${L.no}</span><span class="f f-name" data-k="name" tabindex="0">${L.name}</span></header>
+      <div class="p-body">
+        <div class="f f-year" data-k="year"></div>
+        <div class="f f-place" data-k="place" tabindex="0"></div>
+        <div class="p-pair"><div class="f f-role" data-k="role" tabindex="0"></div><div class="f f-people" data-k="people" tabindex="0"></div></div>
+        <div class="f f-money" data-k="money" tabindex="0"></div>
+        <div class="f f-line" data-k="line" tabindex="0"></div>
+        <div class="delta" hidden></div>
+      </div>
+    </div>
+    <div class="card"></div>
+    <div class="strip" aria-hidden="true"><span>No. ${L.no} · ${L.name}</span></div>
+  </article>`}).join('');
+}
+const P = k => posters.querySelector(`.poster[data-life="${k}"]`);
+const F = (k, key, root) => (root||P(k).querySelector('.ph')).querySelector(`[data-k="${key}"]`);
+function setWhy(el, k, key){ const w = WHY[k][key]; if (w){ el.dataset.q=w[0]; el.dataset.br=w[1]; el.dataset.life=k; } }
+function fillPoster(k, sn, opt={}){
+  const set = (key, html)=>{ const el=F(k,key); el.innerHTML=html; setWhy(el,k,key); };
+  F(k,'year').innerHTML = `<span class="cap tab">${sn.year}</span><span class="cap">Alex at ${sn.age}</span>`;
+  set('place', esc(sn.place));
+  set('role', `<span class="cap">Work</span><span>${esc(sn.role)}</span>`);
+  set('people', `<span class="cap">With</span><span>${esc(sn.people)}</span>`);
+  set('money', `<span class="was">${opt.was!=null?fmt(opt.was):''}</span><span class="num tab">${fmt(opt.from!=null?opt.from:sn.nw)}</span><span class="cap">Net worth<br>2026 dollars</span>${spark(k, sn.year)}`);
+  set('line', esc(sn.line));
+  if (sn.age===70){ const el=F(k,'line'); const w=WHY[k].v70; el.dataset.q=(k==='path'&&!S.retuned)?'q1':w[0]; el.dataset.br=w[1]; }
+  setWhy(F(k,'name'),k,'name');
+}
+function known(k, key, on=true){ const el=F(k,key); el.classList.toggle('known',on); el.toggleAttribute('aria-hidden',!on); }
+function setExp(k, v){ const p=P(k); p.style.setProperty('--exp', v); p.classList.toggle('on', v>0); }
+function stageHas(){ $('#stage').classList.toggle('has-life', KEYS.some(k=>P(k).classList.contains('on'))); }
+function morph(el, from, to, ms=1500){
+  if (S.fast || RM.matches || from===to){ el.textContent = fmt(to); return; }
+  const t0=performance.now();
+  const step=t=>{ const p=Math.min(1,(t-t0)/ms); const e=1-Math.pow(1-p,3); el.textContent=fmt(from+(to-from)*e); if(p<1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* ---------- window chrome ---------- */
+function head(t, m){ $('#winTitle').textContent=t; $('#winMeta').textContent=m; }
+function sill(t, html){ $('#sillT').textContent=t; $('#sillP').innerHTML=html; }
+
+/* ---------- conversation ---------- */
+const log = $('#log');
+const LABEL = {iv:'Interviewer', me:'Alex, 25', fu:'', sys:'What changed', end:''};
+function dimPast(){ const ls=[...log.children]; ls.forEach((l,i)=>l.classList.toggle('past', i<ls.length-2)); }
+function scrollLog(){
+  log.scrollTo({top:log.scrollHeight, behavior:S.fast?'auto':'smooth'});
+}
+async function say(who, text, opt={}){
+  const ln=document.createElement('div'); ln.className='ln ln-'+who; if (opt.life) ln.dataset.life=opt.life;
+  ln.innerHTML=`<div class="who">${esc(opt.label||LABEL[who])}</div><div class="txt"></div>`;
+  const txt=ln.querySelector('.txt'); log.appendChild(ln); dimPast();
+  const html = opt.html ? text : markup(text);
+  if (S.fast || RM.matches || opt.instant){ txt.innerHTML=html; scrollLog(); await sleep(S.fast?0:120); return ln; }
+  txt.innerHTML=html;
+  // wrap words, keep quote spans
+  let t=0; const per = who==='fu'?26:30;
+  const walk=node=>{ [...node.childNodes].forEach(n=>{
+    if (n.nodeType===3){ const frag=document.createDocumentFragment();
+      n.textContent.split(/(\s+)/).forEach(w=>{ if(!w) return; if(/^\s+$/.test(w)){frag.appendChild(document.createTextNode(w));return;}
+        const s=document.createElement('span'); s.className='w'; s.style.setProperty('--d',t); s.textContent=w; t+=w.length*per+40; frag.appendChild(s); });
+      n.replaceWith(frag);
+    } else if (n.nodeType===1) walk(n); }); };
+  walk(txt); scrollLog();
+  await sleep(t+380);
+  return ln;
+}
+
+/* ---------- composer ---------- */
+const form=$('#composer'), input=$('#answer'), send=$('#send'), hint=$('#hint'), cwho=$('#cwho');
+function composerOpen(label, placeholder, h){
+  form.classList.remove('choosing','done'); cwho.textContent=label;
+  input.disabled=false; send.disabled=false; input.value=''; input.placeholder=placeholder; hint.textContent=h||'';
+  if (!S.playing && matchMedia('(pointer:fine)').matches) input.focus({preventScroll:true});
+}
+function composerIdle(){ input.disabled=true; send.disabled=true; input.placeholder=''; hint.textContent=''; }
+function ask(script, opt={}){
+  const id=RUN;
+  if (S.fast) return Promise.resolve(opt.free ? {own:opt.sample, sample:true} : script);
+  composerOpen(opt.label||'Alex, 25', opt.free ? opt.placeholder : plain(script), opt.free ? 'Any words work. This answer re-tunes all four futures.' : "Press Enter to send Alex's line, or type your own.");
+  return new Promise((res,rej)=>{ S.pending={res,rej,id,script,opt}; if (S.playing) autoType(); });
+}
+function stopType(){ clearTimeout(S.typeTimer); S.typeTimer=null; }
+function autoType(){
+  const p=S.pending; if(!p || p.choose){ if(p&&p.choose) autoChoose(); return; }
+  stopType(); const text = p.opt.free ? p.opt.sample : plain(p.script); let i=input.value.length && text.startsWith(input.value) ? input.value.length : 0; input.value=text.slice(0,i);
+  const tick=()=>{ if (S.pending!==p || !S.playing) return; if (i>=text.length){ S.typeTimer=setTimeout(()=>{ if(S.pending===p && S.playing) form.requestSubmit(); }, 650); return; }
+    i++; input.value=text.slice(0,i); input.scrollLeft=input.scrollWidth;
+    const c=text[i-1]; S.typeTimer=setTimeout(tick, c===' '?60+Math.random()*50 : /[.,:]/.test(c)?220 : 28+Math.random()*38); };
+  S.typeTimer=setTimeout(tick, 500);
+}
+input.addEventListener('keydown', e=>{ if (e.key.length===1 && S.typeTimer){ stopType(); hint.textContent='Your words now. Press Enter to send.'; }});
+form.addEventListener('submit', e=>{
+  e.preventDefault(); const p=S.pending; if(!p || p.choose) return;
+  let t=input.value.trim(); stopType();
+  if (p.opt.free){
+    if (!t){ hint.textContent='Type an answer first. A few words is enough.'; input.focus(); return; }
+    t = {own:t, sample: t===p.opt.sample};
+  } else if (!t || t===plain(p.script)) t = p.script; else t = {own:t};
+  S.pending=null; input.value=''; composerIdle(); p.res(t);
+});
+
+/* chooser */
+function buildChooser(){
+  $('#chLife').insertAdjacentHTML('beforeend', KEYS.map(k=>`<button type="button" class="opt" data-life="${k}" aria-pressed="false">${LIFE[k].name}</button>`).join(''));
+  $('#chAge').insertAdjacentHTML('beforeend', [30,41,55,70].map(a=>`<button type="button" class="opt" data-age="${a}" aria-pressed="false">${a}</button>`).join(''));
+  $('#chooser').addEventListener('click', e=>{ const b=e.target.closest('button.opt'); if(!b) return; if(b.dataset.life) S.choice.life=b.dataset.life; if(b.dataset.age) S.choice.age=+b.dataset.age; syncChooser(); });
+  $('#chGo').addEventListener('click', ()=>{ const p=S.pending; if(p&&p.choose){ S.pending=null; form.classList.remove('choosing'); p.res({...S.choice}); }});
+}
+function syncChooser(){
+  document.querySelectorAll('#chLife .opt').forEach(b=>b.setAttribute('aria-pressed', b.dataset.life===S.choice.life));
+  document.querySelectorAll('#chAge .opt').forEach(b=>{ b.setAttribute('aria-pressed', +b.dataset.age===S.choice.age); b.dataset.life=S.choice.life; b.setAttribute('data-life',S.choice.life); });
+  $('#chooser').dataset.life=S.choice.life;
+  KEYS.forEach(k=>P(k).style.outline = (S.pending&&S.pending.choose&&k===S.choice.life) ? '2px solid var(--ink)' : '');
+  KEYS.forEach(k=>P(k).style.outlineOffset='3px');
+}
+function choose(){
+  if (S.fast) return Promise.resolve({life:'leap',age:41});
+  S.choice={life:'leap',age:41};
+  form.classList.add('choosing'); form.classList.remove('done'); cwho.textContent='Alex, 25'; composerIdle();
+  return new Promise((res,rej)=>{ S.pending={res,rej,choose:true}; syncChooser(); KEYS.forEach(k=>P(k).style.cursor='pointer'); if (S.playing) autoChoose(); })
+    .finally(()=>{ KEYS.forEach(k=>{ P(k).style.outline=''; P(k).style.cursor=''; }); });
+}
+function autoChoose(){ const p=S.pending; stopType(); S.typeTimer=setTimeout(()=>{ if(S.pending===p && S.playing) $('#chGo').click(); }, 1700); }
+posters.addEventListener('click', e=>{ const p=e.target.closest('.poster'); if(p && S.pending && S.pending.choose){ S.choice.life=p.dataset.life; syncChooser(); }});
+
+/* ---------- the why thread ---------- */
+const foot=$('#foot'), win=$('#win');
+let footFor=null, footTimer=null;
+function showFoot(el, pinned){
+  const q=el.dataset.q, br=el.dataset.br; if(!q) return;
+  const b=D.br[br]; const life=el.dataset.life || el.closest('[data-life]')?.dataset.life;
+  const qa = q==='q6' ? 'Your answer at the pause' : 'Your answer, ' + ({q2:'question 1',q5:'question 2',q1:'question 3',q4:'question 4',q3:'question 5'}[q]);
+  foot.innerHTML=`<div class="cap"><span>Why this is here</span><span>${esc(qa)}</span></div><p class="fq">“${esc(quoteText(q))}”</p>${b?`<p class="fb">${esc(b[0])}<span class="src">${esc(b[1])}</span></p>`:''}`;
+  const wr=win.getBoundingClientRect(), r=el.getBoundingClientRect();
+  foot.classList.add('on'); const fw=foot.offsetWidth, fh=foot.offsetHeight;
+  let x=r.left-wr.left, y=r.bottom-wr.top+10;
+  if (y+fh > wr.height-4) y = r.top-wr.top-fh-10;
+  if (y<4) y=4;
+  x=Math.max(8, Math.min(x, wr.width-fw-8));
+  foot.style.left=x+'px'; foot.style.top=y+'px';
+  footFor=el; litQuote(q, life);
+  clearTimeout(footTimer); if (pinned) footTimer=setTimeout(hideFoot, pinned);
+}
+function hideFoot(){ foot.classList.remove('on'); footFor=null; if (S.autoScrolled){ S.autoScrolled=false; scrollLog(); } document.querySelectorAll('.q.lit').forEach(s=>s.classList.remove('lit')); }
+function litQuote(q, life){
+  document.querySelectorAll('.q.lit').forEach(s=>s.classList.remove('lit'));
+  const spans=[...log.querySelectorAll(`.q[data-q="${q}"]`)]; const s=spans[spans.length-1]; if(!s) return;
+  if (life) s.style.setProperty('--qc', `var(--${life})`);
+  s.classList.add('lit');
+  const lr=log.getBoundingClientRect(), sr=s.getBoundingClientRect();
+  if (sr.top<lr.top+30 || sr.bottom>lr.bottom-10) log.scrollTo({top: log.scrollTop + (sr.top-lr.top) - lr.height/2, behavior:'smooth'});
+}
+const factOf = t => t.closest && t.closest('.f.known[data-q]');
+win.addEventListener('pointerover', e=>{ const f=factOf(e.target); if(f && f!==footFor && e.pointerType!=='touch') showFoot(f); });
+win.addEventListener('pointerout', e=>{ const f=factOf(e.target); if(f && !f.contains(e.relatedTarget) && e.pointerType!=='touch') hideFoot(); });
+win.addEventListener('click', e=>{ const f=factOf(e.target); if(f){ if (footFor===f) hideFoot(); else showFoot(f, 6000); } });
+win.addEventListener('focusin', e=>{ const f=factOf(e.target); if(f) showFoot(f); });
+win.addEventListener('focusout', e=>{ if(factOf(e.target)) hideFoot(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') hideFoot(); });
+// reverse thread: hover a quote, its facts light up
+log.addEventListener('pointerover', e=>{ const s=e.target.closest('.q'); if(!s) return; document.querySelectorAll(`.f.known[data-q="${s.dataset.q}"]`).forEach(f=>f.classList.add('lit')); });
+log.addEventListener('pointerout', e=>{ const s=e.target.closest('.q'); if(!s) return; document.querySelectorAll('.f.lit').forEach(f=>f.classList.remove('lit')); });
+
+/* ---------- reveal steps during the interview ---------- */
+const STEPS = [
+  {keys:['money','year'], exp:{path:.14,leap:.14,careful:.3,unjudged:.12}, t:'Exposure 1 of 5', p:q=>`Four outlines and a money line. The careful one shows first, because of ${q}`},
+  {keys:['place'], exp:{path:.34,leap:.46,careful:.42,unjudged:.3}, t:'Exposure 2 of 5', p:q=>`Places came through: two of you stay near Durham, one moves twenty minutes, one crosses an ocean. From ${q}`},
+  {keys:['people'], exp:{path:.56,leap:.56,careful:.56,unjudged:.48}, t:'Exposure 3 of 5', p:q=>`People came through. In every version, your mom is still in the frame. From ${q}`},
+  {keys:['role'], extra:[['path','line']], exp:{path:.74,leap:.66,careful:.7,unjudged:.6}, t:'Exposure 4 of 5', p:q=>`Work came through, and Your Path at 41 is the thing you were afraid of. From ${q}`},
+  {keys:['line'], exp:{path:.84,leap:.82,careful:.82,unjudged:.9}, t:'Exposure 5 of 5', p:q=>`The last sentence on each plate. The fourth one sharpens most. From ${q}`}
+];
+async function reveal(i, q){
+  const st=STEPS[i];
+  if (i===0){ KEYS.forEach(k=>fillPoster(k, snap(k,41))); head('A window onto your futures','2042 · each of you at 41'); }
+  for (const k of KEYS){
+    setExp(k, st.exp[k]);
+    st.keys.forEach(key=>known(k,key));
+    (st.extra||[]).forEach(([kk,key])=>{ if(kk===k) known(k,key); });
+    stageHas(); await sleep(170);
+  }
+  const quote = q ? `<q>${esc(quoteText(q))}</q>` : '';
+  sill(st.t, st.p(quote));
+}
+async function snapFocus(){
+  head('Four of you, at 41','2042 · in focus');
+  for (const k of KEYS){ setExp(k,1); known(k,'name'); ['money','year','place','people','role','line'].forEach(x=>known(k,x)); await sleep(220); }
+  sill('In focus', 'Four lives you could still live, each at 41. Same scale on every money line. A projection, not a prediction.');
+}
+
+/* ---------- talking to one future ---------- */
+function cardHTML(k, sn){
+  const L=LIFE[k], title=D.lives[IDX[k]].title, w=WHY[k];
+  const a=(key,inner,cls='f known')=>`<div class="${cls}" data-k="${key}" data-q="${w[key][0]}" data-br="${w[key][1]}" data-life="${k}" tabindex="0">${inner}</div>`;
+  return `<div class="tc-age"><span class="cap">Alex at</span><b>${sn.age}</b></div>
+  <div class="tc-main">
+    <div class="tc-kicker"><span class="cap">No. ${L.no} · ${L.name}</span><span class="cap">${esc(title)}</span><span class="cap tab">${sn.year}</span></div>
+    ${a('place',`<h2 class="tc-place">${esc(sn.place)}</h2>`)}
+    ${a('line',`<p class="tc-line">${esc(sn.line)}</p>`)}
+    <div class="tc-facts">
+      ${a('role',`<span class="cap">Work</span><span>${esc(sn.role)}</span>`)}
+      ${a('people',`<span class="cap">With</span><span>${esc(sn.people)}</span>`)}
+      ${a('money',`<span class="cap">Net worth, 2026 $</span><span class="big tab">${fmt(sn.nw)}</span>`)}
+      <div class="f known"><span class="cap">Income that year</span><span class="big tab">${fmt(sn.income)}</span></div>
+    </div>
+    <div class="tc-spark"><span class="tab">2026</span>${spark(k, sn.year, 'spk')}<span class="tab">2071 · projection, not a prediction</span></div>
+  </div>`;
+}
+function enterTalk(k, age){
+  S.talk={k,age}; const sn=snap(k,age);
+  const card=P(k).querySelector('.card'); card.innerHTML=cardHTML(k,sn);
+  $('#stage').classList.add('talking');
+  KEYS.forEach(x=>{ P(x).classList.toggle('is-card',x===k); P(x).classList.toggle('is-strip',x!==k); });
+  head(`${LIFE[k].name} · Alex at ${age}`, `${sn.year} · ${sn.place}`);
+  sill('Title card', `You are talking to Alex at ${age}. Facts light up as they come up; hover any of them for the sentence that caused it.`);
+  if (matchMedia('(max-width:720px)').matches) posters.scrollTo({left:0});
+}
+function exitTalk(){
+  $('#stage').classList.remove('talking'); posters.scrollTo({left:0});
+  KEYS.forEach(x=>P(x).classList.remove('is-card','is-strip','frozen'));
+}
+async function light(k, key, why){
+  const el=P(k).querySelector(`.card [data-k="${key}"]`); if(!el) return;
+  if (why){ el.dataset.q=why[0]; el.dataset.br=why[1]; }
+  el.classList.add('lit');
+  if (!S.fast){ showFoot(el, 4200); S.autoScrolled=true; }
+  await sleep(S.fast?0:600);
+  setTimeout(()=>el.classList.remove('lit'), 4200);
+}
+function script(k, age){
+  const sn=snap(k,age);
+  if (k==='leap' && age===41) return {
+    hello:"It's 2042. I'm 41, in a fourth-floor walk-up in Graça with bad plumbing and a view of the river. Ask me anything. I'll answer the way I'd have wanted at 25.",
+    turns:[
+      {ask:'Was it worth it, leaving Durham?', reply:"Ask me which year. In 2028 I'd have said no. I called Mom every Sunday, which was her Saturday night, and I ate dinner at my desk more than I'd admit. Then Ren sat two desks over and corrected my Mandarin without being asked. Dinner turned into a habit.", lit:[['people',['q5','loneliness']]]},
+      {ask:'What happened with the job?', reply:"They cut the regional office in 2032. I made $22,000 that year, and I'm telling you the number because you'll want it. The layoff is why I draw for a living. No job to lose and nobody watching. Today I'm worth about $90,000 in your money, less than you'd have at the bank.", lit:[['role',['q3','displacement']],['money',['q2','displacement']]]},
+      {ask:'And Mom?', reply:"She came to Lisbon once, in 2038. Two weeks, a suitcase of hot sauce, and one argument about when I'm coming home. I still haven't answered that one either.", lit:[['people',['q1','caregiving']]]}
+    ]};
+  // assembled from the sample data for any other choice
+  const ys=lifeData(k).years.filter(r=>r[0]>2026 && r[0]<=sn.year);
+  const tps=ys.flatMap(r=>r[5].filter(e=>e[4]).map(e=>({y:r[0],e})));
+  const first=tps[0], money=[...tps].reverse().find(t=>['career','wealth'].includes(t.e[5])), mom=[...ys].reverse().flatMap(r=>r[5].map(e=>({y:r[0],e}))).find(t=>/mom/i.test(t.e[1]));
+  return {
+    hello:`It's ${sn.year}. I'm ${age}, in ${sn.place}. ${sn.line} Ask me anything.`,
+    turns:[
+      {ask:'Was it worth it?', reply: first ? `Ask me about ${first.y}. ${first.e[1]}` : `Nothing big has happened yet. ${sn.line}`, lit:[['place',null],['line',null]]},
+      {ask:'What about money?', reply:`I'm worth ${fmt(sn.nw)} in your money, and I made ${fmt(sn.income)} this year. ${money ? `The year that set it was ${money.y}. ${money.e[1]}` : ''}`, lit:[['money',null],['role',null]]},
+      {ask:'And Mom?', reply: mom ? `${mom.y}. ${mom.e[1]}` : `${sn.people}. I call her more than I used to.`, lit:[['people',null]]}
+    ]};
+}
+
+/* ---------- the pause and the re-tune ---------- */
+function freeze(k, on){
+  const fz=$('#freeze');
+  if (on){
+    fz.dataset.life=k; fz.style.setProperty('--life-t', `var(--${k}-t)`);
+    fz.innerHTML=`<span class="cap">Freeze frame · 2031 · you are 30</span><p class="fq">${esc(PAUSE_Q)}</p><p class="fs">Alex at ${S.talk.age} is waiting for your answer, below. Whatever you write re-tunes all four of you.</p>`;
+    P(k).classList.add('frozen'); fz.classList.add('on');
+    head(`${LIFE[k].name} · paused`, '2031 · a question for you');
+    sill('Paused', 'The window holds still until you answer.');
+  } else { fz.classList.remove('on'); }
+}
+async function retune(ans){
+  const before=KEYS.map(k=>snap(k,41));
+  S.retuned=true;
+  const after=KEYS.map(k=>snap(k,41));
+  freeze(null,false); exitTalk();
+  head('Four of you, re-tuned', '2042 · each of you at 41');
+  await sleep(700);
+  KEYS.forEach((k,i)=>{
+    const b=before[i], a=after[i], p=P(k);
+    fillPoster(k, a, {from:b.nw, was: b.nw!==a.nw ? b.nw : null});
+    ['name','money','year','place','people','role','line'].forEach(x=>known(k,x));
+    const dl=p.querySelector('.delta');
+    dl.innerHTML=`<span class="cap">What changed</span>`+CHANGES[k].map(([y,was,now])=>`<div>${y?`<span class="yr tab">${y}</span>`:''}${was?`<s>${esc(was)}</s><span class="ar">→</span>`:''}${esc(now)}</div>`).join('');
+    dl.hidden=false; p.classList.add('has-delta');
+    morph(F(k,'money').querySelector('.num'), b.nw, a.nw);
+    // brief re-exposure
+    if (!S.fast && !RM.matches){ p.style.setProperty('--exp',.55); setTimeout(()=>p.style.setProperty('--exp',1), 80+i*160); }
+  });
+  const short = `<q>${esc(ans.length>60?ans.slice(0,57)+'…':ans)}</q>`;
+  sill('Re-tuned', `Your answer moved all four. Struck values are where each life stood before you said ${short}`);
+}
+
+/* ---------- ending ---------- */
+function toSeventy(){
+  KEYS.forEach(k=>{ const p=P(k); p.classList.remove('has-delta'); p.querySelector('.delta').hidden=true; fillPoster(k, snap(k,70)); ['name','money','year','place','people','role','line'].forEach(x=>known(k,x)); });
+  head('Four of you, at 70','2071 · the last frame');
+  sill('2071', 'Each of you at seventy, with one line about how it went. Net worth in 2026 dollars, a projection, not a prediction.');
+}
+function buildEnding(){
+  const plates=KEYS.map(k=>{ const sn=snap(k,70); return `<div class="plate" data-life="${k}" style="--pbg:var(--${k});--pfg:var(--${k}-on);--part:var(--${k}-art)">${ART[k]}<span class="cap">No. ${LIFE[k].no} · ${LIFE[k].name}</span><div><p class="vd">${esc(verdict(k))}</p><div class="mm tab">${esc(sn.place)} · ${fmtShort(sn.nw)}</div></div></div>`; }).join('');
+  $('#ending').innerHTML=`
+  <div class="postcard" aria-label="Postcard from 70">
+    <div class="plates">${plates}</div>
+    <div class="pc-back">
+      <p class="pc-msg">${esc(POSTCARD_TO)}<br>${esc(POSTCARD)}<br><span style="font-style:normal" class="cap">— You, four times over, 2071</span></p>
+      <div class="pc-addr">
+        <svg class="postmark" viewBox="0 0 84 84" aria-hidden="true"><defs><path id="pm" d="M42,42 m-31,0 a31,31 0 1,1 62,0 a31,31 0 1,1 -62,0"/></defs><circle cx="42" cy="42" r="38" stroke-width="1"/><circle cx="42" cy="42" r="24" stroke-width=".8"/><text><textPath href="#pm">DURHAM · LISBON · CARY · HILLSBOROUGH ·</textPath></text><text x="42" y="46" text-anchor="middle" style="font-size:11px;letter-spacing:1px">2071</text></svg>
+        <div class="stamp"><b>70</b><span>years</span></div>
+        <div class="to"><span class="cap" style="color:var(--ink-3)">To</span><br><i>Alex, age 25</i><br>Durham, North Carolina<br>November 2026</div>
+      </div>
+    </div>
+  </div>
+  <div class="five" id="five">
+    <span class="cap" style="color:var(--ink-3)">Five-year card</span>
+    <h2>Where do you see yourself in five years?</h2>
+    <div class="tabs" role="tablist" id="fiveTabs">${KEYS.map(k=>`<button role="tab" data-life="${k}" style="--tc:var(--${k})" aria-selected="${k===S.five}" id="tab-${k}">${LIFE[k].name}</button>`).join('')}</div>
+    <p class="five-text" id="fiveText" role="tabpanel"></p>
+    <div class="five-act"><button type="button" id="copy"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="4" y="4" width="8.5" height="8.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2 10V2h8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span>Copy</span></button><button type="button" id="speak"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2 5h2.5L8 2v10L4.5 9H2z" fill="currentColor"/><path d="M10 4.5c1 .8 1 4.2 0 5M11.6 3c1.9 1.6 1.9 6.4 0 8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg><span>Read aloud</span></button><span class="msg" id="fiveMsg"></span></div>
+  </div>`;
+  setFive(S.five);
+  $('#fiveTabs').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setFive(b.dataset.life); });
+  $('#fiveTabs').addEventListener('keydown', e=>{ if(!['ArrowRight','ArrowLeft'].includes(e.key)) return; const i=(KEYS.indexOf(S.five)+(e.key==='ArrowRight'?1:3))%4; setFive(KEYS[i]); $('#tab-'+KEYS[i]).focus(); });
+  $('#copy').addEventListener('click', ()=>{ const t=FIVE[S.five], m=$('#fiveMsg');
+    const fallback=()=>{ const r=document.createRange(); r.selectNodeContents($('#fiveText')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); m.textContent='Selected. Press Cmd or Ctrl + C to copy.'; };
+    try{ navigator.clipboard.writeText(t).then(()=>{ m.textContent='Copied.'; }, fallback); }catch(err){ fallback(); } });
+  $('#speak').addEventListener('click', ()=>{ const m=$('#fiveMsg'), lab=$('#speak span');
+    if (!('speechSynthesis' in window)){ m.textContent='Read aloud is not available in this browser.'; return; }
+    if (speechSynthesis.speaking){ speechSynthesis.cancel(); lab.textContent='Read aloud'; return; }
+    const u=new SpeechSynthesisUtterance(FIVE[S.five]); u.rate=.96; u.onend=()=>{ lab.textContent='Read aloud'; };
+    lab.textContent='Stop'; speechSynthesis.speak(u); });
+}
+function setFive(k){ S.five=k; document.querySelectorAll('#fiveTabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.life===k)); const t=$('#fiveText'); t.textContent=FIVE[k]; t.setAttribute('aria-labelledby','tab-'+k); $('#fiveMsg').textContent=''; if('speechSynthesis' in window && speechSynthesis.speaking){ speechSynthesis.cancel(); $('#speak span').textContent='Read aloud'; } }
+
+/* ---------- the story ---------- */
+const PHASES=['interview','four','talk','pause','ending'];
+function setPhase(p){ S.phase=p; document.querySelectorAll('#skip button').forEach(b=>{ if(b.dataset.skip===p) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current'); }); }
+async function story(target){
+  const before = p => PHASES.indexOf(p) < PHASES.indexOf(target);
+  // 1. interview
+  setFast(before('interview')); setPhase('interview');
+  for (let i=0;i<5;i++){
+    if (i===0) await sleep(500);
+    await say('iv', QUESTIONS[i]);
+    const [q, line] = ANSWERS[i];
+    const a = await ask(line);
+    if (typeof a==='string'){ delete S.said[q]; await say('me', a, {instant:true}); }
+    else { S.said[q]=a.own; await say('me', `[[${q}|${a.own.replace(/[\[\]|]/g,'')}]]`, {instant:true}); }
+    await sleep(350);
+    await reveal(i, q);
+    await sleep(600);
+  }
+  // 2. four of you
+  setFast(before('four')); setPhase('four');
+  await say('iv', 'I can see four of you now.');
+  await snapFocus();
+  await sleep(900);
+  await say('iv', 'Your Path, if nothing changes. The Leap, if you say yes to Singapore. The Careful Life, if fear decides. The Unjudged Life, if nobody is watching. Pick one to talk to, and an age. I would start with The Leap at 41.');
+  const c = await choose();
+  await say('me', `I'd like to talk to ${LIFE[c.life].name}, at ${c.age}.`, {instant:true});
+  // 3. talk
+  setFast(before('talk')); setPhase('talk');
+  enterTalk(c.life, c.age);
+  await sleep(1300);
+  const sc = script(c.life, c.age), fu = {life:c.life, label:`Alex, ${c.age} · ${LIFE[c.life].name}`};
+  await say('fu', sc.hello, fu);
+  for (const t of sc.turns){
+    const a = await ask(t.ask, {label:'Alex, 25'});
+    await say('me', typeof a==='string' ? a : esc(a.own), {instant:true, html: typeof a!=='string'});
+    await sleep(500);
+    await say('fu', t.reply, fu);
+    for (const [key, why] of t.lit) await light(c.life, key, why);
+    await sleep(700);
+  }
+  // 4. the pause
+  setFast(before('pause')); setPhase('pause');
+  if (!S.talk) enterTalk(c.life, c.age);
+  await say('fu', PAUSE_Q, fu);
+  freeze(c.life, true);
+  const pa = await ask(null, {free:true, label:'You', placeholder:'Type what you would protect first', sample:SAMPLE_PAUSE});
+  S.said.q6 = pa.own;
+  await say('me', `[[q6|${pa.own.replace(/[\[\]|]/g,'')}]]`, {instant:true, label:'You'});
+  await sleep(500);
+  await retune(pa.own);
+  await sleep(S.fast?0:1500);
+  const sumHTML = KEYS.map(k=>`<div class="row" data-life="${k}"><b>${LIFE[k].name}</b><span>${esc(SUMMARY[k]('“'+(pa.own.length>48?pa.own.slice(0,45)+'…':pa.own)+'”'))}</span></div>`).join('');
+  await say('sys', sumHTML, {html:true, instant:true});
+  await sleep(800);
+  await say('fu', "Then that is what moves. All four of us felt it, even the ones who never meet Sam.", fu);
+  await sleep(1500);
+  // 5. ending
+  setFast(before('ending')); setPhase('ending');
+  form.classList.add('done'); composerIdle(); cwho.textContent='';
+  await say('iv', 'One more look. Here they are at seventy.');
+  toSeventy();
+  await sleep(3800);
+  await say('iv', 'They sent you something.');
+  buildEnding();
+  $('#stage').classList.add('at-end'); $('#ending').classList.add('on');
+  head('Postcard from 70','2071 → 2026');
+  sill('Postcard', 'Four verdicts from seventy, sent back to you at 25. Then the question every interview ends with.');
+  await sleep(2200);
+  $('#five').classList.add('on');
+  await say('iv', 'Where do you see yourself in five years? There are four answers. Pick a tab.');
+  await say('end', 'End of the sample. Restart, or skip back to any part.', {instant:true});
+  S.done=true; setPlaying(false);
+}
+
+/* ---------- controls ---------- */
+function setPlaying(v){
+  S.playing=v; $('#play').setAttribute('aria-pressed', v);
+  $('#playLabel').textContent = v ? 'Pause' : (S.done ? 'Play again' : 'Play');
+  $('#playIcon').setAttribute('d', v ? 'M2 1h3v10H2zM7 1h3v10H7z' : 'M2 1l9 5-9 5z');
+  if (v && S.pending) autoType();
+  if (!v) stopType();
+}
+function reset(){
+  RUN++; stopType();
+  if (S.pending){ S.pending.rej(new Cancel()); S.pending=null; }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  Object.assign(S,{retuned:false, said:{}, talk:null, done:false, five:'path'});
+  hideFoot(); log.innerHTML=''; buildPosters();
+  const st=$('#stage'); st.classList.remove('talking','at-end','has-life');
+  $('#freeze').classList.remove('on'); $('#freeze').innerHTML=''; $('#ending').classList.remove('on'); $('#ending').innerHTML='';
+  form.classList.remove('choosing','done'); composerIdle(); cwho.textContent='Alex, 25';
+  head('A window onto your futures','Empty frame');
+  sill('Label','The window develops as you talk. Hover or tap any fact for the sentence that caused it.');
+  posters.scrollTo({left:0}); $('#pagerR').textContent='1 / 4 · Your Path';
+}
+function start(target='interview', play=S.playing){
+  reset(); setPlaying(play);
+  story(target).catch(e=>{ if(!(e instanceof Cancel)) console.error(e); });
+}
+$('#play').addEventListener('click', ()=>{ if (S.done){ start('interview', true); return; } setPlaying(!S.playing); });
+$('#restart').addEventListener('click', ()=>start('interview', false));
+$('#skip').addEventListener('click', e=>{ const b=e.target.closest('button[data-skip]'); if(b) start(b.dataset.skip, S.playing); });
+$('#skipSel').addEventListener('change', e=>{ if(e.target.value) start(e.target.value, S.playing); e.target.value=''; });
+
+/* phone pager */
+posters.addEventListener('scroll', ()=>{ const ps=[...posters.children]; if(!ps.length) return; const i=Math.round(posters.scrollLeft/(ps[0].offsetWidth+8)); const k=KEYS[Math.max(0,Math.min(3,i))]; $('#pagerR').textContent=`${i+1} / 4 · ${LIFE[k].name}`; }, {passive:true});
+
+buildChooser();
+start('interview', false);
+</script>

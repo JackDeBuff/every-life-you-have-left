@@ -219,19 +219,19 @@ footer{padding-block:var(--s7);color:var(--muted);font-size:var(--t-sm)}
     <div class="sechead">
       <p class="label">Open decision · D-051, D-052</p>
       <h2 id="look-h">Pick the look</h2>
-      <p class="lede">Both prototypes play the same made-up person, Alex (25, Durham, data analyst who paints at night), through all four lives. No AI runs here. Use the theme and font switches inside each prototype, then vote on the right.</p>
+      <p class="lede">Round two, chat-centric, after Supawich rejected Four Horizons as too close to 1 in 8 Billion. In both, the conversation is the product and your four futures sharpen around it as you talk. Same sample person, Alex (25, Durham, data analyst who paints at night). No AI runs here. Press Play, or type your own answers. At the pause, write any answer and watch all four lives change.</p>
     </div>
     <div class="look">
       <div style="min-width:0">
         <div class="tabs" role="tablist" aria-label="Prototype">
-          <button role="tab" id="tab-horizons" aria-selected="true" aria-controls="stage" data-src="horizons.html" data-name="Four Horizons v2">Four Horizons v2</button>
-          <button role="tab" id="tab-delta" aria-selected="false" aria-controls="stage" data-src="delta.html" data-name="The Delta">The Delta</button>
+          <button role="tab" id="tab-marg" aria-selected="true" aria-controls="stage" data-src="marginalia.html" data-name="A · Marginalia">A · Marginalia</button>
+          <button role="tab" id="tab-window" aria-selected="false" aria-controls="stage" data-src="window.html" data-name="B · The Window">B · The Window</button>
         </div>
-        <div class="stage" id="stage" role="tabpanel" aria-labelledby="tab-horizons">
-          <iframe id="proto" src="horizons.html" title="Four Horizons v2 prototype" loading="lazy"></iframe>
+        <div class="stage" id="stage" role="tabpanel" aria-labelledby="tab-marg">
+          <iframe id="proto" src="marginalia.html" title="A · Marginalia prototype" loading="lazy"></iframe>
           <div class="cap">
-            <span class="mono" id="protoNote">Four Horizons v2, Supawich's pick. Click a horizon to focus on one life. Stay to the end for the postcard and the five-year answer.</span>
-            <a id="protoOpen" href="horizons.html" target="_blank" rel="noopener">Open full screen</a>
+            <span class="mono" id="protoNote">A · Marginalia: the conversation as a printed interview. Your futures are written into the margins.</span>
+            <a id="protoOpen" href="marginalia.html" target="_blank" rel="noopener">Open full screen</a>
           </div>
         </div>
       </div>
@@ -240,25 +240,25 @@ footer{padding-block:var(--s7);color:var(--muted);font-size:var(--t-sm)}
         <fieldset class="q">
           <legend>Concept</legend>
           <div class="seg">
-            <label><input type="radio" name="concept" id="c-delta" value="delta"><span>The Delta</span></label>
-            <label><input type="radio" name="concept" id="c-horizons" value="horizons"><span>Four Horizons</span></label>
+            <label><input type="radio" name="concept" id="c-marg" value="marginalia"><span>A · Marginalia</span></label>
+            <label><input type="radio" name="concept" id="c-window" value="window"><span>B · The Window</span></label>
             <label><input type="radio" name="concept" id="c-mix" value="mix"><span>Mix the two</span></label>
           </div>
         </fieldset>
         <fieldset class="q">
           <legend>Theme</legend>
           <div class="seg">
-            <label><input type="radio" name="theme" id="t-paper" value="paper"><span>Paper</span></label>
-            <label><input type="radio" name="theme" id="t-night" value="night"><span>Night</span></label>
-            <label><input type="radio" name="theme" id="t-wild" value="wild"><span>Riso / Woodcut</span></label>
-            <label><input type="radio" name="theme" id="t-two" value="paper+night"><span>Paper + Night toggle</span></label>
+            <label><input type="radio" name="theme" id="t-paper" value="paper"><span>Light</span></label>
+            <label><input type="radio" name="theme" id="t-night" value="night"><span>Dark</span></label>
+            <label><input type="radio" name="theme" id="t-wild" value="wild"><span>Follow the device</span></label>
+            <label><input type="radio" name="theme" id="t-two" value="paper+night"><span>Light + dark toggle</span></label>
           </div>
         </fieldset>
         <fieldset class="q">
           <legend>Fonts</legend>
           <div class="seg">
-            <label><input type="radio" name="font" id="f-a" value="a"><span id="fontA">Newsreader + Plex Mono</span></label>
-            <label><input type="radio" name="font" id="f-b" value="b"><span id="fontB">Fraunces + JetBrains Mono</span></label>
+            <label><input type="radio" name="font" id="f-a" value="a"><span id="fontA">A's type (Literata + Schibsted)</span></label>
+            <label><input type="radio" name="font" id="f-b" value="b"><span id="fontB">B's type (Big Shoulders + Newsreader)</span></label>
           </div>
         </fieldset>
         <div class="q">
@@ -466,9 +466,10 @@ const DECISIONS = [
   ]},
   {g:"Visual", items:[
     ["D-050","locked","<strong>Nothing from 1 in 8 Billion's look:</strong> no bar meters, no year grid, no charcoal with pink and mint."],
-    ["D-051","locked","<strong>Core visual: Four Horizons.</strong> Supawich's pick: cleaner, fewer things on screen, less text. v2 adds figures that age, seasons, focus mode, a cinematic ending and the five-year answer. Paul can still weigh in."],
+    ["D-051","open","<strong>Core visual, round two: A · Marginalia or B · The Window.</strong> Both are chat-centric. Four Horizons was rejected as too close to 1 in 8 Billion. Pick above."],
     ["D-052","open","<strong>Theme and fonts.</strong> Pick above."],
-    ["D-053","locked","<strong>No emoji as interface.</strong> Real icons, editorial type, motion that feels like time passing."]
+    ["D-053","locked","<strong>No emoji as interface.</strong> Real icons, editorial type, motion that feels like time passing."],
+    ["D-054","locked","<strong>The product is chat-centric.</strong> The conversation is the spine, and the four futures are a living infographic around it that sharpens as you talk. One or two things in focus at a time. Banned: parallel lanes, year tickers, event-dot scrubbers, simulation playback, bar meters, year grids, chat bubbles."]
   ]},
   {g:"Tech", items:[
     ["D-060","locked","<strong>Cloudflare Workers</strong> on workers.dev. One Worker serves the app and the API."],
@@ -529,7 +530,7 @@ function renderLedger(){
 }
 
 /* prototype tabs */
-const notes = {"delta.html":"The Delta: your past is one pencil line that splits into four ink rivers at today.","horizons.html":"Four Horizons v2, Supawich's pick. Click a horizon to focus on one life. Stay to the end for the postcard and the five-year answer."};
+const notes = {"marginalia.html":"A · Marginalia: the conversation as a printed interview. Your futures are written into the margins.","window.html":"B · The Window: the conversation sits low like subtitles, under four future plates that develop like photographs as you talk."};
 document.querySelectorAll('.tabs button').forEach(btn => btn.addEventListener("click", () => {
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute("aria-selected", b === btn ? "true" : "false"));
   const src = btn.dataset.src; const f = $("#proto");
@@ -552,7 +553,7 @@ form.addEventListener("change", e => {
 $("#notes").addEventListener("input", e => { state.notes = e.target.value; refreshDirty(); });
 
 function picksText(){
-  const lab = {delta:"The Delta",horizons:"Four Horizons",mix:"Mix the two",paper:"Paper",night:"Night",wild:"Riso (Delta) or Woodcut (Horizons)","paper+night":"Paper + Night toggle",a:$("#fontA").textContent,b:$("#fontB").textContent};
+  const lab = {marginalia:"A · Marginalia",window:"B · The Window",delta:"The Delta",horizons:"Four Horizons",mix:"Mix the two",paper:"Light",night:"Dark",wild:"Follow the device","paper+night":"Light + dark toggle",a:$("#fontA").textContent,b:$("#fontB").textContent};
   const lines = ["Every Life picks",
     "Concept: " + (lab[state.concept] || "not picked"),
     "Theme: " + (lab[state.theme] || "not picked"),
@@ -587,7 +588,7 @@ form.addEventListener("submit", e => { e.preventDefault(); save(); });
 $("#saveBar").addEventListener("click", save);
 
 /* team picks */
-const LAB = {delta:"The Delta",horizons:"Four Horizons",mix:"Mix",paper:"Paper",night:"Night",wild:"Riso/Woodcut","paper+night":"Paper + Night",a:"Fonts A",b:"Fonts B"};
+const LAB = {marginalia:"A · Marginalia",window:"B · The Window",delta:"The Delta",horizons:"Four Horizons",mix:"Mix",paper:"Light",night:"Dark",wild:"Device theme","paper+night":"Light + dark",a:"A's type",b:"B's type"};
 async function renderTeam(docs){
   const list = $("#teamList"); list.innerHTML = "";
   $("#teamEmpty").hidden = docs.length > 0;
