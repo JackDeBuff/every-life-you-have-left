@@ -1,5 +1,5 @@
 /* Ending: a long editorial page. Four lives side by side, then the postcard, the answer, the talk. */
-.ending { height: 100dvh; background: var(--panel); }
+.ending { height: 100vh; height: 100dvh; background: var(--panel); }
 .end-bar {
   position: sticky; top: 0; z-index: 10; height: 52px;
   display: flex; align-items: center; justify-content: space-between;

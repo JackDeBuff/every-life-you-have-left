@@ -6,11 +6,15 @@
  * is placed against the page instead, escapes every overflow clip, and stretches the document
  * below the app (the owner's "blank black area" on a 2000×965 window).
  */
-html:has(> body .play), html:has(> body .phone) { overflow: hidden; overscroll-behavior: none; }
-html:has(> body .play) body, html:has(> body .phone) body { overflow: hidden; }
+/* Lock the page only where the viewport unit works: WeChat's in-app browser (older Chromium, no dvh)
+   must keep a document scroll, or the answer box under a too-tall grid can't be reached. */
+@supports (height: 100dvh) {
+  html:has(> body .play), html:has(> body .phone) { overflow: hidden; overscroll-behavior: none; }
+  html:has(> body .play) body, html:has(> body .phone) body { overflow: hidden; }
+}
 .play {
   position: relative;
-  height: 100dvh;
+  height: 100vh; height: 100dvh;
   display: grid;
   grid-template-columns: var(--left-w) minmax(0, 1fr) var(--right-w);
   grid-template-rows: var(--bar-h) minmax(0, 1fr);
@@ -563,7 +567,7 @@ html:has(> body .play) body, html:has(> body .phone) body { overflow: hidden; }
 .fork-tag .faint { color: color-mix(in oklab, var(--panel) 60%, transparent); }
 .fork-ping { position: fixed; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid var(--sun); z-index: 102; }
 
-.screen { max-width: 56rem; margin: 0 auto; padding: var(--s8) var(--s6); background: var(--panel); min-height: 100dvh; }
+.screen { max-width: 56rem; margin: 0 auto; padding: var(--s8) var(--s6); background: var(--panel); min-height: 100vh; min-height: 100dvh; }
 .screen h1 { font-size: 40px; font-stretch: var(--w-wide); margin-bottom: var(--s4); }
 .row { display: flex; gap: var(--s2); margin-top: var(--s4); }
 

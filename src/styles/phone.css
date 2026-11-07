@@ -1,6 +1,6 @@
 /* Phone (<820px): world on top, tabs for Log / Bio / Settings, the conversation as a bottom sheet. */
 .phone {
-  height: 100dvh; display: grid; grid-template-rows: 48px 56px minmax(180px, 34dvh) 40px minmax(0, 1fr) 64px;
+  height: 100vh; height: 100dvh; display: grid; grid-template-rows: 48px 56px minmax(180px, 34vh) 40px minmax(0, 1fr) 64px; grid-template-rows: 48px 56px minmax(180px, 34dvh) 40px minmax(0, 1fr) 64px;
   grid-template-columns: minmax(0, 1fr); width: 100%;
   background: var(--panel); overflow: hidden; position: relative;
 }
@@ -36,14 +36,14 @@
 
 .sheet {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 20;
-  height: 82dvh; display: grid; grid-template-rows: 64px minmax(0, 1fr);
+  height: 82vh; height: 82dvh; display: grid; grid-template-rows: 64px minmax(0, 1fr);
   background: var(--panel); border-top: 1px solid var(--hair-2);
   border-radius: var(--r2) var(--r2) 0 0; box-shadow: 0 -12px 40px -16px rgb(0 0 0 / 0.3);
-  transform: translateY(calc(82dvh - 64px));
+  transform: translateY(calc(82vh - 64px)); transform: translateY(calc(82dvh - 64px));
   transition: transform 520ms var(--e-settle), height 520ms var(--e-settle), grid-template-rows 520ms var(--e-settle);
 }
 /* Open (a card, or by hand): the sheet rises to just under the timeline, the handle shrinks to a grip. */
-.sheet[data-open="true"] { transform: translateY(0); height: calc(100dvh - 104px); grid-template-rows: 22px minmax(0, 1fr); }
+.sheet[data-open="true"] { transform: translateY(0); height: calc(100vh - 104px); height: calc(100dvh - 104px); grid-template-rows: 22px minmax(0, 1fr); }
 .sheet-handle { border: 0; background: none; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 8px var(--s4) 0; }
 .grip { width: 36px; height: 4px; border-radius: 4px; background: var(--hair-2); }
 .sheet-peek { color: var(--ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

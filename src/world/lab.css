@@ -1,7 +1,7 @@
 .wl {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  height: 100dvh;
+  height: 100vh; height: 100dvh;
   background: var(--bg);
 }
 .wl-stage {
@@ -64,5 +64,5 @@
   .wl { grid-template-columns: 1fr; grid-template-rows: 56vh auto; height: auto; }
   .wl-panel { border-left: 0; border-top: 1px solid var(--line); }
 }
-.wl[data-bare] { grid-template-columns: 1fr !important; grid-template-rows: 100dvh !important; height: 100dvh !important; }
+.wl[data-bare] { grid-template-columns: 1fr !important; grid-template-rows: 100vh !important; grid-template-rows: 100dvh !important; height: 100vh !important; height: 100dvh !important; }
 .wl[data-bare] .wl-panel, .wl[data-bare] .wl-fps { display: none; }
