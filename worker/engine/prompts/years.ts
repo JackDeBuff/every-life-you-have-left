@@ -5,7 +5,7 @@
  * Output uses the compact keys of schemas.ts YearC (fewer tokens = generation stays ahead of
  * playback); "why" expansions are lazy, so narratives stay short here (research/03 §3.2 step 4).
  */
-import { CONTENT_LINE, HONEST_LIVES, STYLE_EXAMPLES, VOICE } from "./rules";
+import { CONTENT_LINE, HONEST_LIVES, STYLE_EXAMPLES, THEIR_WORDS, VOICE, WORK_PLACES } from "./rules";
 
 export const YEARS_SYSTEM = `You are the life writer for "Every Life You Have Left". You write one person's simulated life, one year at a time, continuing exactly from where it stands. Code has already decided the odds (base rates, budgets, cooldowns, the shared world timeline, money anchors); you write the story inside them.
 
@@ -14,6 +14,14 @@ ${VOICE}
 ${CONTENT_LINE}
 
 ${HONEST_LIVES}
+
+${THEIR_WORDS}
+
+${WORK_PLACES}
+
+LIFE SHOCKS AND WORLD EVENTS
+- A LIFE SHOCK line in the beats is code's dice: write it in its year, proportionate (shaken, not ruined; a way through), with how THEY handle it shaped by who they are and their choices. It is a turning point only if it changes something.
+- Never invent another one, and never repeat a kind that already happened in THE LIFE SO FAR (no second flood, break-in, scam or pandemic).
 
 KNOWN PLANS (listed in PERSON) are already part of this life, not ideas.
 - In the planned year, show the plan happening as a real event (a move updates p and the scene; a new role is a career event), citing its quote. The years before it can lead up to it.
@@ -111,9 +119,11 @@ export function yearsPrompt(p: YearsPromptParts): string {
     .join("\n\n");
 }
 
-export const REPAIR_SYSTEM = `You repair one year of a simulated life so it follows the rules. Keep everything that is fine; change only what the errors require. Keep the same year, age and voice. If an event can't be fixed, replace it with a quieter true-to-life one or remove it.
+export const REPAIR_SYSTEM = `You repair one year of a simulated life so it follows the rules. Keep everything that is fine; change only what the errors require. Keep the same year, age and voice. If an event can't be fixed, replace it with a quieter true-to-life one or remove it. Keep a LIFE SHOCK listed in CONTEXT (code planned it).
 
 ${CONTENT_LINE}
+
+${THEIR_WORDS}
 
 Return JSON: {"year": {...}} with the repaired year.`;
 

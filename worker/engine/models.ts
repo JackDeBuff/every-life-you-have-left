@@ -386,7 +386,30 @@ export function createCaller(deps: CallerDeps) {
     }
   }
 
-  return { json, jsonOnce, stream, model: (t: Tier) => modelFor(models, t) };
+  /**
+   * One Google-Search-grounded JSON call (llm.groundedText), time-boxed: resolves null on timeout,
+   * error, a port without grounding, or an answer that fails the schema. Never hedged (each try
+   * bills its searches). Usage, searches included, goes through onUsage like every call.
+   */
+  async function grounded<S extends z.ZodType>(c: { purpose: string; system: string; prompt: string; schema: S; timeoutMs: number; tier?: Tier; maxOutputTokens?: number }): Promise<{ data: z.infer<S>; queries: string[]; sources: string[]; ms: number } | null> {
+    if (!llm.groundedText) return null;
+    const model = modelFor(models, c.tier ?? "fast");
+    if (isOpenAIModel(model)) return null;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), c.timeoutMs);
+    try {
+      const r = await llm.groundedText({ model, system: c.system, prompt: c.prompt, schema: geminiSchema(c.schema), maxOutputTokens: c.maxOutputTokens ?? 1200, timeoutMs: c.timeoutMs, signal: ac.signal });
+      report(c.purpose, r.usage, false);
+      const parsed = parseJson(c.schema, r.text, model);
+      return parsed.data ? { data: parsed.data, queries: r.queries, sources: r.sources, ms: r.usage.ms } : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  return { json, jsonOnce, stream, grounded, model: (t: Tier) => modelFor(models, t) };
 }
 
 export type Caller = ReturnType<typeof createCaller>;

@@ -5,6 +5,7 @@ import type { Decision, DecisionOption, SessionState } from "../../shared/sim";
 import { pastTimeIssues } from "./calendar";
 import { fixPeopleNumbers, forkIssues, forksFrom, framingIssues, peopleIssues, recentFramings, stateIssues, type Issue } from "./consistency";
 import { decisionLine, decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, worldBlock } from "./context";
+import { cardFocus } from "./focus";
 import { forksTaken, lifeAt } from "./ledger";
 import type { Caller, Tier } from "./models";
 import { BIG_DECISION_SYSTEM, bigDecisionPrompt, SMALL_DECISION_SYSTEM, smallDecisionPrompt } from "./prompts/decision";
@@ -150,6 +151,8 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
   const earlier = earlierBig.map((d) => decisionLine(state, d)).join("\n");
   const smalls = state.decisions.filter((d) => d.kind === "small" && d.year <= slot.year).sort((a, b) => a.year - b.year);
   const avoid = recentFramings(smalls, 6).join("; ");
+  // life axes, no work fork twice in a row, and a life shock that just landed (focus.ts)
+  const focus = cardFocus(state, slot) || undefined;
 
   const attempt = async (tier: Tier, feedback?: string) => {
     if (kind === "big") {
@@ -170,6 +173,7 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
           world: worldBlock(world),
           now: ctx.text,
           earlier: earlier || undefined,
+          focus,
           feedback,
         }),
         schema: DecisionLLM,
@@ -196,6 +200,7 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
         asked,
         now: ctx.text,
         avoid: avoid || undefined,
+        focus,
         feedback,
       }),
       schema: DecisionLLM,

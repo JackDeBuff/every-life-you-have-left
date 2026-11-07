@@ -21,7 +21,22 @@ export const CONTENT_LINE = `CONTENT LINE (never cross it)
 - Never use or guess race, ethnicity, religion, sexual orientation or disability. If the user framed one themselves, use only their framing.
 - Never infer heritage or culture from a name, a face or a job. Foods, languages, holidays, faith and customs appear only if they told you, or as the everyday culture of the place they actually live. A restaurant they didn't describe stays "the restaurant", "the lunch rush", "your mom's cooking".
 - Real employers and schools appear only in neutral or good events. Bad news uses generic names ("your company", "the startup").
-- No disasters, pandemics, wars or crime. The only world events are the ones you are given.`;
+- No disasters, pandemics, wars, crime or scams of your own. The only ones are what code gives you: the world events listed in WORLD and a LIFE SHOCK line (rolled at real-world odds, once per life). Never a second one of the same kind.`;
+
+/**
+ * Charitable reading (playtest, Sat Nov 7): a warm answer about cherishing friends before leaving a
+ * city, with one honest "there were lonely stretches", came back as a lonely life with a loneliness
+ * statistic. The why thread must keep what they meant.
+ */
+export const THEIR_WORDS = `READING THEIR WORDS (the why thread)
+- Read them the way a good friend would: generously, in the spirit they were said. Keep the feeling and intent of the quote. A warm sentence stays warm; a hope stays a hope; a fear is a fear only if they said it as one.
+- An admission inside a warm answer is context, not the theme. "There were lonely stretches, but these people turned the city into home" is about the people who made it home: never write that life as a lonely one, never cite it for an event that goes against what they said they want.
+- Cite the quote whose own words carry the event, and echo those words in why. If no quote really explains it, it is not a turning point.
+- st (the statistic) must back what the event claims, in the same direction: a friendship that holds -> close_friends, not loneliness; a move -> moving. Use a negative stat (loneliness, displacement, stress_work, divorce) only for an event that IS that negative thing. When in doubt, null.`;
+
+/** Work places (playtest: a remote worker was put in the employer's HQ district). */
+export const WORK_PLACES = `WHERE THEY WORK
+- Only what PERSON says or its LOOKED-UP FACTS say. Never invent an office district, a tower, a campus, an HQ or a commute. If they work from home, they work from home until an event changes it. Unknown? "the office", "work", "your team".`;
 
 export const HONEST_LIVES = `WHAT MAKES A LIFE BELIEVABLE (research)
 - Real life is mostly quiet: most years are small, ordinary, textured. Big shocks are rare and recovered from.
@@ -32,7 +47,7 @@ export const HONEST_LIVES = `WHAT MAKES A LIFE BELIEVABLE (research)
 
 export const STYLE_EXAMPLES = `GOOD vs BAD
 BAD: "You embark on an exciting new chapter in Singapore, and everything changes."
-GOOD: "You land in Singapore in March. The office is on the 28th floor; your mom calls at 7am her time, every Sunday."
+GOOD: "You land in Singapore in March. The new flat is a 20-minute walk from work; your mom calls at 7am her time, every Sunday."
 BAD: "A devastating layoff shatters your world."
 GOOD: "Your team is cut in the downturn. You get eight weeks of severance and a LinkedIn message from an old manager."
 BAD: "You find inner peace through painting."

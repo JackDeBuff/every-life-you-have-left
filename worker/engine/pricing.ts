@@ -18,8 +18,17 @@ export const PRICES: Record<string, { in: number; out: number; note?: string }> 
  */
 export const CACHED_INPUT_FACTOR = 0.1;
 
-export function costOf(u: { model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; cachedTokens?: number }, opts: { cache?: boolean } = {}): number {
+/**
+ * Grounding with Google Search on Gemini 3.x bills per search query the model runs. ASSUMPTION:
+ * $14 per 1,000 queries (Agent Platform list price for Gemini 3 grounding; check GCP Billing).
+ */
+export const SEARCH_QUERY_USD = 0.014;
+
+export function costOf(
+  u: { model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; cachedTokens?: number; searchQueries?: number },
+  opts: { cache?: boolean } = {},
+): number {
   const p = PRICES[u.model] ?? { in: 2, out: 10 };
   const cached = opts.cache === false ? 0 : Math.min(u.inputTokens, u.cachedTokens ?? 0);
-  return ((u.inputTokens - cached) * p.in + cached * p.in * CACHED_INPUT_FACTOR + (u.outputTokens + u.thoughtTokens) * p.out) / 1_000_000;
+  return ((u.inputTokens - cached) * p.in + cached * p.in * CACHED_INPUT_FACTOR + (u.outputTokens + u.thoughtTokens) * p.out) / 1_000_000 + (u.searchQueries ?? 0) * SEARCH_QUERY_USD;
 }
