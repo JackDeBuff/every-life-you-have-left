@@ -36,7 +36,8 @@ import {
   type SessionCalls,
   type SimYear,
 } from "../../shared/sim";
-import { loadEngine, type EngineKind } from "../engine-select";
+import type { Profile } from "../../shared/schema";
+import { loadEngine, type LoadedEngine } from "../engine-select";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
 import { diffState, type AgentState, type AnswerInput, type ChatMessage, type SnapshotMsg } from "./protocol";
@@ -44,7 +45,9 @@ import { diffState, type AgentState, type AnswerInput, type ChatMessage, type Sn
 const BUFFER_AHEAD = 4; // keep at least this many years generated past the playhead (target ≥2)
 const CHUNK = 4; // generateYears chunk size (3–5)
 const LOOKAHEAD_SMALL = 1; // make small decisions this many years before the playhead reaches them
-const LOOKAHEAD_BIG = 2; // big ones earlier: the playhead waits at a big slot until its decision exists
+// Big ones earlier (the playhead waits at a big slot until its decision exists): ~8 s of playback
+// ahead, at least 2 years. A real big decision takes ~5 s on 3.8 Flash.
+const lookaheadBig = (speed: AgentState["speed"]) => Math.max(2, Math.ceil(8 / SPEED_CONFIG[speed].secondsPerYear));
 const BRANCH_STEP = 5; // hidden branches advance coarsely in 5-year steps
 // "Meanwhile…" safety net: the client ends the interlude with pause(false) when the 3D world's cuts
 // finish (and after the fork moment); this only resumes a session whose client went away.
@@ -98,7 +101,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private rev = 0;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
-  private enginePromise: Promise<{ engine: Engine; kind: EngineKind; reason: string }> | null = null;
+  private enginePromise: Promise<LoadedEngine> | null = null;
+  /** Resolves when the full profile is in (answers wait for it; the first card may come sooner). */
+  private profileReady: Promise<void> = Promise.resolve();
   private engineSync: Engine | null = null;
   private interludeSeq = 0;
   private epoch = 0;
@@ -146,7 +151,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     return this.mirrorDb;
   }
 
-  private engInfo(): Promise<{ engine: Engine; kind: EngineKind; reason: string }> {
+  private engInfo(): Promise<LoadedEngine> {
     if (!this.enginePromise) {
       this.enginePromise = loadEngine(this.env).then((r) => {
         this.engineSync = r.engine;
@@ -229,19 +234,37 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   async start(input: StartInput): Promise<void> {
     const parsed = StartInput.parse(input);
     if (this.s.phase !== "start" || this.s.profile || this.s.thinking) return; // idempotent
-    const { engine, kind } = await this.engInfo();
+    const { engine, kind, provisional } = await this.engInfo();
     this.update({ thinking: true, speed: parsed.speed, appearance: parsed.appearance, engine: kind, error: null });
+    let ready!: () => void;
+    this.profileReady = new Promise<void>((r) => (ready = r));
+    // The first card ("today") from a code-only profile, in parallel with the full profile
+    // (~5 s vs ~10 s). The UI shows Play as soon as the card exists.
+    if (provisional) {
+      try {
+        const p = this.withId(provisional(parsed));
+        this.update({ profile: p, endAge: p.endAge || endAgeFor(parsed.age), playhead: { year: p.startYear, age: p.age, paused: true } });
+        const slot0 = engine.planSlots(this.s).find((sl) => sl.kind === "big" && sl.year === p.startYear) ?? { year: p.startYear, age: p.age, kind: "big" as const, reason: "today" };
+        this.queueDecision(slot0, this.slotKey(slot0, 0), { ...this.s, profile: p });
+      } catch (e) {
+        console.error("provisional start failed", e instanceof Error ? e.name : "error");
+      }
+    }
     this.bg("start", async () => {
-      const safety = parsed.line.trim() ? await engine.safety(parsed.line) : null;
-      if (safety?.flagged) this.update({ safety });
-      const profile = { ...(await engine.startProfile(parsed, this.pendingDocs)), sessionId: this.name };
-      this.pendingDocs = [];
-      const endAge = profile.endAge || endAgeFor(parsed.age);
-      this.update({
-        profile,
-        endAge,
-        playhead: { year: profile.startYear, age: profile.age, paused: true },
-      });
+      try {
+        const safety = parsed.line.trim() ? await engine.safety(parsed.line) : null;
+        if (safety?.flagged) this.update({ safety });
+        const profile = this.withId(await engine.startProfile(parsed, this.pendingDocs));
+        this.pendingDocs = [];
+        const endAge = profile.endAge || endAgeFor(parsed.age);
+        this.update((s) => ({
+          profile,
+          endAge,
+          playhead: s.phase === "start" ? { year: profile.startYear, age: profile.age, paused: true } : s.playhead,
+        }));
+      } finally {
+        ready();
+      }
       this.slots = engine.planSlots(this.s);
       this.updateBudgets();
       this.persistNow();
@@ -293,11 +316,14 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
     this.bg("answer", async () => {
       const engine = await this.eng();
+      await this.profileReady;
       if (rec.text) {
         const safety = await engine.safety(rec.text);
         this.update({ safety: safety.flagged ? safety : this.s.safety });
       }
-      const { profile, quote } = await engine.applyAnswer(this.s, answered, rec);
+      const folded = await engine.applyAnswer(this.s, answered, rec);
+      const profile = this.withId(folded.profile);
+      const quote = folded.quote;
       const finalRec: DecisionAnswer = { ...rec, quoteId: quote?.id ?? null };
       const opt = d.options.find((o) => o.id === rec.optionId);
       const text = opt ? `You chose: ${opt.label}` : `You said: "${short(rec.text ?? "", 18)}"`;
@@ -311,7 +337,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       void this.mirror.answer(finalRec, false);
       void this.mirror.session(this.s);
 
-      this.invalidate();
+      // A fork rewrites its own year too: the engine writes the consequence from decision.year.
+      this.invalidate(isBig ? d.year : undefined);
       if (!isBig) return;
       await this.fork(engine, answered, rec.optionId ?? "");
     });
@@ -420,7 +447,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     }
     const engine = await this.eng();
     const { profile } = await engine.enrichProfile(this.s.profile, [doc], null);
-    this.update({ profile });
+    this.update({ profile: this.withId(profile) });
     void this.mirror.session(this.s);
     this.invalidate();
   }
@@ -452,7 +479,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (life === "interviewer" && this.s.profile && !safety.flagged) {
       this.bg("enrich", async () => {
         const { profile } = await engine.enrichProfile(this.s.profile!, [], msg);
-        this.update({ profile });
+        this.update({ profile: this.withId(profile) });
         void this.mirror.session(this.s);
         this.invalidate();
       });
@@ -515,30 +542,58 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       const k = `${sl.kind}-${sl.year}`;
       const idx = byKindYear.get(k) ?? 0;
       byKindYear.set(k, idx + 1);
-      if (sl.year > ph + (sl.kind === "big" ? LOOKAHEAD_BIG : LOOKAHEAD_SMALL)) continue;
+      if (sl.year > ph + (sl.kind === "big" ? lookaheadBig(s.speed) : LOOKAHEAD_SMALL)) continue;
       if (sl.year < ph) continue; // passed while we were busy: skip it
       const key = this.slotKey(sl, idx);
       if (this.making.has(key) || this.materialized(sl)) continue;
-      this.making.add(key);
-      this.decisionQueue = this.decisionQueue.then(async () => {
-        try {
-          const engine = await this.eng();
-          const made = await engine.makeDecision(this.s, sl);
-          let id = made.id;
-          while (this.s.decisions.some((d) => d.id === id)) id = `${made.id}-${crypto.randomUUID().slice(0, 4)}`;
-          const d: Decision = { ...made, id, kind: sl.kind, year: sl.year, age: sl.age, status: "pending" };
-          this.update((st) => ({ decisions: [...st.decisions, d] }));
-          this.updateBudgets();
-          void this.mirror.decisions([d]);
-          this.gateCheck();
-        } catch (e) {
-          console.error("makeDecision failed", e instanceof Error ? e.name : "error");
-          this.update({ error: `makeDecision: ${errCode(e)}` });
-        } finally {
-          this.making.delete(key);
-        }
-      });
+      this.queueDecision(sl, key);
     }
+  }
+
+  /** Write one decision (serialized). `using` overrides the state the engine sees (provisional start). */
+  private queueDecision(sl: DecisionSlot, key: string, using?: AgentState): void {
+    this.making.add(key);
+    const epoch = this.epoch;
+    this.decisionQueue = this.decisionQueue.then(async () => {
+      try {
+        const engine = await this.eng();
+        const made = await engine.makeDecision(using ?? this.s, sl);
+        if (this.s.phase === "start" && !this.s.profile) return; // reset meanwhile
+        if (epoch !== this.epoch && this.s.decisions.some((d) => d.kind === sl.kind && d.year === sl.year)) return;
+        let id = made.id;
+        while (this.s.decisions.some((d) => d.id === id)) id = `${made.id}-${crypto.randomUUID().slice(0, 4)}`;
+        const d: Decision = { ...made, id, kind: sl.kind, year: sl.year, age: sl.age, status: "pending" };
+        this.update((st) => ({ decisions: [...st.decisions, d] }));
+        this.updateBudgets();
+        void this.mirror.decisions([d]);
+        this.gateCheck();
+      } catch (e) {
+        console.error("makeDecision failed", e instanceof Error ? e.name : "error");
+        this.update({ error: `makeDecision: ${errCode(e)}` });
+      } finally {
+        this.making.delete(key);
+      }
+    });
+  }
+
+  /** The engine seeds the world timeline from profile.sessionId: always the real one. */
+  private withId(p: Profile): Profile {
+    return p.sessionId === this.name ? p : { ...p, sessionId: this.name };
+  }
+
+  /** interlude()/ending() write advanced branch years into state.branches in place. Give them a
+   * private copy and publish the result as new objects, so the patch diff (by reference) sees it. */
+  private branchCopy(): AgentState {
+    return { ...this.s, branches: this.s.branches.map((b) => ({ ...b })) };
+  }
+  private publishBranches(copy: AgentState): void {
+    const byId = new Map(copy.branches.map((b) => [b.id, b]));
+    this.update((s) => ({
+      branches: s.branches.map((b) => {
+        const c = byId.get(b.id);
+        return c && (c.years !== b.years || c.verdictAtEnd !== b.verdictAtEnd) ? { ...b, years: c.years, verdictAtEnd: c.verdictAtEnd ?? b.verdictAtEnd } : b;
+      }),
+    }));
   }
 
   /** A pending big decision at or before the playhead stops time. */
@@ -554,13 +609,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     }
   }
 
-  /** Drop the provisional future (years > playhead) and regenerate. */
-  private invalidate(): void {
+  /**
+   * Drop the provisional future and regenerate. Default: years > playhead. A fork passes its own
+   * year: that year is rewritten too, and its engine log lines are re-logged when it returns.
+   */
+  private invalidate(fromYear?: number): void {
     this.epoch++;
-    const ph = this.s.playhead.year;
+    const from = Math.min(fromYear ?? this.s.playhead.year + 1, this.s.playhead.year + 1);
     this.update((s) => {
-      const years = s.years.filter((y) => y.year <= ph);
-      return { years, bufferedTo: years.at(-1)?.year ?? null };
+      const years = s.years.filter((y) => y.year < from);
+      const log = from <= s.playhead.year ? s.log.filter((l) => l.year < from || AGENT_LOG_KINDS.has(l.kind)) : s.log;
+      return { years, log, bufferedTo: years.at(-1)?.year ?? null };
     });
     this.genFailures = 0;
     this.ensureBuffer();
@@ -711,7 +770,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     }));
     this.persistNow();
     try {
-      const cuts = await engine.interlude(this.s);
+      const copy = this.branchCopy();
+      const cuts = await engine.interlude(copy);
+      this.publishBranches(copy);
       if (this.s.phase !== "interlude") return; // skipped by the client meanwhile
       this.update({ interlude: cuts, thinking: false });
       await this.schedule(INTERLUDE_S, "endInterlude", { seq });
@@ -749,7 +810,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.s.branches.map((b) => (b.status === "active" ? engine.stepBranch(this.s, b, end, false).catch(() => b) : Promise.resolve(b))),
       );
       this.update({ branches: stepped });
-      const ending = await engine.ending(this.s);
+      const copy = this.branchCopy();
+      const ending = await engine.ending(copy);
+      this.publishBranches(copy);
       this.update((s) => ({
         phase: "ended",
         thinking: false,
