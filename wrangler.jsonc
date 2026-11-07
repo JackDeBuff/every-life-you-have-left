@@ -5,9 +5,9 @@
   "compatibility_date": "2026-11-06",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    // SPA: unknown paths serve index.html; only /api/* wakes the Worker.
+    // SPA: unknown paths serve index.html; only these wake the Worker.
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/agents/*", "/media/*"]
   },
   "observability": { "enabled": true }, // never console.log request bodies (personal data)
   "limits": { "cpu_ms": 60000 },
@@ -18,9 +18,19 @@
     "MODEL_FAST": "gemini-3.5-flash-lite",
     "MODEL_QUALITY": "gemini-4-argon",
     "MODEL_FALLBACK": "gemini-3.6-flash",
-    // Kill switch (D-032): "false" turns all Gemini calls off; the UI falls back to shared/demo.
+    // Verified Sat Nov 7: portraits (illustrated) and Gemini TTS on Agent Platform.
+    "MODEL_IMAGE": "gemini-3.1-flash-image",
+    "MODEL_TTS": "gemini-3.8-flash-tts",
+    // Session engine: "real" = worker/engine/index.ts (falls back to mock if missing), "mock" = engine-mock.ts.
+    "ENGINE": "real",
+    // Kill switch (D-032): "false" turns all Gemini calls off and forces the mock engine.
     "GENERATION_ENABLED": "true"
   },
+  // One SessionAgent (Agents SDK, SQLite-backed Durable Object) per session: /agents/session-agent/<id>
+  "durable_objects": {
+    "bindings": [{ "name": "SessionAgent", "class_name": "SessionAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SessionAgent"] }],
   "d1_databases": [
     {
       "binding": "DB",

@@ -53,6 +53,8 @@ export interface GenerateOptions {
   attempts?: number;
   /** Pass c.req.raw.signal so a closed tab stops the upstream spend. */
   signal?: AbortSignal;
+  /** Extra generationConfig fields merged last (responseModalities, speechConfig, imageConfig, ...). */
+  generationConfig?: Record<string, unknown>;
 }
 
 export interface Usage {
@@ -113,6 +115,7 @@ export function buildBody(o: GenerateOptions): Record<string, unknown> {
   }
   if (o.thinkingLevel) generationConfig.thinkingConfig = { thinkingLevel: o.thinkingLevel };
   if (o.maxOutputTokens) generationConfig.maxOutputTokens = o.maxOutputTokens;
+  if (o.generationConfig) Object.assign(generationConfig, o.generationConfig);
   return {
     ...(o.system ? { systemInstruction: { parts: [{ text: o.system }] } } : {}),
     contents,
@@ -201,6 +204,8 @@ export interface GenerateResult<T = unknown> {
   ms: number;
   finishReason: string | undefined;
   usage: Usage | undefined;
+  /** Raw candidate parts (inlineData for image / audio responses). */
+  parts: Part[];
 }
 
 /** Non-streaming call. */
@@ -222,6 +227,7 @@ export async function generate<T = unknown>(env: GeminiEnv, o: GenerateOptions):
       text, json, model, ms: Date.now() - t0,
       finishReason: data.candidates?.[0]?.finishReason ?? data.promptFeedback?.blockReason,
       usage: data.usageMetadata,
+      parts: data.candidates?.[0]?.content?.parts ?? [],
     };
   } finally {
     clear();
