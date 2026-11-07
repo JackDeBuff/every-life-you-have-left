@@ -8,7 +8,7 @@
 /** Rates are approximate and fixed: good enough for a projection, never for a transaction. */
 export const RATES_AS_OF = "approx., Nov 2026";
 
-export const CURRENCY_CODES = ["USD", "THB", "EUR", "GBP", "JPY", "CNY", "INR", "KRW", "SGD", "VND", "IDR", "PHP", "MXN", "BRL", "CAD", "AUD"] as const;
+export const CURRENCY_CODES = ["USD", "THB", "EUR", "GBP", "JPY", "CNY", "INR", "KRW", "SGD", "VND", "IDR", "PHP", "MXN", "BRL", "CAD", "AUD", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "TRY", "ILS", "AED", "SAR", "EGP", "NGN", "KES", "ZAR", "GHS", "PKR", "BDT", "LKR", "MYR", "TWD", "HKD", "NZD", "ARS", "CLP", "COP", "PEN", "UAH"] as const;
 export type CurrencyCode = (typeof CURRENCY_CODES)[number];
 
 export interface CurrencyInfo {
@@ -39,11 +39,40 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyInfo> = {
   BRL: { code: "BRL", symbol: "R$", perUsd: 5.6, name: "Brazilian real", noun: "reais" },
   CAD: { code: "CAD", symbol: "CA$", perUsd: 1.38, name: "Canadian dollar", noun: "Canadian dollars" },
   AUD: { code: "AUD", symbol: "A$", perUsd: 1.52, name: "Australian dollar", noun: "Australian dollars" },
+  CHF: { code: "CHF", symbol: "CHF ", perUsd: 0.88, name: "Swiss franc", noun: "francs" },
+  SEK: { code: "SEK", symbol: "SEK ", perUsd: 10.5, name: "Swedish krona", noun: "kronor" },
+  NOK: { code: "NOK", symbol: "NOK ", perUsd: 10.8, name: "Norwegian krone", noun: "kroner" },
+  DKK: { code: "DKK", symbol: "DKK ", perUsd: 6.9, name: "Danish krone", noun: "kroner" },
+  PLN: { code: "PLN", symbol: "zł", perUsd: 3.9, name: "Polish złoty", noun: "złoty" },
+  CZK: { code: "CZK", symbol: "Kč", perUsd: 23, name: "Czech koruna", noun: "koruna" },
+  HUF: { code: "HUF", symbol: "Ft", perUsd: 365, name: "Hungarian forint", noun: "forint" },
+  TRY: { code: "TRY", symbol: "₺", perUsd: 42, name: "Turkish lira", noun: "lira" },
+  ILS: { code: "ILS", symbol: "₪", perUsd: 3.7, name: "Israeli shekel", noun: "shekels" },
+  AED: { code: "AED", symbol: "AED ", perUsd: 3.67, name: "UAE dirham", noun: "dirhams" },
+  SAR: { code: "SAR", symbol: "SAR ", perUsd: 3.75, name: "Saudi riyal", noun: "riyals" },
+  EGP: { code: "EGP", symbol: "E£", perUsd: 49, name: "Egyptian pound", noun: "pounds" },
+  NGN: { code: "NGN", symbol: "₦", perUsd: 1550, name: "Nigerian naira", noun: "naira" },
+  KES: { code: "KES", symbol: "KSh", perUsd: 129, name: "Kenyan shilling", noun: "shillings" },
+  ZAR: { code: "ZAR", symbol: "ZAR ", perUsd: 18, name: "South African rand", noun: "rand" },
+  GHS: { code: "GHS", symbol: "GH₵", perUsd: 15, name: "Ghanaian cedi", noun: "cedis" },
+  PKR: { code: "PKR", symbol: "PKR ", perUsd: 280, name: "Pakistani rupee", noun: "rupees" },
+  BDT: { code: "BDT", symbol: "৳", perUsd: 120, name: "Bangladeshi taka", noun: "taka" },
+  LKR: { code: "LKR", symbol: "LKR ", perUsd: 300, name: "Sri Lankan rupee", noun: "rupees" },
+  MYR: { code: "MYR", symbol: "RM", perUsd: 4.4, name: "Malaysian ringgit", noun: "ringgit" },
+  TWD: { code: "TWD", symbol: "NT$", perUsd: 32, name: "New Taiwan dollar", noun: "NT dollars" },
+  HKD: { code: "HKD", symbol: "HK$", perUsd: 7.8, name: "Hong Kong dollar", noun: "HK dollars" },
+  NZD: { code: "NZD", symbol: "NZ$", perUsd: 1.7, name: "New Zealand dollar", noun: "NZ dollars" },
+  ARS: { code: "ARS", symbol: "AR$", perUsd: 1300, name: "Argentine peso", noun: "pesos" },
+  CLP: { code: "CLP", symbol: "CLP$", perUsd: 940, name: "Chilean peso", noun: "pesos" },
+  COP: { code: "COP", symbol: "COL$", perUsd: 4100, name: "Colombian peso", noun: "pesos" },
+  PEN: { code: "PEN", symbol: "S/", perUsd: 3.75, name: "Peruvian sol", noun: "soles" },
+  UAH: { code: "UAH", symbol: "₴", perUsd: 41, name: "Ukrainian hryvnia", noun: "hryvnias" },
 };
 
 const EURO = ["AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK"];
 const BY_COUNTRY: Record<string, CurrencyCode> = {
   TH: "THB", GB: "GBP", JP: "JPY", CN: "CNY", IN: "INR", KR: "KRW", SG: "SGD", VN: "VND", ID: "IDR", PH: "PHP", MX: "MXN", BR: "BRL", CA: "CAD", AU: "AUD",
+  CH: "CHF", LI: "CHF", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", CZ: "CZK", HU: "HUF", TR: "TRY", IL: "ILS", AE: "AED", SA: "SAR", EG: "EGP", NG: "NGN", KE: "KES", ZA: "ZAR", GH: "GHS", PK: "PKR", BD: "BDT", LK: "LKR", MY: "MYR", TW: "TWD", HK: "HKD", NZ: "NZD", AR: "ARS", CL: "CLP", CO: "COP", PE: "PEN", UA: "UAH",
   ...Object.fromEntries(EURO.map((c) => [c, "EUR" as const])),
 };
 
@@ -60,6 +89,7 @@ const COUNTRY_WORDS: Record<string, CurrencyCode> = {
   korea: "KRW", "south korea": "KRW", singapore: "SGD", vietnam: "VND", "viet nam": "VND", indonesia: "IDR", philippines: "PHP", mexico: "MXN",
   brazil: "BRL", canada: "CAD", australia: "AUD", germany: "EUR", france: "EUR", spain: "EUR", portugal: "EUR", italy: "EUR", netherlands: "EUR",
   ireland: "EUR", belgium: "EUR", austria: "EUR", finland: "EUR", greece: "EUR", usa: "USD", us: "USD", "united states": "USD", america: "USD",
+  "switzerland": "CHF", "sweden": "SEK", "norway": "NOK", "denmark": "DKK", "poland": "PLN", "czechia": "CZK", "czech republic": "CZK", "hungary": "HUF", "turkey": "TRY", "türkiye": "TRY", "turkiye": "TRY", "israel": "ILS", "uae": "AED", "united arab emirates": "AED", "saudi arabia": "SAR", "egypt": "EGP", "nigeria": "NGN", "kenya": "KES", "south africa": "ZAR", "ghana": "GHS", "pakistan": "PKR", "bangladesh": "BDT", "sri lanka": "LKR", "malaysia": "MYR", "taiwan": "TWD", "hong kong": "HKD", "new zealand": "NZD", "argentina": "ARS", "chile": "CLP", "colombia": "COP", "peru": "PEN", "ukraine": "UAH",
 };
 const CITY_WORDS: Record<string, CurrencyCode> = {
   bangkok: "THB", "chiang mai": "THB", phuket: "THB", tokyo: "JPY", osaka: "JPY", kyoto: "JPY", london: "GBP", manchester: "GBP", edinburgh: "GBP",
@@ -67,6 +97,7 @@ const CITY_WORDS: Record<string, CurrencyCode> = {
   bangalore: "INR", bengaluru: "INR", hanoi: "VND", "ho chi minh city": "VND", jakarta: "IDR", bali: "IDR", manila: "PHP", "mexico city": "MXN",
   "são paulo": "BRL", "sao paulo": "BRL", "rio de janeiro": "BRL", toronto: "CAD", vancouver: "CAD", montreal: "CAD", sydney: "AUD", melbourne: "AUD",
   berlin: "EUR", paris: "EUR", madrid: "EUR", barcelona: "EUR", lisbon: "EUR", rome: "EUR", milan: "EUR", amsterdam: "EUR", dublin: "EUR",
+  "zurich": "CHF", "geneva": "CHF", "basel": "CHF", "lausanne": "CHF", "stockholm": "SEK", "gothenburg": "SEK", "malmö": "SEK", "malmo": "SEK", "oslo": "NOK", "bergen": "NOK", "copenhagen": "DKK", "aarhus": "DKK", "warsaw": "PLN", "krakow": "PLN", "kraków": "PLN", "wroclaw": "PLN", "prague": "CZK", "brno": "CZK", "budapest": "HUF", "istanbul": "TRY", "ankara": "TRY", "izmir": "TRY", "tel aviv": "ILS", "jerusalem": "ILS", "haifa": "ILS", "dubai": "AED", "abu dhabi": "AED", "sharjah": "AED", "riyadh": "SAR", "jeddah": "SAR", "cairo": "EGP", "alexandria": "EGP", "lagos": "NGN", "abuja": "NGN", "ibadan": "NGN", "nairobi": "KES", "mombasa": "KES", "johannesburg": "ZAR", "cape town": "ZAR", "durban": "ZAR", "pretoria": "ZAR", "accra": "GHS", "kumasi": "GHS", "karachi": "PKR", "lahore": "PKR", "islamabad": "PKR", "dhaka": "BDT", "chittagong": "BDT", "colombo": "LKR", "kandy": "LKR", "kuala lumpur": "MYR", "penang": "MYR", "johor bahru": "MYR", "taipei": "TWD", "kaohsiung": "TWD", "taichung": "TWD", "hong kong": "HKD", "auckland": "NZD", "wellington": "NZD", "christchurch": "NZD", "buenos aires": "ARS", "córdoba": "ARS", "cordoba": "ARS", "rosario": "ARS", "santiago": "CLP", "valparaíso": "CLP", "valparaiso": "CLP", "bogotá": "COP", "bogota": "COP", "medellín": "COP", "medellin": "COP", "cali": "COP", "lima": "PEN", "cusco": "PEN", "arequipa": "PEN", "kyiv": "UAH", "kiev": "UAH", "lviv": "UAH", "odesa": "UAH", "kharkiv": "UAH",
 };
 
 /** The currency of a simulated place ("Bangkok, Thailand", "Durham, NC, US"); null when we can't tell. */
@@ -126,12 +157,40 @@ const WORDS: [RegExp, CurrencyCode | "DOLLAR" | "PESO" | "YEN"][] = [
   [/^(reais|real|brl)$/i, "BRL"],
   [/^(cad|canadian dollars?)$/i, "CAD"],
   [/^(aud|australian dollars?)$/i, "AUD"],
+  [/^(francs?|chf)$/i, "CHF"],
+  [/^(kronor|krona|sek)$/i, "SEK"],
+  [/^(nok|norwegian kroner?)$/i, "NOK"],
+  [/^(dkk|danish kroner?)$/i, "DKK"],
+  [/^(zloty|złoty|zlotys|pln)$/i, "PLN"],
+  [/^(koruna|korun|czk)$/i, "CZK"],
+  [/^(forints?|huf)$/i, "HUF"],
+  [/^(lira|try)$/i, "TRY"],
+  [/^(shekels?|nis|ils)$/i, "ILS"],
+  [/^(dirhams?|aed)$/i, "AED"],
+  [/^(riyals?|sar)$/i, "SAR"],
+  [/^(egp|egyptian pounds?)$/i, "EGP"],
+  [/^(naira|ngn)$/i, "NGN"],
+  [/^(kes|ksh|kenyan shillings?)$/i, "KES"],
+  [/^(rand|zar)$/i, "ZAR"],
+  [/^(cedis?|ghs)$/i, "GHS"],
+  [/^(pkr|pakistani rupees?)$/i, "PKR"],
+  [/^(taka|bdt)$/i, "BDT"],
+  [/^(lkr|sri lankan rupees?)$/i, "LKR"],
+  [/^(ringgit|myr)$/i, "MYR"],
+  [/^(twd|nt dollars?|ntd)$/i, "TWD"],
+  [/^(hkd|hk dollars?)$/i, "HKD"],
+  [/^(nzd|nz dollars?)$/i, "NZD"],
+  [/^(ars|argentine pesos?)$/i, "ARS"],
+  [/^(clp|chilean pesos?)$/i, "CLP"],
+  [/^(cop|colombian pesos?)$/i, "COP"],
+  [/^(soles|sol|pen)$/i, "PEN"],
+  [/^(hryvnias?|uah)$/i, "UAH"],
   [/^(usd|us dollars?|bucks)$/i, "USD"],
   [/^dollars?$/i, "DOLLAR"],
   [/^pesos?$/i, "PESO"],
 ];
 const SYMBOLS: [string, CurrencyCode | "DOLLAR" | "YEN"][] = [
-  ["CA$", "CAD"], ["C$", "CAD"], ["A$", "AUD"], ["S$", "SGD"], ["MX$", "MXN"], ["R$", "BRL"], ["CN¥", "CNY"], ["US$", "USD"],
+  ["NT$", "TWD"], ["HK$", "HKD"], ["NZ$", "NZD"], ["AR$", "ARS"], ["CLP$", "CLP"], ["COL$", "COP"], ["GH₵", "GHS"], ["KSh", "KES"], ["E£", "EGP"], ["zł", "PLN"], ["Kč", "CZK"], ["₺", "TRY"], ["₪", "ILS"], ["₦", "NGN"], ["৳", "BDT"], ["₴", "UAH"], ["RM", "MYR"], ["CA$", "CAD"], ["C$", "CAD"], ["A$", "AUD"], ["S$", "SGD"], ["MX$", "MXN"], ["R$", "BRL"], ["CN¥", "CNY"], ["US$", "USD"],
   ["฿", "THB"], ["€", "EUR"], ["£", "GBP"], ["₹", "INR"], ["₩", "KRW"], ["₫", "VND"], ["₱", "PHP"], ["Rp", "IDR"], ["¥", "YEN"], ["$", "DOLLAR"],
 ];
 const SCALE: Record<string, number> = { k: 1e3, thousand: 1e3, m: 1e6, mn: 1e6, mil: 1e6, million: 1e6, millions: 1e6, b: 1e9, bn: 1e9, billion: 1e9, lakh: 1e5, lakhs: 1e5, crore: 1e7, crores: 1e7 };
