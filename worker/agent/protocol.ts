@@ -51,6 +51,8 @@ export interface SessionExtras {
   engine: "mock" | "real";
   /** Last non-fatal engine error code, for debugging. */
   error: string | null;
+  /** Model spend so far in this session (USD, list prices; hedge losers that were aborted aren't counted). */
+  usage?: { usd: number; calls: number; byPurpose: Record<string, number> } | null;
 }
 
 export type AgentState = SessionState & SessionExtras;

@@ -85,7 +85,7 @@ export function yearsPrompt(p: YearsPromptParts): string {
     `WORLD (shared by all their lives; the only world events allowed)\n${p.world}`,
     `BUDGET (turning points used so far in this life / max; cooldowns)\n${p.budget}`,
     `QUIET YEARS (code-chosen: no turning point in these years)\n${p.quiet}`,
-    `MONEY ANCHORS (typical for someone like them; this life's choices may move it, with a reason)\n${p.anchors}`,
+    `MONEY ANCHORS (code set these for THIS life, its choices included: stay within ~25% of them unless an event explains it)\n${p.anchors}`,
     `BEATS FROM THE BASE RATES (code rolled the dice)\n${p.candidates}`,
     `ATTENTION (give these domains more scenes and words; it never changes the odds)\n${p.attention}`,
     `BASE RATES (statId: stat)\n${p.baseRates}`,

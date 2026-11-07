@@ -46,7 +46,10 @@ export function wantsReal(env: Env): boolean {
 
 const isEngine = (x: unknown): x is Engine => !!x && typeof x === "object" && typeof (x as Engine).generateYears === "function";
 
-export async function loadEngine(env: Env): Promise<LoadedEngine> {
+/** Every real model call's usage (the session agent tallies the session's cost from it). */
+export type UsageSink = (u: { purpose: string; model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; hedged: boolean; ms: number; firstTokenMs?: number }) => void;
+
+export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedEngine> {
   bindLlm(env as unknown as LlmEnv);
   if (!wantsReal(env)) return { engine: createMockEngine(), kind: "mock", reason: generationEnabled(env) ? "ENGINE=mock" : "generation_disabled" };
   const load = REAL["./engine/index.ts"];
@@ -57,10 +60,10 @@ export async function loadEngine(env: Env): Promise<LoadedEngine> {
       typeof mod.createFetchLlm === "function"
         ? mod.createFetchLlm({ apiKey: env.GCP_API_KEY, project: env.GCP_PROJECT, location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global" })
         : null;
-    type Create = (d: { llm: unknown; models?: Record<string, unknown> }) => Engine;
+    type Create = (d: { llm: unknown; models?: Record<string, unknown>; onUsage?: UsageSink }) => Engine;
     const made =
       typeof mod.createEngine === "function" && llm
-        ? (mod.createEngine as Create)({ llm })
+        ? (mod.createEngine as Create)({ llm, onUsage })
       : typeof mod.createEngine === "function" ? (mod.createEngine as (env: Env) => Engine)(env)
       : isEngine(mod.engine) ? mod.engine
       : typeof mod.default === "function" ? (mod.default as (env: Env) => Engine)(env)
@@ -70,7 +73,7 @@ export async function loadEngine(env: Env): Promise<LoadedEngine> {
     const FAST = env.MODEL_FAST || "gemini-3.5-flash-lite";
     const backup =
       typeof mod.createEngine === "function" && llm
-        ? (mod.createEngine as Create)({ llm, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
+        ? (mod.createEngine as Create)({ llm, onUsage, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
         : undefined;
     if (isEngine(made)) return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile, backup: isEngine(backup) ? backup : undefined };
     return { engine: createMockEngine(), kind: "mock", reason: "engine_bad_export" };
@@ -83,7 +86,7 @@ export async function loadEngine(env: Env): Promise<LoadedEngine> {
 /** Per-call budgets before a real call is abandoned for the mock (ms). */
 const BUDGET: Partial<Record<keyof Engine, number>> = {
   startProfile: 30_000, enrichProfile: 30_000, makeDecision: 25_000, applyAnswer: 25_000, generateYears: 60_000,
-  spawnBranches: 30_000, stepBranch: 30_000, interlude: 25_000, settingsFor: 25_000, ending: 40_000, safety: 8_000,
+  spawnBranches: 30_000, prepareFork: 45_000, stepBranch: 30_000, interlude: 25_000, settingsFor: 25_000, ending: 40_000, safety: 8_000,
 };
 
 class Timeout extends Error {
@@ -121,6 +124,8 @@ export function resilient(real: Engine, mock: Engine): Engine {
     spawnBranches: wrap("spawnBranches"),
     stepBranch: wrap("stepBranch"),
     interlude: wrap("interlude"),
+    // Speculative: no mock fallback (a failed preparation just means the fork is written at the answer).
+    prepareFork: real.prepareFork ? (state, d) => within(real.prepareFork!(state, d), BUDGET.prepareFork!, "prepareFork") : undefined,
     settingsFor: wrap("settingsFor"),
     ending: wrap("ending"),
     safety: wrap("safety"),

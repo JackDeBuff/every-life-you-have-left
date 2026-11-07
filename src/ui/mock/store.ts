@@ -19,6 +19,7 @@ import {
   type SpeedMode,
   type StartInput,
 } from "../../../shared/sim";
+import { slidLine } from "../format";
 import type { ChatEntry, ClientCalls, ClientState, InterludeCut } from "../types";
 import {
   cap,
@@ -600,7 +601,15 @@ export const useMockSim = create<Store>()((set, get) => {
       const effect = optionId ? draft.options["abcd".indexOf(optionId)]!.effect : null;
 
       if (slid) {
-        chat({ role: "system", text: "You let it slide. Life follows its momentum.", decisionId: d.id });
+        // No prompt and no line per slide in the chat: one quiet line per run (the log keeps each).
+        const dl = get().dialogue.filter((e) => !(e.decisionId === d.id && e.role === "guide"));
+        const last = dl.at(-1);
+        const run = last?.id.startsWith("slid-") ? Number(last.id.split("-")[1]) || 1 : 0;
+        if (run) set({ dialogue: [...dl.slice(0, -1), { ...last!, id: `slid-${run + 1}-${d.id}`, text: slidLine(run + 1) }] } as Partial<Store>);
+        else {
+          set({ dialogue: dl } as Partial<Store>);
+          chat({ id: `slid-1-${d.id}`, role: "system", text: slidLine(1) });
+        }
         log([{ year: d.year, age: d.age, kind: "slid", text: `You let it slide: ${shortOf(d.prompt.replace(/^It's \d{4}\.\s*/, ""), 12)}`, domain: d.domains[0] ?? null, tone: null, why: null, baseRate: null, refId: d.id }]);
         return;
       }
@@ -671,6 +680,13 @@ export const useMockSim = create<Store>()((set, get) => {
       stepBranches(year);
       const slot = I.slots.find((x) => x.year === year);
       if (slot?.kind === "big" && !get().decisions.some((d) => d.year === year && d.kind === "big")) {
+        // A fork preempts an open small card: shelve it silently (no chat line, never asked again).
+        const open = get().decisions.filter((d) => d.kind === "small" && d.status === "pending");
+        if (open.length)
+          set({
+            decisions: get().decisions.map((d) => (open.includes(d) ? { ...d, status: "slid" as const } : d)),
+            dialogue: get().dialogue.filter((e) => !open.some((d) => d.id === e.decisionId && e.role === "guide")),
+          } as Partial<Store>);
         makeDecision(year, "big");
         return; // the year is logged once the fork is answered
       }

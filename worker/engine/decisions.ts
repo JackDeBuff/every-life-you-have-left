@@ -132,9 +132,24 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     });
   };
 
+  const card = async (tier: Tier): Promise<Decision> => {
+    const res = await attempt(tier);
+    const draft = res.data ?? coerceDecision(res.raw);
+    if (!draft) throw new Error("decision: no usable card");
+    return finalize(state, slot, draft, kind, r.domain);
+  };
+
+  // Big cards race the fast model when the heavy one is slow: the first card after ~3 s (the user
+  // is looking at an empty card; 3.8 Flash took 4.8-16.7 s there), later ones after 7 s (they are
+  // written ahead of the playhead, but a late one holds it). First usable card wins.
+  if (kind === "big") {
+    const raced = await raceAfter(() => card("heavy"), () => card("fast"), isFirst ? FIRST_CARD_RACE_MS : BIG_CARD_RACE_MS).catch(() => null);
+    if (raced) return raced;
+  }
+
   // Two tries on the slot's model, then one on the other tier; a strict-schema miss is coerced
   // from the raw JSON first (argon returned near-valid cards that zod rejected in the eval).
-  const tiers: Tier[] = kind === "big" ? ["heavy", "heavy", "fast"] : ["fast", "fast", "heavy"];
+  const tiers: Tier[] = kind === "big" ? ["heavy", "fast"] : ["fast", "fast", "heavy"];
   for (const tier of tiers) {
     try {
       const res = await attempt(tier);
@@ -145,6 +160,47 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     }
   }
   return fallbackDecision(state, slot, kind, r.domain, r.why);
+}
+
+export const FIRST_CARD_RACE_MS = 3000;
+export const BIG_CARD_RACE_MS = 7000;
+
+/**
+ * Run `a`; if it hasn't succeeded after `ms` (or fails), run `b` too. Resolves with the first
+ * success, rejects only when both fail. The loser runs to completion (its spend is small).
+ */
+export function raceAfter<T>(a: () => Promise<T>, b: () => Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let done = false;
+    let failures = 0;
+    let started = 1;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startB = () => {
+      if (done || started > 1) return;
+      started = 2;
+      run(b);
+    };
+    const run = (f: () => Promise<T>) =>
+      f().then(
+        (v) => {
+          if (done) return;
+          done = true;
+          if (timer !== undefined) clearTimeout(timer);
+          resolve(v);
+        },
+        (e: unknown) => {
+          failures++;
+          if (done) return;
+          if (started === 1) startB();
+          else if (failures >= started) {
+            done = true;
+            reject(e);
+          }
+        },
+      );
+    run(a);
+    timer = setTimeout(startB, ms);
+  });
 }
 
 /** Best-effort repair of a near-valid card: needs a prompt and 4 labelled options. */

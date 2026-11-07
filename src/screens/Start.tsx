@@ -19,9 +19,9 @@ import { LongDay } from "../ui/start/LongDay";
 
 const SPEEDS: { id: SpeedMode; key: string; title: string; note: string }[] = [
   { id: "auto", key: "Auto", title: "About 3 minutes", note: "5 big choices. Best for a first look." },
-  { id: "4x", key: "4×", title: "Quick", note: "~5 big, ~50 small choices" },
-  { id: "2x", key: "2×", title: "Considered", note: "~10 big, ~100 small" },
-  { id: "1x", key: "1×", title: "Deep", note: "~20 big, ~200 small. Hours, if you like" },
+  { id: "4x", key: "4×", title: "Quick", note: "~5 big, ~15 small choices" },
+  { id: "2x", key: "2×", title: "Considered", note: "~10 big, ~30 small" },
+  { id: "1x", key: "1×", title: "Deep", note: "~20 big, ~45 small. Take your time" },
 ];
 
 const HAIR_STYLES: NonNullable<Appearance["hairStyle"]>[] = ["short", "medium", "long", "curly", "coily", "shaved", "bun"];

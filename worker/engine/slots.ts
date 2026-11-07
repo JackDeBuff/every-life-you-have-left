@@ -207,7 +207,16 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
     const cov = coverage(profile, state);
     const weights = Object.fromEntries(DOMAIN_KEYS.map((d) => [d, (1 + 1.5 * profile.worries[d]) * (1.15 - cov[d])])) as Record<DomainKey, number>;
     const credit = Object.fromEntries(DOMAIN_KEYS.map((d) => [d, 0])) as Record<DomainKey, number>;
-    const smallYears = spreadYears(nowYear, endYear, smallTotal);
+    // One small decision per year at most, never in a fork's year or the year right after it
+    // (the consequence plays), and never "today" (the first fork is today).
+    const bigYears = new Set([...takenBigYears, ...slots.filter((x) => x.kind === "big").map((x) => x.year)]);
+    const blocked = (y: number) => y === nowYear || bigYears.has(y) || bigYears.has(y - 1);
+    const smallYears: number[] = [];
+    for (const y0 of spreadYears(nowYear, endYear, smallTotal)) {
+      let y = y0;
+      while (y < endYear && (blocked(y) || smallYears.includes(y))) y++;
+      if (y < endYear) smallYears.push(y);
+    }
     let last: DomainKey | null = null;
     for (const year of smallYears) {
       const age = year - profile.birthYear;

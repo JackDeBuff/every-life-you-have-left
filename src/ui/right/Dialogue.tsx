@@ -13,19 +13,25 @@ import { Icon } from "../icons";
 import { sim, useSim } from "../session";
 import type { ChatEntry } from "../types";
 import { useUi } from "../uiStore";
+import { CardPending } from "./CardPending";
 import { DecisionCard } from "./DecisionCard";
 import { LiveSettings } from "./LiveSettings";
 
 export function RightPane() {
   const decisions = useSim((s) => s.decisions);
   const forking = useUi((s) => s.forking);
-  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : decisions.find((d) => d.status === "pending");
+  const deciding = useSim((s) => s.phase === "deciding");
+  // A due fork always takes the pane (it preempts a small card; the agent shelves that one).
+  const pendingBig = deciding ? decisions.find((d) => d.kind === "big" && d.status === "pending") : undefined;
+  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending"));
   const big = active?.kind === "big";
+  // The first fork is being written: its card's place shows that (never an empty pane).
+  const firstPending = useSim((s) => s.phase !== "ended" && !!s.profile && !s.decisions.some((d) => d.kind === "big"));
   return (
     <aside className="pane right" data-region="right" data-big={big} data-card={!!active} aria-label="Settings and conversation">
       <LiveSettings pending={active ? { id: active.id, big } : null} />
       <Dialogue hidden={big} />
-      {active ? <DecisionCard key={active.id} d={active} /> : <Composer />}
+      {active ? <DecisionCard key={active.id} d={active} /> : firstPending ? <CardPending /> : <Composer />}
     </aside>
   );
 }

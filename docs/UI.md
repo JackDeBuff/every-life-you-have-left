@@ -231,13 +231,14 @@ npx vite --port 5291          # or npm run dev
   `?new=1` or "Start a new life" starts fresh. If the socket can't connect within 6 s, a notice
   offers "Play the offline demo" (switches to the mock without a reload).
 - **Clock** (`src/ui/clock.ts`): real elapsed time × the speed's secondsPerYear; stops in "deciding"
-  and "interlude"; 0.25× while a small card is up (it slides after smallTimeoutSec; the countdown
-  pauses outside play; unseen small cards from past years slide quietly); never passes
+  and "interlude"; 0.5× while a small card is up (one at a time; it slides after smallTimeoutSec
+  of idle time: any right-pane interaction holds it for 4 s, typing holds the clock); never passes
   `bufferedTo` (shows "Life is thinking…"); re-sends a tick the agent didn't confirm.
 - **World** (`src/ui/middle/WorldView.tsx`): lazy `<World>` with `<WorldSlot>` as the fallback;
   `spec = years[playhead].scene` (sticky while a fork rewrites its year, a "today" scene before
   the first year); the world drives the interlude (`onCut` → captions, `onInterludeDone` →
-  `pause(false)`); a moment holds the clock (0.7 s in Auto); `paused` while a big card dims it.
+  `pause(false)`); moments play only on spaced turning points and hold the clock 3-4.4 s
+  (`src/ui/pacing.ts`); `paused` while a big card dims it.
   "Meanwhile…" holds its title from the end of the fork moment until the cuts arrive.
 - **Media**: portraits (`/api/portrait`, only if a selfie or a look was given; aged 35/50/70 in the
   background; the Portrait shows the band for the age), hold-to-talk (`/api/transcribe`; live never

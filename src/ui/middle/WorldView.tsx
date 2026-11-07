@@ -5,8 +5,8 @@
  *   spec        years[playhead].scene (the chosen life, this year)
  *   interlude   mode="interlude" + cuts while the agent is in phase "interlude"; the world drives
  *               the cut timing (onCut → the overlay's captions) and onInterludeDone → pause(false)
- *   moments     a year with a moment holds the clock until onMomentDone (capped, so Auto stays
- *               near 3 minutes)
+ *   moments     only on a real turning point and at most one every few years (src/ui/pacing.ts);
+ *               the clock holds for each so the cinematic finishes before the next year arrives
  *   paused      while a big decision dims the pane
  *
  * The World only re-renders when one of these props changes (a year turns, a phase changes); the
@@ -16,14 +16,14 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { SceneSpec, SimYear } from "../../../shared/sim";
 import { flavorFor, selfAgeBand } from "../../../worker/engine/world";
 import { clock, useClockUi } from "../clock";
+import { cutSecondsFor, MOMENT_RULES, playableMoments } from "../pacing";
 import { sim, useSim } from "../session";
 import { useUi } from "../uiStore";
 import { WorldSlot } from "./WorldSlot";
 
 const World3D = lazy(() => import("../../world/World"));
 
-/** Seconds per interlude cut: shorter in Auto to keep the judge run near 3 minutes. */
-export const cutSecondsFor = (speed: string) => (speed === "auto" ? 1.75 : 2.6);
+export { cutSecondsFor };
 
 function webglOk(): boolean {
   try {
@@ -86,8 +86,16 @@ export function CurrentWorld() {
   // so the World never unmounts mid-interlude.
   const last = useRef<SceneSpec | null>(null);
   if (raw) last.current = raw;
-  const spec = raw ?? last.current ?? today;
+  const base = raw ?? last.current ?? today;
   const year = useSim((s) => s.playhead.year);
+  // Moments: only this exact year's, and only if it is one of the life's playable moments (a real
+  // turning point, spaced out). A sticky or earlier scene never replays its moment.
+  const years = useSim((s) => s.years);
+  const speedMode = useSim((s) => s.speed);
+  const playable = useMemo(() => playableMoments(years, speedMode), [years, speedMode]);
+  const exact = years.find((y) => y.year === year);
+  const shownMoment = exact?.scene.moment && playable.has(year) ? exact.scene.moment : null;
+  const spec = useMemo(() => (base && base.moment !== shownMoment ? { ...base, moment: shownMoment } : base), [base, shownMoment]);
   const appearance = useSim((s) => s.appearance);
   const phase = useSim((s) => s.phase);
   const cuts = useSim((s) => s.interlude);
@@ -104,13 +112,12 @@ export function CurrentWorld() {
     useUi.setState({ worldCut: -1 });
   }, [showInterlude]);
 
-  // A moment's cinematic holds the year until it finishes, capped. In Auto the cap is short (the
-  // engine marks many years with a moment; a full 4 s each would push the run past 3 minutes).
-  const momentKey = world3d && !showInterlude && phase === "playing" && spec?.moment ? `${year}:${spec.moment}` : null;
+  // A moment's cinematic (4-5 s) holds the clock long enough to finish before the next year.
+  const momentKey = world3d && !showInterlude && phase === "playing" && shownMoment ? `${year}:${shownMoment}` : null;
   useEffect(() => {
     if (!momentKey) return;
     clock.hold("moment", true);
-    const id = window.setTimeout(() => clock.hold("moment", false), speed === "auto" ? 700 : speed === "4x" ? 2200 : 4600);
+    const id = window.setTimeout(() => clock.hold("moment", false), (MOMENT_RULES[speed] ?? MOMENT_RULES.auto).holdS * 1000);
     return () => {
       window.clearTimeout(id);
       clock.hold("moment", false);

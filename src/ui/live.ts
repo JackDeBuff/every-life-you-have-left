@@ -17,6 +17,7 @@
 import { create } from "zustand";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { Decision } from "../../shared/sim";
+import { slidLine } from "./format";
 import { connectSession, loadOrCreateSessionId, uploadDocument, type SessionConnection } from "../lib/agent-client";
 import type { AgentState, ChatEntry, ClientCalls, ClientState, ConnectionStatus } from "./types";
 
@@ -115,12 +116,15 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
   for (const d of decisions) {
     const ans = st.answers.find((x) => x.decisionId === d.id);
     const at = ans ? Date.parse(ans.answeredAt) : (seen.get(d.id) ?? Date.now());
-    push({ id: `d-${d.id}`, role: "guide", text: d.prompt, decisionId: d.id }, d.age, at - 2);
-    if (!ans || d.status === "pending") continue;
+    // A slid question leaves no prompt in the chat, only a quiet line (runs collapse below);
+    // the life log keeps it.
     if (d.status === "slid") {
-      push({ id: `a-${d.id}`, role: "system", text: "You let it slide. Life follows its momentum.", decisionId: d.id }, d.age, at);
+      // No answer record = shelved by a fork, silently.
+      if (ans) push({ id: `slid-${d.id}`, role: "system", text: slidLine(1) }, d.age, at);
       continue;
     }
+    push({ id: `d-${d.id}`, role: "guide", text: d.prompt, decisionId: d.id }, d.age, at - 2);
+    if (!ans || d.status === "pending") continue;
     const opt = d.options.find((x) => x.id === ans.optionId);
     push({ id: `a-${d.id}`, role: "you", text: ans.text ?? opt?.label ?? "…", decisionId: d.id, quoteId: ans.text ? ans.quoteId : null }, d.age, at);
     if (d.kind === "big") {
@@ -148,7 +152,19 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
   for (const e of local) push(e, e.age ?? st.playhead.age, e.at);
 
   rows.sort((a, b) => a.age - b.age || a.t - b.t || a.o - b.o);
-  return rows.map((r) => r.e);
+  const out: ChatEntry[] = [];
+  let run = 0;
+  for (const { e } of rows) {
+    const slid = e.id.startsWith("slid-");
+    if (slid && run > 0) {
+      run++;
+      out[out.length - 1] = { ...out[out.length - 1]!, text: slidLine(run) };
+      continue;
+    }
+    run = slid ? 1 : 0;
+    out.push(e);
+  }
+  return out;
 }
 
 function derive(st: AgentState, connection: ConnectionStatus): ClientState {

@@ -36,8 +36,13 @@ export function Bio() {
   const age = useSim((s) => s.playhead.age);
   const year = useSim((s) => s.playhead.year);
   const endAge = useSim((s) => s.endAge);
-  // This year, or (while it's being rewritten after a fork) the latest year already lived.
+  // This year, or (while it's being rewritten after a fork) the latest year already lived; the
+  // net worth must not flash $0 meanwhile (QA). Day one: their own savings minus debt, if known.
   const yr = useSim((s) => s.years.find((y) => y.year === s.playhead.year) ?? s.years.findLast((y) => y.year <= s.playhead.year) ?? null);
+  const dayOne = useSim((s) => (s.profile?.money.savingsUsd ?? 0) - (s.profile?.money.debtUsd ?? 0));
+  const lastNw = useRef<number | null>(null);
+  if (yr) lastNw.current = yr.money.netWorth;
+  const netWorth = yr?.money.netWorth ?? lastNw.current ?? dayOne;
   const sid = useSim((s) => s.sessionId);
   const pref = useCurrencyPref();
   const forks = useSim((s) => s.decisions.filter((d) => d.kind === "big" && d.status === "answered").length);
@@ -95,7 +100,7 @@ export function Bio() {
           <dt className="label">Net worth</dt>
           <dd>
             <span className="money-line">
-              <Count value={yr?.money.netWorth ?? 0} code={cur} className="money data" />
+              <Count value={netWorth} code={cur} className="money data" />
               <select className="cur-pick" aria-label="Show money in" value={cur} onChange={(e) => setCurrencyPref(sid, { override: e.target.value as CurrencyCode })}>
                 {CURRENCY_CODES.map((c) => (
                   <option key={c} value={c}>
