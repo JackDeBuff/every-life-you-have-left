@@ -98,12 +98,15 @@ export function peopleIssues(text: string, now: LifeNow, allow: PeopleAllow = {}
     const cm = s.match(CHILD_RE);
     if (cm && !here(now, "child").length && !ch.some((c) => c.startsWith("+child")) && !EXPECTING_RE.test(s))
       issues.push({ kind: "child", msg: `mentions "${cm[0]}" but they have no children in ${now.year}` });
+    let petNamed = false;
     for (const p of now.people.filter((x) => x.role === "pet" && x.status === "gone")) {
-      if (new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(s) && !MEMORY_RE.test(s))
+      if (new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(s) && !MEMORY_RE.test(s)) {
         issues.push({ kind: "pet", msg: `${p.name} (${p.relation}) left the story in ${p.until} (old age); don't bring ${p.name} back` });
+        petNamed = true;
+      }
     }
     const petm = s.match(PET_RE);
-    if (petm && !ch.some((c) => c.startsWith("+pet")) && !MEMORY_RE.test(s)) {
+    if (petm && !petNamed && !ch.some((c) => c.startsWith("+pet")) && !MEMORY_RE.test(s)) {
       const sp = /cat|kitten/i.test(petm[1]!) ? "cat" : "dog";
       if (!here(now, "pet").some((p) => p.relation === sp) && now.people.some((p) => p.role === "pet"))
         issues.push({ kind: "pet", msg: `mentions "${petm[0]}" but no ${sp} is alive in this life in ${now.year}` });

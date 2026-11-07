@@ -25,7 +25,8 @@ interface Transcript {
   decisions: (Decision & { answer?: { optionId: string | null } | null })[];
   years: SimYear[];
   branches: Branch[];
-  ending: { verdict: string; branchVerdicts: Record<string, string>; people?: Record<string, string> } | null;
+  ending: { verdict: string; branchVerdicts: Record<string, string>; people?: Record<string, string>; postcard?: string } | null;
+  interludes?: { branchId: string; age: number; caption: string }[][];
 }
 
 function pathOf(t: Transcript, upto: number): LifeNow["path"] {
@@ -43,7 +44,23 @@ export function checkSession(t: Transcript, today = new Date()): ConsistencyRepo
       lines.push(`  [${i.kind}] ${where}: ${i.msg}`);
     }
   };
-  const p = t.profile;
+  // The transcript holds the FINAL profile: its occupation fact is from the end of the life, so it
+  // must not stand in for the start (work comes from the years' life data, or stays unknown).
+  // Same for people and family facts: only people the start line names exist from the start (a
+  // partner named in a later answer would otherwise exist since year one and hide a phantom partner).
+  const startText = (t.profile?.quotes ?? []).filter((q) => !/^d-/.test(q.questionId ?? "")).map((q) => q.text.toLowerCase()).join(" ");
+  const p = t.profile
+    ? {
+        ...t.profile,
+        facts: t.profile.facts.filter((f) => !["occupation", "relationship", "children"].includes(f.key)),
+        people: t.profile.people.filter(
+          (x) =>
+            startText.includes(x.label.toLowerCase().replace(/^(my|your|the)\s+/, "")) ||
+            (/partner|wife|husband|spouse/i.test(x.relation) && /\bmy (wife|husband|partner|girlfriend|boyfriend|fianc\w*)\b/.test(startText)) ||
+            (/child|son|daughter|kid/i.test(x.relation) && /\b(my|the|our) (kids|children|son|daughter|boy|girl)\b/.test(startText)),
+        ),
+      }
+    : null;
   if (!p) return { counts, total: 0, lines: ["(no profile)"] };
   const years = [...t.years].sort((a, b) => a.year - b.year);
 
@@ -114,6 +131,16 @@ export function checkSession(t: Transcript, today = new Date()): ConsistencyRepo
     if (sp.some((x) => x.role === "partner") && !here(bn, "partner").length) issues.push({ kind: "partner", msg: "people line shows a partner its ledger doesn't have" });
     add(`ending (${b.title})`, issues);
     if (t.ending?.branchVerdicts[b.id]) add(`ending verdict (${b.title})`, peopleIssues(t.ending.branchVerdicts[b.id]!, bn));
+  }
+  // 4. interlude captions vs. that branch's ledger at that moment
+  for (const cuts of t.interludes ?? []) {
+    for (const c of cuts) {
+      const b = t.branches.find((x) => x.id === c.branchId);
+      if (!b) continue;
+      const yr = p.birthYear + c.age;
+      const bn = lifeAt(p, [...years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= yr)], yr);
+      add(`interlude ${yr} (${b.title}) "${c.caption.slice(0, 60)}"`, peopleIssues(c.caption, bn));
+    }
   }
   // structured life data present (after the fix)
   const withLife = years.filter((y) => lifeOf(y)).length;

@@ -171,7 +171,7 @@ export function roleOf(relation: string, label = ""): Role {
   return "other";
 }
 
-const GENERIC_NAME = /^(your |my |the )?(partner|wife|husband|spouse|girlfriend|boyfriend|fianc[eé]e?|mom|mum|mother|dad|father|parents?|son|daughter|child|kid|baby|sister|brother|dog|cat|pet)\b/i;
+const GENERIC_NAME = /^(your |my |the )?(?:(?:younger|older|little|big|baby|elder|eldest|youngest|kid) )?(partner|wife|husband|spouse|girlfriend|boyfriend|fianc[eé]e?|mom|mum|mother|dad|father|parents?|son|daughter|child|kid|baby|sister|brother|dog|cat|pet)\b/i;
 
 function personKey(role: Role, name: string) {
   return `${role}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
@@ -188,7 +188,7 @@ export function petYears(name: string, species: string, adoptedYoung = true): nu
   const r = (hash32(`pet:${name}:${species}`) % 1000) / 1000;
   const [lo, hi] = species === "cat" ? [13, 17] : species === "dog" ? [10, 14] : species === "parrot" || species === "tortoise" || species === "turtle" ? [25, 35] : [5, 9];
   const life = Math.round(lo + r * (hi - lo));
-  return adoptedYoung ? life - 1 : Math.max(3, Math.round(life / 2));
+  return adoptedYoung ? life - 1 : Math.max(3, life - 5);
 }
 
 export function initialPeople(profile: Profile): LedgerPerson[] {
@@ -217,7 +217,8 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
       continue;
     }
     const generic = GENERIC_NAME.test(pp.label);
-    const name = pp.label.trim();
+    // "My mother" / "mom" -> "your mother": stand-in names read the same in every prompt and chip
+    const name = generic ? `your ${pp.label.trim().replace(/^(your|my|the)\s+/i, "").toLowerCase()}` : pp.label.trim();
     let born: number | null = null;
     let ageKnown = false;
     const stated = ageMentions(corpus, [name.split(/\s+/)[0]!]);
@@ -227,8 +228,9 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     } else if (role === "parent") born = profile.birthYear - 30;
     const species = role === "pet" ? speciesOf(`${pp.relation} ${pp.label}`) : null;
     add({
-      name, generic, role, relation: pp.relation.toLowerCase(), born, ageKnown,
-      goneAt: role === "pet" && species ? start + petYears(name, species, false) : null,
+      name, generic, role, relation: role === "pet" && species ? species : pp.relation.toLowerCase(), born, ageKnown,
+      // a pet they "just adopted" / a puppy is young; otherwise assume it's already a few years old
+      goneAt: role === "pet" && species ? start + petYears(name, species, /\b(just (?:adopted|got)|new (?:puppy|kitten|dog|cat)|puppy|kitten)\b/i.test(corpus)) : null,
     });
   }
   // A partner or children named only in facts ("Married to Jonas", "two kids, 4 and 7").
@@ -319,6 +321,8 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
     const name = rest;
     const generic = GENERIC_NAME.test(name);
     const cur = here("partner")[0];
+    // a child, parent or sibling never becomes the partner (a branch tagged "+partner:Paolo", her son)
+    if (op === "+" && !generic && people.some((p) => p.role !== "partner" && p.role !== "other" && findByName([p], name))) return;
     if (op === "+") {
       if (cur && (findByName([cur], name) || generic)) return;
       if (cur && cur.generic) {
@@ -374,14 +378,14 @@ export function inferChanges(y: SimYear, people: LedgerPerson[]): string[] {
   const out: string[] = [];
   const partner = people.some((p) => p.role === "partner" && p.status === "here");
   for (const e of y.events) {
-    const t = `${e.title}. ${e.narrative}`;
+    const t = `${e.title}. ${e.narrative} ${y.summary}`;
     // only a birth or an adoption adds a child ("Leo starts secondary school" is category child too)
-    if (e.isTurningPoint && e.category === "child" && /\b(born|birth|arriv\w*|welcome\w*|newborn|adopt\w*|first child|second child|third child|baby (?:girl|boy|is))\b/i.test(t)) {
+    if (e.isTurningPoint && e.category === "child" && /\b(born|birth|arriv\w*|welcom\w*|newborn|firstborn|adopt\w*|first child|second child|third child|baby (?:girl|boy|is))\b/i.test(t)) {
       const nm = t.match(/\b(?:named|name (?:her|him)|welcome|meet|baby|daughter|son),?\s+([A-Z][\p{L}'-]+)/u)?.[1];
       out.push(`+child:${nm ?? "baby"}`);
     }
     if (e.isTurningPoint && (e.category === "love_start" || e.category === "marriage") && !partner) {
-      const nm = t.match(/\b(?:meet|meets|met|dating|date|marry|marries|with)\s+([A-Z][\p{L}'-]+)/u)?.[1];
+      const nm = t.match(/\b(?:meet|meets|met|dating|date|marry|marries)\s+([A-Z][\p{L}'-]+)/u)?.[1];
       out.push(`+partner:${nm ?? "partner"}`);
     }
     if (e.isTurningPoint && (e.category === "love_end" || e.category === "divorce") && partner) out.push("-partner:partner");
@@ -474,6 +478,8 @@ export function advance(prev: LifeNow, y: SimYear): { now: LifeNow; changes: str
 }
 
 export const ageOf = (p: LedgerPerson, year: number) => (p.born === null ? null : year - p.born);
+/** A parent whose age is only estimated and is now ~95+: no longer shown (never declared dead by code). */
+export const offScreen = (p: LedgerPerson, year: number) => p.role === "parent" && !p.ageKnown && (ageOf(p, year) ?? 0) >= 95;
 export const here = (now: LifeNow, role?: Role) => now.people.filter((p) => p.status === "here" && (!role || p.role === role));
 
 /** The YearLife snapshot stored on a year. */
@@ -482,7 +488,7 @@ export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
     work: work || now.work,
     ch,
     people: here(now)
-      .filter((p) => p.role !== "other")
+      .filter((p) => p.role !== "other" && !offScreen(p, now.year))
       .map((p) => ({ name: p.name, role: p.role, relation: p.relation, age: p.ageKnown || p.role === "parent" ? ageOf(p, now.year) : null })),
   };
 }
@@ -574,7 +580,7 @@ export function nowBlock(now: LifeNow, opts: { from?: number; to?: number; title
 /** Compact people line for small prompts (interlude captions): who, and code-computed ages. */
 export function peopleNowLine(now: LifeNow): string {
   const out = here(now)
-    .filter((p) => p.role !== "other")
+    .filter((p) => p.role !== "other" && !offScreen(p, now.year))
     .map((p) => {
       const a = ageOf(p, now.year);
       const age = a === null ? "" : p.ageKnown ? `, ${a}` : p.role === "parent" ? `, ~${a}` : "";

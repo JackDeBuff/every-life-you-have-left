@@ -99,6 +99,28 @@ export const PERSONAS: Persona[] = [
     truth: "Divorced 8 years ago, owns a house with $140k left on the mortgage, $310k in retirement savings, income ~$98k. Kids: Jordan (24, in Denver) and Kayla (21, college in Tucson). Her mother (77) lives nearby and needs more help lately. Has a close friend Rhonda from nursing school.",
     voice: "Blunt, funny, no-nonsense, ER humour.",
   },
+  // Two personas shaped like the QA inspector's live sessions (Sat Nov 7): a move between cities
+  // with a dog (Jordan), and teenagers with stated ages plus a retirement plan (Marisol).
+  {
+    key: "jordan-21-pittsburgh",
+    input: {
+      ...base, firstName: "Jordan", age: 21, city: "Pittsburgh", region: "PA", country: "US",
+      line: "I'm a senior in CS at CMU. A startup in San Francisco offered me a job after graduation, but I also got into the robotics master's here. My dad and my younger sister are in Pittsburgh, and I just adopted a dog, Barnaby. I keep flip-flopping.",
+    },
+    docs: [],
+    truth: "Graduates in May 2027. Single. Dad is a bus mechanic, sister Casey is 16. $18k in loans. Loves building things, hates feeling like he's abandoning his family. Leans toward the startup but feels guilty.",
+    voice: "Casual, quick, a bit self-deprecating, says 'honestly' and 'idk'.",
+  },
+  {
+    key: "marisol-52-quezon",
+    input: {
+      ...base, firstName: "Marisol", age: 52, city: "Quezon City", region: null, country: "PH",
+      line: "I've been a nurse at the same clinic in Quezon City for 28 years. Bea is 16 and Paolo is 19 and just started university. My mother lives with us. A recruiter keeps emailing about nursing jobs in London, but I'm tired and I want to retire by 60.",
+    },
+    docs: [],
+    truth: "Widowed 6 years ago (do not mention). Head nurse, ~$9k/yr, supports both kids' schooling. Close friend Joy from nursing school; sister Tess sends money from Cebu. Wants rest but fears being useless.",
+    voice: "Warm, practical, mixes in a Tagalog word now and then ('anak', 'hay naku').",
+  },
   {
     key: "tom-58-leeds",
     input: {
