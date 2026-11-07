@@ -60,7 +60,7 @@ Live: https://every-life-you-have-left.supawich.workers.dev
   - judge delighters ("your words did this", share + QR on `/s/<id>` with D1 `postcard_shares`, branch landmarks)
   - pacing fixes (small cards at 1×/2×, even forks, fast interludes)
   - engine QA fixes (fork continuity, own-words branches, people ledger, money anchors)
-- **Production Auto judge-run (scripted, 4 s reads, persona maya):** 146.6 s, 5 forks, fork→resume median 7.3 s, $0.37, no errors.
+- **Production Auto judge-run (scripted, 4 s reads, persona maya):** 146.6 s, 5 forks, fork→resume median 7.3 s, $0.37 (old prices; ≈ $0.55–0.6 real, D-098), no errors.
 - **Open / rough:**
   - Hidden branches still rewrite their own fork year.
   - The share OG image depends on the client's PNG upload.
