@@ -8,7 +8,7 @@ Read this first, then `CLAUDE.md`, `DECISIONS.md` (the v2 section at the top), a
 |---|---|
 | Live V1 | https://every-life-you-have-left.supawich.workers.dev (Cloudflare Worker `every-life-you-have-left`, Workers Paid) |
 | Repo | https://github.com/JackDeBuff/every-life-you-have-left (public; Paul = `Puminunp`, write access). `main` is the truth |
-| Production version | `610e7f4b` (main `d3f5ff7`) + later commits, if deployed. Check: `npx wrangler deployments list \| tail -8` |
+| Production version | `7e72e43a` (main with the admin page). Check: `npx wrangler deployments list \| tail -8` |
 | Deadlines | Devpost submission **Sun Nov 8, 9:30am**. Expo judging Sun 10:00–12:15 (in person, Wilkinson). Track: Social Impact & Education |
 | Team | Supawich (owner, "broski"), Paul (testing + maybe pitch). Most code is written by Claude agents |
 
@@ -59,7 +59,7 @@ Flow: start → **warm-up** (≤5 questions, skips what uploads already cover) �
   - `src/world/`: 3D; lab at `/#world-lab`.
   - `src/screens/Ending.tsx`.
   - Offline demo: `/?demo=alex&autopilot=1`. Fresh session: `?new=1`.
-- Data: Durable Object SQLite (live state) + D1 `elyl-db` mirror (admin) + R2 `elyl-uploads` (uploads, portraits, postcard PNGs). Migrations 0001–0003 are applied remotely.
+- Data: Durable Object SQLite (live state) + D1 `elyl-db` mirror (admin) + R2 `elyl-uploads` (uploads, portraits, postcard PNGs). Migrations 0001–0004 are applied remotely.
 
 ## Models (Google Cloud Agent Platform, project `triangle-ai-hack-2026`, $100 credit)
 | Role | Model |
@@ -91,18 +91,21 @@ Notes:
 - **Privacy:** production D1 holds real personal data (the owner's and Paul's lives). Never copy it into the repo, docs, commits or agent prompts. Use made-up personas.
 - **Final submission (D-070):** at the Sunday freeze, remove `research/`, `docs/`, `prototypes/`, `IDEA.md`, `DECISIONS.md`, `CLAUDE.md` and other planning `.md` files from `main` in one commit, and keep a product `README.md`. The history stays.
 
-## In flight when this session ended
-- **The owner admin page `/admin`** is being built by an agent on branch `worktree-agent-aff1a6b4206504319`. It includes:
-  - a passcode login
-  - a live sessions list
-  - a full session view: life by year with "why", decisions + answers, profile, branches, ending, uploads
-  - Health: cost, errors, and consistency checks via a new `/api/admin/session/:id/checks`
-  - "Copy bug report for Claude" buttons
-
-  **Next session:**
-  1. If it finished, merge the branch → typecheck → push → `npm run deploy` (apply any migration it lists with `npm run db:migrate:remote`).
-  2. If it didn't finish, check the branch's commits and finish it.
-  3. Then tell the owner: open `/admin`, passcode from `grep ADMIN_PASSCODE .dev.vars`.
+## Admin page: DONE (deployed at session end)
+- **`/admin` is live:** https://every-life-you-have-left.supawich.workers.dev/admin. Passcode: `grep ADMIN_PASSCODE .dev.vars`.
+- **Sessions list:** cost, warm-up count and errors; live refresh.
+- **Full session view:**
+  - life by year with "why"
+  - decisions + answers
+  - profile
+  - branches
+  - ending
+  - uploads
+  - Health: cost by purpose, engine log, consistency checks
+- **"Copy bug report for Claude"** buttons.
+- **API:** `GET /api/admin/sessions`, `/api/admin/session/:id` (D1 mirror + the Durable Object's full state via the passcode-checked `adminSnapshot` RPC), `/api/admin/session/:id/checks`.
+- **Migration** `0004_admin.sql` is applied remotely.
+- Production version at the end of the session: `7e72e43a`.
 
 ## Next up (owner's plan, Sat Nov 7)
 1. **Supawich and Paul playtest their own lives** and report anything weird or unrealistic, using `/admin`'s "Copy bug report for Claude". Fix fast (agents in worktrees), deploy, repeat.
@@ -128,7 +131,6 @@ Notes:
 - 3D fps not measured on a MacBook Air.
 - Reduced-motion not browser-tested.
 - Gemini implicit caching barely hits on the `global` endpoint (~8–18%).
-- The admin page is in progress (see above).
 - About 16 old agent worktrees under `.claude/worktrees/` (gitignored, merged). Clean them up when convenient: `git worktree list`, then `git worktree remove --force <path>` for merged ones. Keep any that hold unmerged work.
 
 ## Docs map
