@@ -3,9 +3,9 @@ import type { DecisionSlot } from "../../shared/engine";
 import { DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Decision, DecisionOption, SessionState } from "../../shared/sim";
 import { pastTimeIssues } from "./calendar";
-import { fixPeopleNumbers, framingIssues, peopleIssues, recentFramings, repeatTopicIssues, stateIssues, type Issue } from "./consistency";
+import { fixPeopleNumbers, forkIssues, forksFrom, framingIssues, peopleIssues, recentFramings, stateIssues, type Issue } from "./consistency";
 import { decisionLine, decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, worldBlock } from "./context";
-import { forksTaken } from "./ledger";
+import { forksTaken, lifeAt } from "./ledger";
 import type { Caller, Tier } from "./models";
 import { BIG_DECISION_SYSTEM, bigDecisionPrompt, SMALL_DECISION_SYSTEM, smallDecisionPrompt } from "./prompts/decision";
 import { DecisionLLM, LEANS, type DecisionLLM as DecisionDraft } from "./schemas";
@@ -104,18 +104,49 @@ function fallbackDecision(state: SessionState, slot: DecisionSlot, kind: "big" |
   };
 }
 
+/**
+ * The years a big card is written from: every year before it, plus the fork's own year once it has
+ * been written (the playhead shows that year before the card opens, so it is history the card must
+ * know: a separation, a move). The first fork ("today") never sees the start year's placeholder scene.
+ */
+export function cardPast(state: SessionState, slot: Pick<DecisionSlot, "year" | "kind">, isFirst: boolean): SessionState["years"] {
+  return state.years.filter((y) => y.year < slot.year || (slot.kind === "big" && !isFirst && y.year === slot.year));
+}
+
+/**
+ * Everything wrong with a big card given the life as it stands NOW (the years written so far,
+ * through its own year when written) and every fork already taken. Code only; the agent calls it
+ * again when the years before a card written ahead land (a stale card is rewritten before it opens).
+ */
+export function bigCardIssues(state: SessionState, d: Pick<Decision, "id" | "year" | "prompt" | "whyAsking" | "options" | "domains">, today: Date = new Date()): Issue[] {
+  const profile = state.profile!;
+  const isFirst = !state.decisions.some((x) => x.kind === "big" && x.id !== d.id && (x.year < d.year || x.status !== "pending"));
+  const past = cardPast(state, { year: d.year, kind: "big" }, isFirst);
+  const now = lifeAt(profile, past, d.year, forksTaken(state, d.year - 1));
+  const forks = forksFrom(state, d.year, d.id);
+  const earlier = state.decisions.filter((x) => x.kind === "big" && x.id !== d.id && x.year <= d.year && x.status !== "pending");
+  const all = [d.prompt, d.whyAsking, ...d.options.map((o) => `${o.label}. ${o.hint ?? ""}`)].join(" ");
+  return [
+    ...forkIssues(d, now, forks, { firstName: profile.firstName ?? "", earlier }),
+    ...peopleIssues(all, now).filter((i) => i.kind !== "age"),
+    ...pastTimeIssues(`${d.prompt} ${d.whyAsking}`, today, profile.country, d.year).map((msg) => ({ kind: "past_time" as const, msg })),
+  ];
+}
+
 export async function makeDecisionFor(call: Caller, state: SessionState, slot: DecisionSlot, today: Date = new Date()): Promise<Decision> {
   const profile = state.profile!;
   const r = parseSlotReason(slot.reason);
   const kind = slot.kind;
-  const past = state.years.filter((y) => y.year < slot.year);
+  // (a card rewritten in place is still pending: it doesn't count against itself)
+  const isFirst = kind === "big" && !state.decisions.some((d) => d.kind === "big" && (d.year < slot.year || d.status !== "pending"));
+  const past = cardPast(state, slot, isFirst);
   const endYear = profile.birthYear + (state.endAge || profile.endAge);
   const world = worldTimeline(profile.sessionId, profile.startYear, endYear).filter((w) => Math.abs(w.year - slot.year) <= 3);
-  const isFirst = kind === "big" && !state.decisions.some((d) => d.kind === "big");
   const startLine = profile.quotes.filter((q) => q.questionId === "start").map((q) => q.text).join(" ");
-  // The life as it stands in the slot's year (only the years before it), with today's date.
+  // The life as it stands in the slot's year, with today's date.
   const ctx = nowContext({ profile, years: past, atYear: slot.year, path: forksTaken(state, slot.year), today });
   const earlierBig = state.decisions.filter((d) => d.kind === "big" && d.year <= slot.year && d.status !== "pending");
+  const forks = forksFrom(state, slot.year);
   const earlier = earlierBig.map((d) => decisionLine(state, d)).join("\n");
   const smalls = state.decisions.filter((d) => d.kind === "small" && d.year <= slot.year).sort((a, b) => a.year - b.year);
   const avoid = recentFramings(smalls, 6).join("; ");
@@ -178,10 +209,11 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     const head = `${d.prompt} ${d.whyAsking}`;
     const all = [d.prompt, d.whyAsking, ...d.options.map((o) => `${o.label}. ${o.hint ?? ""}`)].join(" ");
     return [
-      ...stateIssues(head, ctx.now),
+      // big: the question AND every option against the ledger and every fork already taken
+      ...(kind === "big" ? forkIssues(d, ctx.now, forks, { firstName: profile.firstName ?? "", earlier: earlierBig }) : stateIssues(head, ctx.now)),
       ...peopleIssues(all, ctx.now).filter((i) => i.kind !== "age"),
       ...pastTimeIssues(head, today, profile.country, slot.year).map((msg) => ({ kind: "past_time" as const, msg })),
-      ...(kind === "big" ? repeatTopicIssues(d, earlierBig, ctx.now, profile.firstName ?? "") : framingIssues(d.prompt, smalls)),
+      ...(kind === "big" ? [] : framingIssues(d.prompt, smalls)),
     ];
   };
   /** Ages and children counts are rewritten from the ledger, never left to the model. */
@@ -190,25 +222,31 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     return { ...d, prompt: f(d.prompt), whyAsking: f(d.whyAsking), options: d.options.map((o) => ({ ...o, label: f(o.label), hint: o.hint ? f(o.hint) : o.hint })) };
   };
 
-  // A card that contradicts the life as it stands gets ONE rewrite on the same tier, with the
-  // problems listed; the one with fewer problems wins.
+  // A card that contradicts the life as it stands gets ONE repair on the same tier, with the
+  // problems listed. A big card still wrong after it is regenerated once from scratch (a fresh
+  // draft, still told what to avoid). The card with the fewest problems wins.
   const card = async (tier: Tier): Promise<Decision> => {
     const res = await attempt(tier);
     const draft = res.data ?? coerceDecision(res.raw);
     if (!draft) throw new Error("decision: no usable card");
     let c = fixNumbers(finalize(state, slot, draft, kind, r.domain));
-    const issues = issuesOf(c);
-    if (issues.length) {
+    let issues = issuesOf(c);
+    const tryAgain = async (t: Tier, feedback: string, seed: string) => {
       try {
-        const again = await attempt(tier, issues.map((x) => `- ${x.msg}`).join("\n"));
+        const again = await attempt(t, feedback);
         const d2 = again.data ?? coerceDecision(again.raw);
-        if (d2) {
-          const c2 = fixNumbers(finalize(state, slot, d2, kind, r.domain));
-          if (issuesOf(c2).length < issues.length) c = c2;
-        }
+        if (!d2) return;
+        const c2 = fixNumbers(finalize(state, slot, d2, kind, r.domain, seed));
+        const i2 = issuesOf(c2);
+        if (i2.length < issues.length) (c = c2), (issues = i2);
       } catch {
-        /* keep the first card */
+        /* keep the best card so far */
       }
+    };
+    if (issues.length) await tryAgain(tier, issues.map((x) => `- ${x.msg}`).join("\n"), "");
+    if (issues.length && kind === "big") {
+      const all = [...new Set(issues.map((x) => `- ${x.msg}`))].join("\n");
+      await tryAgain(tier, `${all}\nWrite a NEW card from scratch about a different moment of this life as it stands now.`, ":regen");
     }
     return c;
   };
