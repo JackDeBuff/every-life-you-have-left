@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { BASE_RATE_IDS } from "../../shared/baseRates";
-import { DomainKey, DomainStates, DomainWeights, EventCategory, FearKind, MoneyFeel, PLAN_KINDS, Tone } from "../../shared/schema";
+import { DomainKey, DomainStates, DomainWeights, EventCategory, FearKind, GROUNDED_KINDS, MoneyFeel, PLAN_KINDS, Tone } from "../../shared/schema";
 import {
   ACTIVITIES, AGE_BANDS, FLAVORS, HOMES, MOMENTS, MOODS, ROLES, SEASONS, SETTINGS_PLACE, SettingType, TIMES, WEATHERS,
 } from "../../shared/sim";
@@ -63,6 +63,12 @@ const PlanDraft = z.object({
   certainty: z.enum(["fixed", "likely", "hoped"]),
   quoteIds: z.array(z.string()),
 });
+const AxisDraft = z.object({
+  label: z.string().describe("2-5 words in their terms: 'Weekend documentaries', 'Parents in Porto', 'Sunday hikes crew'"),
+  domain: DomainKey,
+  detail: z.string().describe("<= 16 words: what is at stake on this thread for them"),
+  quoteIds: z.array(z.string()),
+});
 const SeedDraft = z.object({ text: z.string().describe("<= 14 words"), quoteIds: z.array(z.string()) });
 
 export const ProfileLLM = z.object({
@@ -79,9 +85,15 @@ export const ProfileLLM = z.object({
   worries: DomainWeights.describe("0..1 per domain; 0.1 default; what they worry about or keep coming back to"),
   seeds: z.object({ path: SeedDraft, leap: SeedDraft, careful: SeedDraft, unjudged: SeedDraft }),
   plans: z.array(PlanDraft).describe("Concrete plans they stated with a time; [] if none"),
+  axes: z.array(AxisDraft).describe("3-6 threads this particular life is made of, most specific first"),
   assumptions: z.array(z.object({ field: z.string(), value: z.string(), reason: z.string() })),
 });
 export type ProfileLLM = z.infer<typeof ProfileLLM>;
+
+/** The grounded lookup (Google Search) at profile time: a few short facts about employer/school/city. */
+export const GroundLLM = z.object({
+  facts: z.array(z.object({ about: z.string(), kind: z.enum(GROUNDED_KINDS), text: z.string() })),
+});
 
 /** Folding one decision answer into the profile (fast model). */
 export const AnswerDeltaLLM = z.object({

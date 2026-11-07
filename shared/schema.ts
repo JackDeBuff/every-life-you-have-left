@@ -195,6 +195,32 @@ export const PlannedEvent = z.object({
 export type PlannedEvent = z.infer<typeof PlannedEvent>;
 
 /**
+ * A thread THIS life is made of, in their terms (a documentary practice, parents abroad, an employer
+ * bond, a sport, caregiving, a side business...). Decisions rotate across them so two different
+ * people never get the same career ladder (playtest feedback, Sat Nov 7). Optional: older profiles lack it.
+ */
+export const LifeAxis = z.object({
+  id: z.string().describe('"a1", "a2", ...'),
+  label: z.string().describe("2-5 words in their terms, e.g. 'Weekend documentaries', 'Parents in Porto'"),
+  domain: DomainKey,
+  detail: z.string().describe("<= 16 words: what is at stake on this axis for them"),
+  quoteIds: ids("quotes"),
+});
+export type LifeAxis = z.infer<typeof LifeAxis>;
+
+export const GROUNDED_KINDS = ["office", "work_mode", "pay", "commute", "place", "school", "other"] as const;
+/**
+ * A real-world fact looked up with Google Search when the profile was built (employer offices, work
+ * mode, pay band, commute, school, city). Approximate; whatever the user said always wins.
+ */
+export const GroundedFact = z.object({
+  about: z.string().describe("The employer, school or place it is about"),
+  kind: z.enum(GROUNDED_KINDS),
+  text: z.string().describe("<= 30 words"),
+});
+export type GroundedFact = z.infer<typeof GroundedFact>;
+
+/**
  * Self-identified gender, picked on the start screen (Appearance.gender). Never inferred from a
  * selfie, a name or anything the user wrote. Not set (null) or "undisclosed" = they/them.
  */
@@ -228,6 +254,8 @@ export const Profile = z.object({
   quotes: z.array(Quote),
   assumptions: z.array(Assumption),
   plans: z.array(PlannedEvent).optional().describe("Dated plans they stated; baseline reality for the chosen life"),
+  axes: z.array(LifeAxis).optional().describe("The threads this life is made of; decisions rotate across them"),
+  grounded: z.array(GroundedFact).optional().describe("Web-grounded facts about their employer/school/city (approximate; their words win)"),
   knowMeScore: score().describe("How well we know the user; >= TWIN_THRESHOLD unlocks the twin chat (D-026)"),
   updatedAt: z.string(),
 });

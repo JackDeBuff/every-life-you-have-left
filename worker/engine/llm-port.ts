@@ -32,6 +32,8 @@ export interface LlmUsage {
   ms: number;
   /** Streaming only: time to the first non-thought text. */
   firstTokenMs?: number;
+  /** Google Search grounding: web queries the model ran (billed per query, pricing.ts). */
+  searchQueries?: number;
 }
 
 export interface GenerateJSONRequest {
@@ -92,10 +94,36 @@ export interface ChatCompletionsResult {
   finishReason?: string;
 }
 
+/**
+ * One generateContent call with the Google Search tool (tools: [{ googleSearch: {} }]). Checked on
+ * Sat Nov 7: it combines with responseJsonSchema on gemini-3.5-flash-lite (~3 s, ~4 queries) and on
+ * gemini-3.8-flash (~39 s: too slow for the start).
+ */
+export interface GroundedRequest {
+  model: string;
+  system?: string;
+  prompt: string;
+  /** Optional JSON Schema for the answer. */
+  schema?: Record<string, unknown>;
+  maxOutputTokens?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+export interface GroundedResult {
+  text: string;
+  usage: LlmUsage;
+  /** The web queries the model ran and the sites it used (titles/domains only). */
+  queries: string[];
+  sources: string[];
+}
+
 export interface LlmPort {
   generateJSON<T = unknown>(req: GenerateJSONRequest): Promise<GenerateJSONResult<T>>;
   streamText(req: StreamTextRequest): AsyncIterable<StreamChunk>;
   chatCompletionsOpenAI(req: ChatCompletionsRequest): Promise<ChatCompletionsResult>;
+  /** Optional: Gemini with Google Search grounding (createFetchLlm has it; mocks may not). */
+  groundedText?(req: GroundedRequest): Promise<GroundedResult>;
 }
 
 export class LlmError extends Error {
@@ -128,7 +156,11 @@ interface GeminiPart {
   thought?: boolean;
 }
 interface GeminiResponse {
-  candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[];
+  candidates?: {
+    content?: { parts?: GeminiPart[] };
+    finishReason?: string;
+    groundingMetadata?: { webSearchQueries?: string[]; groundingChunks?: { web?: { title?: string; uri?: string } }[] };
+  }[];
   usageMetadata?: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
@@ -380,7 +412,23 @@ export function createFetchLlm(cfg: FetchLlmConfig): LlmPort {
     }
   }
 
-  return { generateJSON, streamText, chatCompletionsOpenAI };
+  async function groundedText(req: GroundedRequest): Promise<GroundedResult> {
+    const t0 = Date.now();
+    const body = geminiBody({ model: req.model, system: req.system, prompt: req.prompt, schema: req.schema, maxOutputTokens: req.maxOutputTokens });
+    body.tools = [{ googleSearch: {} }];
+    const { res, done } = await post(geminiUrl(req.model, false), JSON.stringify(body), req.model, req.timeoutMs ?? 8000, req.signal);
+    try {
+      const data = (await res.json()) as GeminiResponse;
+      const gm = data.candidates?.[0]?.groundingMetadata;
+      const queries = gm?.webSearchQueries ?? [];
+      const sources = (gm?.groundingChunks ?? []).map((c) => c.web?.title ?? "").filter(Boolean);
+      return { text: partsText(data), usage: { ...usageOf(req.model, data.usageMetadata, Date.now() - t0), searchQueries: queries.length }, queries, sources };
+    } finally {
+      done();
+    }
+  }
+
+  return { generateJSON, streamText, chatCompletionsOpenAI, groundedText };
 }
 
 /** True for models served by the OpenAI-compatible endpoint (gpt-oss). */

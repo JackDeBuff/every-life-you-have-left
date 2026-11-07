@@ -10,6 +10,7 @@ import type { Decision, DecisionAnswer, LiveSetting, SessionState, SettingNudge,
 import { usd } from "./util";
 import { statedTimelines, todayLine } from "./calendar";
 import { chosenOf } from "./answers";
+import { axesOf } from "./focus";
 import { lifeAt, nowBlock, type LifeNow } from "./ledger";
 
 /**
@@ -76,6 +77,12 @@ export function personBlock(p: Profile): string {
       `Currency: they think in ${c.name} (${c.symbol}). Number fields (inc, nw, money) stay USD. When a sentence they read names an amount, write it in ${cur} at 1 USD = ${c.perUsd} ${cur}, rounded (e.g. $1,500 -> ${formatMoney(1500, cur)}, $85,000 -> ${formatMoney(85000, cur)}).`,
     );
   }
+  const axes = axesOf(p);
+  if (axes.length) lines.push(`LIFE AXES (the threads this life is made of; spread decisions and years across them, not mostly work): ${axes.map((a) => `${a.label} [${a.domain}]: ${a.detail}`).join("; ")}`);
+  if (p.grounded?.length)
+    lines.push(
+      `LOOKED-UP FACTS (a web search when we met them; approximate. What they told us always wins: if they said they work from home, they do): ${p.grounded.map((g) => `${g.about}: ${g.text}`).join(" | ")}`,
+    );
   if (p.values.length) lines.push(`Values: ${p.values.map((v) => v.label).join(", ")}`);
   if (p.fears.length) lines.push(`Fears: ${p.fears.map((f) => `${f.text} (${f.kind})`).join("; ")}`);
   const top = topWorries(p, 3);

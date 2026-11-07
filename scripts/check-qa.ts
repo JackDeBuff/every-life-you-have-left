@@ -16,6 +16,7 @@ import { ANSWER_CASES, CLEAN_CASES, FORK_CASES, TODAY } from "./qa/fixtures";
 import { PEOPLE_CASES, HISTORY_CASES, MONEY_CASES, COPY_CASES } from "./qa/code-cases";
 import { PEOPLE_MODEL_CASES } from "./qa/people-cases";
 import { KIDS_CASES, MONEY_GUARD_CASES, PACE_CASES, STALE_CASES } from "./qa/engine-cases";
+import { FOCUS_CASES, groundAsync, SHOCK_CASES } from "./qa/content-cases";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -56,6 +57,8 @@ for (const [title, cases] of [
   ["8. Small cards against the year they're served in", STALE_CASES],
   ["9. Money continuity", MONEY_GUARD_CASES],
   ["10. Kids only through a door they opened", KIDS_CASES],
+  ["11. Life shocks: rare, once each, never repeated", SHOCK_CASES],
+  ["12. Card focus and reading their words", FOCUS_CASES],
 ] as const) {
   console.log(`\n${title}`);
   for (const c of cases) {
@@ -63,6 +66,9 @@ for (const [title, cases] of [
     ok(c.name, r.pass, r.detail);
   }
 }
+
+console.log("\n8. Grounded lookup (fails silently)");
+for (const r of await groundAsync()) ok(r.name, r.pass, r.detail);
 
 const live = process.argv.indexOf("--live");
 if (live >= 0) {

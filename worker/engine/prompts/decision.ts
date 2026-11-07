@@ -28,6 +28,9 @@ THE CARD
 - placeholder: one short line inviting their own words, e.g. "Or tell me what you'd really do, and what would make it easier..."
 - domains: 1-3 domains this is about.
 - Never ask about race, religion, orientation or health conditions. No medical, legal or financial advice in the wording.
+- Their life, not a ladder. Use what is particular to THIS person: the thing they make, the people they named, the places, the obligations, the threads listed as LIFE AXES in PERSON. Never a generic career ladder (promote / stay / start a startup) unless their work truly is the thread. Over a life the forks touch different parts of it (family, love, friends, where they live, money, health habits, what they make), not mostly work.
+- THIS CARD'S FOCUS, when given, is code's choice for this card (a life shock to respond to, the thread of their life it is about, "not about work this time"): follow it.
+- Where and how they work: only what PERSON says (or its looked-up facts). Never invent an office district, tower, campus or HQ, and never move a remote worker into an office: say "work", "the office", "your team".
 - KNOWN PLANS in PERSON are already decided: never present one as a new idea and never ignore it. A fork may question a plan only when it is genuinely uncertain for them (certainty likely or hoped, or their words sound torn): then one fork keeps it ("Go back as planned") and others change it ("Stay abroad another year"). A fixed plan isn't up for a vote; fork on how they live it (which role, where to live, who comes along, what they keep from the life before).`;
 
 export function bigDecisionPrompt(o: {
@@ -45,13 +48,15 @@ export function bigDecisionPrompt(o: {
   now?: string;
   /** Earlier forks in this life: what was asked and what they chose. */
   earlier?: string;
+  /** What this card is about beyond the life stage (focus.ts): an axis, a shock, no work twice. */
+  focus?: string;
   /** Problems with the previous draft, to fix in this one. */
   feedback?: string;
 }): string {
   const moment = o.isFirst
     ? `This is the FIRST decision, today (${o.year}, age ${o.age}), right after they told us what's on their mind:\n"${o.startLine}"\nMake it about exactly that: the crossroads they named or implied. If they didn't name one, find the real tension in their words and make it a choice they could actually face this month.`
     : `This decision comes in ${o.year}, at ${o.age}. The life-stage moment: ${o.stage}.\nMake it grow out of THIS life as it stands now (the years so far, the people in it, the money). It must not repeat an earlier decision.`;
-  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nTHE LIFE SO FAR\n${o.lifeSoFar}\n\nDECISIONS SO FAR\n${o.decisions}\n\n${o.now ? `${o.now}\n\n` : ""}${o.earlier ? `EARLIER FORKS (each new fork is about something else, unless it is framed as that subject coming back)\n${o.earlier}\n\n` : ""}WORLD\n${o.world}\n\nTHE MOMENT\n${moment}\n\n${o.feedback ? `YOUR LAST DRAFT BROKE THE FACTS OF THIS LIFE. Fix all of these:\n${o.feedback}\n\n` : ""}Write the decision card JSON.`;
+  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nTHE LIFE SO FAR\n${o.lifeSoFar}\n\nDECISIONS SO FAR\n${o.decisions}\n\n${o.now ? `${o.now}\n\n` : ""}${o.earlier ? `EARLIER FORKS (each new fork is about something else, unless it is framed as that subject coming back)\n${o.earlier}\n\n` : ""}WORLD\n${o.world}\n\nTHE MOMENT\n${moment}\n\n${o.focus ? `${o.focus}\n\n` : ""}${o.feedback ? `YOUR LAST DRAFT BROKE THE FACTS OF THIS LIFE. Fix all of these:\n${o.feedback}\n\n` : ""}Write the decision card JSON.`;
 }
 
 export const SMALL_DECISION_SYSTEM = `You write SMALL decision cards for "Every Life You Have Left". A small decision slides into the chat while the person's simulated life keeps playing. It doesn't split the life; it teaches us who they are, so later years feel like theirs.
@@ -66,6 +71,8 @@ THE CARD
 - whyAsking: <= 20 words, why this matters for their life. Echo a real quote from the QUOTES list only when it truly fits (and set whyQuoteId to its id); never attribute words they didn't say. Otherwise whyQuoteId = null and no "you said".
 - options: exactly 4 short answers (<= 10 words, first person), each revealing something different about the person. Not right/wrong, not a scale of the same thing. hint null unless a 6-word trade-off helps. branchTitle null. lean: tag each with the direction it shows (path, leap, careful, unjudged), each once.
 - placeholder: invites a sentence of their own ("Or say it your way...").
+- Use what is particular to THIS person (the thing they make, the people they named, the LIFE AXES in PERSON), not a generic version of their age group. THIS CARD'S FOCUS, when given, is code's choice: follow it.
+- Never invent where or how they work (an office district, a campus, commuting when they work from home).
 - Gentle on sensitive ground: never ask about race, religion, orientation, diagnoses or immigration status.`;
 
 export function smallDecisionPrompt(o: {
@@ -80,9 +87,11 @@ export function smallDecisionPrompt(o: {
   now?: string;
   /** Framings the recent cards used (time of day, setting, device): don't reuse. */
   avoid?: string;
+  /** focus.ts: an axis or a shock to respond to. */
+  focus?: string;
   feedback?: string;
 }): string {
-  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nRECENT YEARS OF THIS LIFE\n${o.recent}\n\n${o.now ? `${o.now}\n\n` : ""}ALREADY ASKED (don't repeat)\n${o.asked || "(nothing yet)"}\n\n${o.avoid ? `RECENT CARDS ALREADY USED THESE MOMENTS (pick a different one): ${o.avoid}\n\n` : ""}THE MOMENT\n${o.year}, age ${o.age}. Domain: ${o.domain}. Gap to fill: ${o.gap}\n\n${o.feedback ? `YOUR LAST DRAFT HAD THESE PROBLEMS. Fix all of them:\n${o.feedback}\n\n` : ""}Write the small decision card JSON.`;
+  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nRECENT YEARS OF THIS LIFE\n${o.recent}\n\n${o.now ? `${o.now}\n\n` : ""}ALREADY ASKED (don't repeat)\n${o.asked || "(nothing yet)"}\n\n${o.avoid ? `RECENT CARDS ALREADY USED THESE MOMENTS (pick a different one): ${o.avoid}\n\n` : ""}THE MOMENT\n${o.year}, age ${o.age}. Domain: ${o.domain}. Gap to fill: ${o.gap}\n\n${o.focus ? `${o.focus}\n\n` : ""}${o.feedback ? `YOUR LAST DRAFT HAD THESE PROBLEMS. Fix all of them:\n${o.feedback}\n\n` : ""}Write the small decision card JSON.`;
 }
 
 /**

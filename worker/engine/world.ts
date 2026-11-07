@@ -7,6 +7,7 @@ import type { DomainKey } from "../../shared/domains";
 import type { EventCategory, LifeEvent, Profile, WorldEvent } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { AGE_BANDS, FLAVORS } from "../../shared/sim";
+import { catastrophesIn } from "./shocks";
 import { clamp, rng } from "./util";
 
 type Flavor = (typeof FLAVORS)[number];
@@ -37,8 +38,24 @@ export function worldTimeline(seed: string, startYear: number, endYear: number):
       out.push({ id: `w${out.length + 1}`, year: yt, kind: "tech_shift", title: "AI reshapes office work" });
     }
   }
+  // The one world-scale shock (playtest feedback, Sat Nov 7): a pandemic-style disruption at its
+  // real annual odds (~2%, Marani et al. 2021, `pandemic_odds`), at most once per session, never
+  // within 3 years of a downturn. Its own dice, so the years above stay stable for old sessions.
+  // A life shows at most 2 world events, so with a pandemic the world keeps only the first downturn.
+  const rp = rng(`pandemic:${seed}`);
+  for (let y = startYear + 2; y < endYear - 2; y++) {
+    if (rp() >= PANDEMIC_ODDS) continue;
+    if (out.some((w) => w.kind === "downturn" && Math.abs(w.year - y) < 3)) continue;
+    const first = out.find((w) => w.kind === "downturn");
+    const kept = first ? [first] : [];
+    kept.push({ id: "", year: y, kind: "other", title: "A pandemic shuts things down for months" });
+    return kept.sort((a, b) => a.year - b.year).map((w, i) => ({ ...w, id: `w${i + 1}` }));
+  }
   return out.sort((a, b) => a.year - b.year);
 }
+
+/** Annual odds of a COVID-scale pandemic (Marani et al., PNAS 2021). */
+export const PANDEMIC_ODDS = 0.02;
 
 export const downturnYears = (world: WorldEvent[]) =>
   new Set(world.filter((w) => w.kind === "downturn").flatMap((w) => [w.year, w.year + 1]));
@@ -258,10 +275,12 @@ export interface BudgetLedger {
   shockYears: number[];
   worldIds: Set<string>;
   parentDeaths: number;
+  /** Catastrophes written in this life (kind -> year): each may happen at most once (shocks.ts). */
+  catastrophes: Record<string, number>;
 }
 
 export function ledgerFrom(years: SimYear[], world: WorldEvent[] = []): BudgetLedger {
-  const l: BudgetLedger = { counts: {}, lastYear: {}, shockYears: [], worldIds: new Set(), parentDeaths: 0 };
+  const l: BudgetLedger = { counts: {}, lastYear: {}, shockYears: [], worldIds: new Set(), parentDeaths: 0, catastrophes: {} };
   for (const y of years) for (const e of y.events) recordEvent(l, y.year, e, worldIdFor(world, y.year));
   return l;
 }
@@ -269,6 +288,7 @@ export function ledgerFrom(years: SimYear[], world: WorldEvent[] = []): BudgetLe
 export function recordEvent(l: BudgetLedger, year: number, e: LifeEvent, worldId?: string | null) {
   if (e.category === "world_context") l.worldIds.add(worldId ?? `w@${year}`);
   if (PARENT_DEATH_RE.test(`${e.title} ${e.narrative}`)) l.parentDeaths++;
+  for (const k of catastrophesIn(`${e.title}. ${e.narrative}`)) l.catastrophes[k] ??= year;
   if (!e.isTurningPoint && e.category !== "world_context") return;
   l.counts[e.category] = (l.counts[e.category] ?? 0) + 1;
   l.lastYear[e.category] = year;

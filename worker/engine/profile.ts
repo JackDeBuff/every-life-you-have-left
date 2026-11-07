@@ -5,13 +5,13 @@
 import { currencyForCountry, displayCurrency, fixUnconverted, statedAmounts, type CurrencyCode } from "../../shared/currency";
 import type { DocInput } from "../../shared/engine";
 import { DOMAIN_KEYS } from "../../shared/domains";
-import { endAgeFor, type DomainWeights, type PlannedEvent, type Profile, type Quote } from "../../shared/schema";
+import { endAgeFor, type DomainWeights, type GroundedFact, type PlannedEvent, type Profile, type Quote } from "../../shared/schema";
 import type { Decision, DecisionAnswer, SessionState, StartInput } from "../../shared/sim";
 import { personBlock, quotesBlock } from "./context";
 import type { Caller } from "./models";
 import { ANSWER_SYSTEM } from "./prompts/decision";
-import { PROFILE_SYSTEM, profilePrompt } from "./prompts/profile";
-import { AnswerDeltaLLM, ProfileLLM } from "./schemas";
+import { GROUND_SYSTEM, groundPrompt, PROFILE_SYSTEM, profilePrompt } from "./prompts/profile";
+import { AnswerDeltaLLM, GroundLLM, ProfileLLM } from "./schemas";
 import { clamp, norm, sentences, shortId, truncateWords, wordCount } from "./util";
 
 const ETHNIC = /\b(race|racial|ethnic\w*|caucasian|white|black|asian|hispanic|latin[oax]|african[- ]american|arab|indigenous|gender|pronouns?)\b/i;
@@ -155,8 +155,18 @@ function applyDraft(base: Profile, draft: ProfileLLM, quotes: Quote[]): Profile 
     seeds: { path: seed(draft.seeds.path), leap: seed(draft.seeds.leap), careful: seed(draft.seeds.careful), unjudged: seed(draft.seeds.unjudged) },
     assumptions: draft.assumptions.slice(0, 8),
     plans: plansFrom(draft.plans, cite, base.startYear),
+    axes: axesFrom(draft.axes ?? [], cite, base.axes),
     quotes,
   };
+}
+
+/** Life axes from the model: ids by code, citations to real quotes; the old ones stay if it returned none. */
+function axesFrom(drafts: ProfileLLM["axes"], cite: (ids: string[]) => string[], before: Profile["axes"]): Profile["axes"] {
+  const axes = drafts
+    .filter((a) => a.label.trim())
+    .slice(0, 6)
+    .map((a, i) => ({ id: `a${i + 1}`, label: truncateWords(a.label.trim(), 5), domain: a.domain, detail: truncateWords(a.detail.trim(), 16), quoteIds: cite(a.quoteIds) }));
+  return axes.length ? axes : before;
 }
 
 /** Dated plans from the model: ids by code, citations to real quotes, years from today on. */
@@ -246,7 +256,44 @@ export function emptyProfile(input: StartInput, startYear: number, sessionId: st
   };
 }
 
+/** Time box for the grounded lookup: it runs beside the ~10 s profile call, so it adds no wait. */
+export const GROUND_TIMEOUT_MS = 6000;
+
+/**
+ * ONE Google-Search-grounded call (fast model) for facts about the employer, school and city they
+ * named. Fails silently (null) on timeout or error; the profile never waits on it past the time box.
+ */
+export async function groundFacts(call: Caller, input: Pick<StartInput, "age" | "city" | "region" | "country" | "line">, docs: DocInput[]): Promise<GroundedFact[] | null> {
+  if (!input.line.trim() && !docs.length) return null;
+  const r = await call.grounded({ purpose: "profile.ground", system: GROUND_SYSTEM, prompt: groundPrompt(input, docs), schema: GroundLLM, timeoutMs: GROUND_TIMEOUT_MS });
+  if (!r) return null;
+  const facts = r.data.facts
+    .filter((f) => f.text.trim() && f.about.trim() && namedByThem(f.about, [input.line, ...docs.map((d) => d.text)].join(" ")))
+    .slice(0, 6)
+    .map((f) => ({ about: truncateWords(f.about.trim(), 8), kind: f.kind, text: truncateWords(f.text.trim(), 32) }));
+  return facts.length ? facts : null;
+}
+
+/**
+ * A grounded fact counts only if it is about something they actually named: its name is in their
+ * words, and not as a comparison ("a Paystack-style startup", "a company like Google").
+ */
+export function namedByThem(about: string, text: string): boolean {
+  const name = about.trim().split(/\s+/).find((w) => /^[\p{Lu}\d]/u.test(w) && w.length >= 2) ?? about.trim().split(/\s+/)[0]!;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!new RegExp(`\\b${esc}\\b`, "i").test(text)) return false;
+  return !new RegExp(`\\b${esc}[- ](?:style|like|type|esque)\\b|\\b(?:like|such as|similar to)\\s+(?:a\\s+)?${esc}\\b`, "i").test(text);
+}
+
 export async function buildStartProfile(call: Caller, input: StartInput, docs: DocInput[], startYear: number, at: string): Promise<Profile> {
+  // the grounded lookup runs beside the profile call (never longer than GROUND_TIMEOUT_MS)
+  const groundP = groundFacts(call, input, docs).catch(() => null);
+  const p = await buildProfileOnly(call, input, docs, startYear, at);
+  const grounded = await groundP;
+  return grounded ? { ...p, grounded } : p;
+}
+
+async function buildProfileOnly(call: Caller, input: StartInput, docs: DocInput[], startYear: number, at: string): Promise<Profile> {
   const sessionId = `s_${shortId()}`; // CONTRACT-REQUEST: StartInput has no sessionId; the session agent should overwrite profile.sessionId.
   const lineQuotes = quotesFromText(input.line, 1, "start", "answer");
   const base = emptyProfile(input, startYear, sessionId, lineQuotes, at);

@@ -131,4 +131,28 @@ export const PERSONAS: Persona[] = [
     truth: "Production manager, ~£46k ($58k). Married to Sue (56, school receptionist). Two grown kids, a grandson (2). Mortgage nearly paid off. Pension modest. Practical, proud, worries about being useless.",
     voice: "Northern English, plain, understated, says 'aye' and 'love' occasionally.",
   },
+  // Content feedback (Sat Nov 7 playtests), made-up people. Noor: a warm answer with one honest
+  // admission in it; the life must not turn it into "a lonely life" (charitable reading).
+  {
+    key: "noor-29-montreal",
+    input: {
+      ...base, firstName: "Noor", age: 29, city: "Montreal", region: "QC", country: "CA",
+      line: "I'm moving to Toronto in March for a new job at a hospital lab, so these last months are about my friends here: Sunday hikes on the mountain, the Thursday dinner rotation, helping Camille move. There were some lonely stretches my first year in Montreal, I won't pretend there weren't, but these people turned the city into home and I want to leave properly, grateful.",
+    },
+    docs: [],
+    truth: "Medical lab technologist, ~CA$72k. Single, happy about it for now. Parents in Ottawa, a younger brother Sami (24). Best friend Camille. Loves trail running and cooking for people. Optimistic, sentimental, not lonely now.",
+    voice: "Warm, upbeat, a little sentimental, uses 'honestly' and full sentences.",
+  },
+  // Ines: works from home for a real employer (grounding must not move her to its HQ campus),
+  // and a life that is NOT mostly about career: a documentary practice, parents abroad, a visa.
+  {
+    key: "ines-33-durham",
+    input: {
+      ...base, firstName: "Ines", age: 33, city: "Durham", region: "NC", country: "US",
+      line: "I'm a UX researcher at SAS and I work fully remote from my apartment in Durham. On weekends I shoot short documentaries with two friends; one just got into a small festival. My parents are in Porto and my dad keeps asking when I'm coming back. My work visa renews next year, which always makes me nervous.",
+    },
+    docs: [],
+    truth: "Portuguese, on an H-1B, ~$115k. Partner Ravi (35, a teacher) for two years, not living together yet. Saves for a camera and a festival trip. Calls her parents every Sunday. Loves the documentaries more than the job, but the job pays for them.",
+    voice: "Thoughtful, dry, a bit self-deprecating; short paragraphs.",
+  },
 ];

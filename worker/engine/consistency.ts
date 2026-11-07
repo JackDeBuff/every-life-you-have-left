@@ -9,16 +9,19 @@
  *   - near-duplicate lines (normalised similarity)
  * Used by the generators (repair / regenerate) and by scripts/eval (violation counts).
  */
-import type { Decision, SessionState } from "../../shared/sim";
+import type { Decision, SessionState, SimYear } from "../../shared/sim";
 import { chosenOf } from "./answers";
 import { ageMentions, ageOf, cityOf, here, NUM, numFrom, numLike, type LifeNow } from "./ledger";
 import { laneOf } from "./money";
+import { catastrophesIn } from "./shocks";
 import { sentences } from "./util";
 
 export type IssueKind =
   | "age" | "count" | "partner" | "child" | "pet" | "place" | "employer" | "retired" | "repeat_topic" | "framing" | "duplicate" | "past_time"
   // big decisions against the forks already taken (forkIssues)
-  | "work_stage" | "repeat_chosen" | "left_behind" | "repeat_option" | "ignores_now" | "same_options";
+  | "work_stage" | "repeat_chosen" | "left_behind" | "repeat_option" | "ignores_now" | "same_options"
+  // content feedback (Sat Nov 7): a catastrophe twice in one life; three work forks in a row
+  | "catastrophe" | "work_streak";
 export interface Issue {
   kind: IssueKind;
   msg: string;
@@ -574,3 +577,34 @@ export function forkIssues(
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// ---------------------------------------------------------------------------------------------
+// Whole-life content checks (eval / admin): repeated catastrophes, work-only forks
+// ---------------------------------------------------------------------------------------------
+
+/** A catastrophe kind (flood, break-in, scam, pandemic...) written twice in one life's years. */
+export function repeatedCatastrophes(years: SimYear[]): Issue[] {
+  const first = new Map<string, number>();
+  const out: Issue[] = [];
+  for (const y of [...years].sort((a, b) => a.year - b.year)) {
+    for (const e of y.events) {
+      for (const k of catastrophesIn(`${e.title}. ${e.narrative}`)) {
+        const at = first.get(k);
+        if (at === undefined) first.set(k, y.year);
+        else if (at !== y.year) out.push({ kind: "catastrophe", msg: `${y.year} "${e.title}": a second ${k.replace("_", " ")} in this life (first ${at})` });
+      }
+    }
+  }
+  return out;
+}
+
+/** Three or more big forks in a row whose main domain is work. */
+export function workStreaks(bigs: Pick<Decision, "year" | "domains">[]): Issue[] {
+  const out: Issue[] = [];
+  let run = 0;
+  for (const d of [...bigs].sort((a, b) => a.year - b.year)) {
+    run = d.domains[0] === "career" ? run + 1 : 0;
+    if (run >= 3) out.push({ kind: "work_streak", msg: `${d.year}: work fork ${run} in a row` });
+  }
+  return out;
+}

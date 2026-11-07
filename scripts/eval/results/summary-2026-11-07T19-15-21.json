@@ -1,0 +1,61 @@
+{
+ "stamp": "2026-11-07T19-15-21",
+ "budget": 1.2,
+ "spent": 0.8179955499999999,
+ "summary": [
+  {
+   "group": "gemini-3.8-flash",
+   "model": "gemini-3.8-flash",
+   "personas": "ines, noor",
+   "sessions": 2,
+   "ok": 2,
+   "judged": 0,
+   "overall": null,
+   "personal": null,
+   "believable": null,
+   "no_melodrama": null,
+   "forks": null,
+   "specificity": null,
+   "ending": null,
+   "safety": null,
+   "schemaValidPct": 100,
+   "ruleValidPct": 93.75,
+   "repaired": 5,
+   "fallback": 0,
+   "filler": 0,
+   "years": 80,
+   "contractErrors": 0,
+   "tpPerLife": 17.5,
+   "tpCitedPct": 100,
+   "quietPct": 57.5,
+   "firstYearMsMean": 6617.4,
+   "firstYearMsMedian": 5389,
+   "perYearMs": 2585.5,
+   "decisionMs": 9180.5,
+   "profileMs": 10798,
+   "firstCardMs": 4622.5,
+   "sessionMin": 3.6820833333333334,
+   "costPerSession": 0.4074001749999999,
+   "heavyCostPerSession": 0.224914875,
+   "branchCostPerSession": 0.1257685,
+   "tokensPerSession": 474690.5,
+   "judgeCost": 0,
+   "hedges": 3,
+   "cliches": 0
+  }
+ ],
+ "notes": [
+  {
+   "persona": "ines-33-durham",
+   "model": "gemini-3.8-flash",
+   "verdict": null,
+   "error": null
+  },
+  {
+   "persona": "noor-29-montreal",
+   "model": "gemini-3.8-flash",
+   "verdict": null,
+   "error": null
+  }
+ ]
+}

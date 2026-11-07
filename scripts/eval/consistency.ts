@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import type { Profile } from "../../shared/schema";
 import type { Branch, Decision, SimYear } from "../../shared/sim";
 import { pastTimeIssues } from "../../worker/engine/calendar";
-import { framingIssues, peopleIssues, repeatTopicIssues, similarity, stateIssues, type Issue } from "../../worker/engine/consistency";
+import { framingIssues, peopleIssues, repeatedCatastrophes, repeatTopicIssues, similarity, stateIssues, workStreaks, type Issue } from "../../worker/engine/consistency";
 import { advance, here, lifeAt, lifeOf, profileAsOf, type LifeNow } from "../../worker/engine/ledger";
 
 export interface ConsistencyReport {
@@ -83,6 +83,10 @@ export function checkSession(t: Transcript, today = new Date()): ConsistencyRepo
       smalls.push(d);
     }
   }
+
+  add("big cards", workStreaks(bigs));
+  add("chosen life", repeatedCatastrophes(years));
+  for (const b of t.branches) add(`branch "${b.title}"`, repeatedCatastrophes([...years.filter((y) => y.year < b.forkYear), ...b.years]));
 
   // 2. chosen-life years vs. the ledger; scene people; duplicate lines
   let now = lifeAt(p, [], p.startYear - 1);
