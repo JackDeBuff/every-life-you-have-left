@@ -38,6 +38,7 @@ import {
 } from "../../shared/sim";
 import type { Profile } from "../../shared/schema";
 import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
+import type { FoldItem, SmallDecisionKit } from "../engine/smalls";
 import { costOf } from "../engine/pricing";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
@@ -47,6 +48,16 @@ const BUFFER_AHEAD = 4; // keep at least this many years generated past the play
 const CHUNK = 4; // generateYears chunk size (3–5)
 const CHUNK_FAST = 8; // Auto/4x: one streamed call per stretch, up to the next fork
 const LOOKAHEAD_SMALL = 1; // make small decisions this many years before the playhead reaches them
+// D-089 small-card queue: refill when fewer than REFILL_AT cards are written ahead; one batch call
+// writes up to BATCH_MAX cards for slots within BATCH_YEARS of the first; queued cards older than
+// STALE_YEARS are dropped. Answers fold every FOLD_EVERY, or before the next year call.
+const REFILL_AT = 2;
+const BATCH_MAX = 4;
+const BATCH_YEARS = 3;
+const STALE_YEARS = 3;
+const FOLD_EVERY = 3;
+const FOLD_WAIT_MS = 4000; // the next year call waits at most this long for a pending fold
+const FOLLOWUP_MS = 7000; // the next small card waits at most this long for a follow-up
 // Big ones earlier (the playhead waits at a big slot until its decision exists): ~12 s of playback
 // ahead, at least 2 years. A real big decision takes ~5 s on 3.8 Flash, 15-20 s when it stalls.
 const lookaheadBig = (speed: AgentState["speed"]) => Math.max(2, Math.ceil(12 / SPEED_CONFIG[speed].secondsPerYear));
@@ -132,6 +143,23 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private pendingDocs: DocInput[] = [];
   private mirrorDb: Mirror | null = null;
 
+  // ---- D-089: small decisions in batches (see ensureDecisions / answerSmall / flushFold)
+  /** The real engine's small-decision kit; null = single cards and per-answer folds (mock, or SMALL_BATCH=off). */
+  private kit: SmallDecisionKit | null = null;
+  /** Written-ahead small cards, served in order. `ctx` = the context they were written in, `at` = the playhead then. */
+  private smallQ: { card: Decision; ctx: number; at: number }[] = [];
+  /** Bumped when the context changes (a fork, a nudge, a new thread, a speed change, new documents): the queue goes. */
+  private smallCtx = 0;
+  private batching = false;
+  private batchMisses = 0;
+  /** A follow-up card being written: it is served before the queue. */
+  private followUp: Promise<void> | null = null;
+  /** When a due (visible) small slot first found nothing to serve. */
+  private waitingSince: number | null = null;
+  /** Answers whose quotes are in but which aren't folded into the profile yet. */
+  private pendingFold: FoldItem[] = [];
+  private foldChain: Promise<void> = Promise.resolve();
+
   // -------------------------------------------------------------------------------------------
   // Plumbing
   // -------------------------------------------------------------------------------------------
@@ -213,6 +241,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!this.enginePromise) {
       this.enginePromise = loadEngine(this.env, this.onUsage).then((r) => {
         this.engineSync = r.engine;
+        // SMALL_BATCH=off restores the old small-card path (one card per call, a fold and a
+        // re-written future per answer); kept for before/after measurements.
+        const off = String((this.env as Env & { SMALL_BATCH?: string }).SMALL_BATCH ?? "").toLowerCase() === "off";
+        this.kit = r.small && !off ? r.small : null;
         return r;
       });
     }
@@ -378,6 +410,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       log: [...s.log.filter((l) => !(late && l.kind === "slid" && l.refId === d.id)), decisionLine],
       thinking: isBig ? true : s.thinking,
     }));
+    if (!isBig && this.kit) {
+      this.answerSmall(answered, rec, decisionLine.id);
+      return;
+    }
 
     this.bg("answer", async () => {
       const engine = await this.eng();
@@ -392,10 +428,23 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         this.holdGen = !early;
         this.invalidate(d.year);
       }
-      let folded: Awaited<ReturnType<Engine["applyAnswer"]>>;
+      let folded: Awaited<ReturnType<Engine["applyAnswer"]>> | null = null;
       let safety: Awaited<ReturnType<Engine["safety"]>> | null;
+      const kit = this.kit;
       try {
-        [safety, folded] = await Promise.all([rec.text ? this.screen(engine, rec.text, `Answering the question "${d.prompt}"`) : Promise.resolve(null), engine.applyAnswer(this.s, answered, rec)]);
+        const screened = rec.text ? this.screen(engine, rec.text, `Answering the question "${d.prompt}"`) : Promise.resolve(null);
+        if (kit) {
+          // D-089: the quote at once, in code; the fold takes this answer and any small answers
+          // still waiting, in one call. A fork is a new context: the small-card queue goes.
+          this.newContext();
+          const q = kit.quoteAnswer(this.s, answered, rec);
+          this.update({ profile: this.withId(q.profile) });
+          folded = { profile: q.profile, quote: q.quote };
+          if (q.quote) this.pendingFold.push({ decision: answered, answer: { ...rec, quoteId: q.quote.id } });
+          [safety] = await Promise.all([screened, this.flushFold()]);
+        } else {
+          [safety, folded] = await Promise.all([screened, engine.applyAnswer(this.s, answered, rec)]);
+        }
       } finally {
         if (this.holdGen) {
           this.holdGen = false;
@@ -403,8 +452,9 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         }
       }
       if (safety?.flagged) this.update({ safety });
-      const profile = this.withId(folded.profile);
-      const quote = folded.quote;
+      // (with the kit the fold has already patched the live profile; keep it)
+      const profile = kit ? this.s.profile! : this.withId(folded!.profile);
+      const quote = folded!.quote;
       const finalRec: DecisionAnswer = { ...rec, quoteId: quote?.id ?? null };
       const why = quote ? { quoteId: quote.id, reason: "In your own words." } : null;
       this.update((s) => ({
@@ -443,6 +493,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       log: [...s.log, this.line(s.playhead.year, "nudge", text, settingId, null)],
     }));
     void this.mirror.nudge(n);
+    this.newContext();
     this.invalidate();
   }
 
@@ -454,6 +505,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const engine = await this.eng();
     const ph = this.s.playhead.year;
     this.slots = engine.planSlots(this.s).filter((sl) => sl.year > ph);
+    this.newContext();
     // Drop future decisions that haven't been reached; the new plan replaces them.
     this.update((s) => ({ decisions: s.decisions.filter((d) => d.status !== "pending" || d.year <= ph) }));
     this.updateBudgets();
@@ -534,6 +586,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const { profile } = await engine.enrichProfile(this.s.profile, [doc], null);
     this.update({ profile: this.withId(profile) });
     void this.mirror.session(this.s);
+    this.newContext();
     this.invalidate();
   }
 
@@ -566,6 +619,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         const { profile } = await engine.enrichProfile(this.s.profile!, [], msg);
         this.update({ profile: this.withId(profile) });
         void this.mirror.session(this.s);
+        this.newContext();
         this.invalidate();
       });
     }
@@ -587,6 +641,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.making.clear();
     this.forking = false;
     this.ending = false;
+    this.smallQ = [];
+    this.smallCtx++;
+    this.pendingFold = [];
+    this.waitingSince = null;
+    this.batchMisses = 0;
     this.cur = initialAgentState(this.name);
     this.lastSent = null;
     this.update({});
@@ -652,12 +711,197 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       const key = this.slotKey(sl, idx);
       if (this.making.has(key) || this.materialized(sl)) continue;
       if (sl.kind === "small") {
-        if (smallBusy || openFork <= sl.year + 1 || sl.year <= lastFork) continue;
+        // 1x (several a year): a card may come the year before a fork (the fork shelves it if
+        // it's still open); 2x/4x keep a year between them.
+        const gap = s.speed === "1x" ? 0 : 1;
+        if (smallBusy || openFork <= sl.year + gap || sl.year <= lastFork) continue;
         smallBusy = true;
+        // D-089: served from the written-ahead queue (instant); a single card only when batches fail.
+        if (this.kit && this.batchMisses < 2) {
+          this.serveSmall(sl);
+          continue;
+        }
       }
       this.queueDecision(sl, key);
     }
   }
+
+  // -------------------------------------------------------------------------------------------
+  // D-089: small decisions in batches
+  //   - one fast call writes the next 3-5 small cards (refillSmalls); they wait in an agent-side
+  //     queue and each is served the moment its slot comes (serveSmall), re-checked against the
+  //     life as it stands then (kit.bindSmall)
+  //   - the queue is dropped only when the context changes (newContext): a fork, a nudge, a speed
+  //     change, new documents, or an answer that opens a new thread
+  //   - a small answer becomes a quote at once in code; answers fold into the profile every
+  //     FOLD_EVERY answers or before the next year call (flushFold), in one call. They never
+  //     rewrite the buffered future: they shape the next years written.
+  //   - an answer that opens a thread (or begs a question) gets ONE follow-up card, written now
+  //     and served next
+  // -------------------------------------------------------------------------------------------
+
+  private newContext(): void {
+    this.smallCtx++;
+    this.spend.smalls.discarded += this.smallQ.length;
+    this.smallQ = [];
+  }
+
+  private serveSmall(sl: DecisionSlot): void {
+    const kit = this.kit!;
+    const ph = this.s.playhead.year;
+    const visible = sl.year <= ph;
+    const n0 = this.smallQ.length;
+    this.smallQ = this.smallQ.filter((q) => q.ctx === this.smallCtx && q.at >= ph - STALE_YEARS);
+    this.spend.smalls.discarded += n0 - this.smallQ.length;
+    if (!this.followUp) {
+      while (this.smallQ.length) {
+        const q = this.smallQ.shift()!;
+        const bound = kit.bindSmall(this.s, q.card, sl);
+        if (!bound) {
+          this.spend.smalls.discarded++;
+          continue;
+        }
+        let id = bound.id;
+        while (this.s.decisions.some((x) => x.id === id)) id = `${bound.id}-${crypto.randomUUID().slice(0, 4)}`;
+        const d: Decision = { ...bound, id, kind: "small", year: sl.year, age: sl.age, status: "pending" };
+        this.update((st) => ({ decisions: [...st.decisions, d] }));
+        this.updateBudgets();
+        void this.mirror.decisions([d]);
+        const sm = this.spend.smalls;
+        sm.served++;
+        if (this.waitingSince === null) sm.fromQueue++;
+        else {
+          const w = Date.now() - this.waitingSince;
+          sm.waitMs += w;
+          sm.maxWaitMs = Math.max(sm.maxWaitMs, w);
+        }
+        this.waitingSince = null;
+        this.publishSpend();
+        this.refillSmalls();
+        return;
+      }
+    }
+    // Nothing ready: the wait counts from when the card would be on screen.
+    if (visible) this.waitingSince ??= Date.now();
+    this.refillSmalls();
+  }
+
+  /** One batch call at a time, for the next slots the queue doesn't cover yet. */
+  private refillSmalls(): void {
+    const kit = this.kit;
+    const s = this.s;
+    if (!kit || this.batching || !s.profile || s.phase === "ended" || s.phase === "start" || this.forking) return;
+    if (this.smallQ.length >= REFILL_AT) return;
+    const ph = s.playhead.year;
+    const upcoming = this.slots.filter((sl) => sl.kind === "small" && sl.year >= ph && !this.materialized(sl)).slice(this.smallQ.length);
+    if (!upcoming.length) return;
+    const want = upcoming.filter((sl) => sl.year <= upcoming[0]!.year + BATCH_YEARS).slice(0, BATCH_MAX);
+    // The NOW block reads the years before the first card: after a fork they are being rewritten.
+    const lastGen = s.years.at(-1)?.year ?? this.startYear - 1;
+    if (lastGen < Math.max(ph, want[0]!.year - 1)) return;
+    const ctx = this.smallCtx;
+    this.batching = true;
+    this.bg("smallBatch", async () => {
+      let got = 0;
+      try {
+        await this.profileReady;
+        const cards = await kit.smallBatch(this.s, want);
+        got = cards.length;
+        if (ctx !== this.smallCtx) {
+          this.spend.smalls.discarded += cards.length;
+          return;
+        }
+        const at = this.s.playhead.year;
+        this.smallQ.push(...cards.map((card) => ({ card, ctx, at })));
+        this.spend.smalls.batches++;
+        this.publishSpend();
+      } finally {
+        this.batching = false;
+        // Two empty batches in a row: single cards (queueDecision) for 30 s.
+        this.batchMisses = got ? 0 : this.batchMisses + 1;
+        if (this.batchMisses >= 2)
+          setTimeout(() => {
+            this.batchMisses = 0;
+            this.ensureDecisions();
+          }, 30_000);
+      }
+      this.ensureDecisions();
+    });
+  }
+
+  /** A small answer: the quote now (code), safety now, the fold later (batched), the future untouched. */
+  private answerSmall(d: Decision, rec: DecisionAnswer, logId: string): void {
+    const kit = this.kit!;
+    if (!this.s.profile) return;
+    const { profile, quote } = kit.quoteAnswer(this.s, d, rec);
+    const finalRec: DecisionAnswer = { ...rec, quoteId: quote?.id ?? null };
+    this.update((s) => ({
+      profile: this.withId(profile),
+      answers: s.answers.map((x) => (x.decisionId === d.id && x.answeredAt === rec.answeredAt ? finalRec : x)),
+      log: quote ? s.log.map((l) => (l.id === logId ? { ...l, why: { quoteId: quote.id, reason: "In your own words." } } : l)) : s.log,
+    }));
+    void this.mirror.decisions([d]);
+    void this.mirror.answer(finalRec, false);
+    void this.mirror.session(this.s);
+    // Every free text is screened, per answer (fast; a second look only when flagged).
+    const text = finalRec.text;
+    if (text)
+      this.bg("safety", async () => {
+        const safety = await this.screen(await this.eng(), text, `Answering the question "${d.prompt}"`);
+        if (safety.flagged) this.update({ safety });
+      });
+    if (quote) this.pendingFold.push({ decision: d, answer: finalRec });
+    // A new thread (a new person, a job quit, a move, love, a baby) changes the context: the
+    // queued cards go, the fold runs now, and one follow-up is written for it.
+    const thread = kit.newThread(this.s, d, finalRec);
+    if (thread) this.newContext();
+    if (thread || this.pendingFold.length >= FOLD_EVERY) void this.flushFold();
+    if (thread || kit.begsFollowUp(finalRec)) {
+      const ph = this.s.playhead.year;
+      const next = this.slots.find((sl) => sl.kind === "small" && sl.year >= ph && sl.year <= ph + 2 && !this.materialized(sl));
+      if (next) this.writeFollowUp(kit.followUpSlot(next, d, finalRec, thread));
+    }
+    this.ensureDecisions();
+  }
+
+  private writeFollowUp(sl: DecisionSlot): void {
+    if (this.followUp) return;
+    const ctx = this.smallCtx;
+    const p = (async () => {
+      const engine = await this.eng();
+      const made = await before(engine.makeDecision(this.s, sl), Date.now() + FOLLOWUP_MS).catch(() => null);
+      if (made && ctx === this.smallCtx) {
+        this.smallQ.unshift({ card: made, ctx, at: this.s.playhead.year });
+        this.spend.smalls.followUps++;
+      }
+    })().finally(() => {
+      this.followUp = null;
+      this.ensureDecisions();
+    });
+    this.followUp = p;
+    this.ctx.waitUntil(p);
+  }
+
+  /** Fold every waiting answer with one call; folds run one after another. */
+  private flushFold(): Promise<void> {
+    const kit = this.kit;
+    if (!kit) return Promise.resolve();
+    this.foldChain = this.foldChain
+      .then(async () => {
+        const items = this.pendingFold.splice(0);
+        if (!items.length || !this.s.profile) return;
+        const res = await kit.foldAnswers(this.s, items);
+        this.spend.smalls.folds++;
+        this.spend.smalls.folded += items.length;
+        this.update((s) => (s.profile ? { profile: this.withId(res.apply(s.profile)) } : {}));
+        void this.mirror.session(this.s);
+        // The delta can show a thread the words alone didn't (a new person, job, home or plan).
+        if (res.thread && items.every((i) => i.decision.kind === "small")) this.newContext();
+      })
+      .catch((e: unknown) => console.error("fold failed", e instanceof Error ? e.name : "error"));
+    return this.foldChain;
+  }
+
 
   /** Write one decision (serialized). `using` overrides the state the engine sees (provisional start). */
   private queueDecision(sl: DecisionSlot, key: string, using?: AgentState): void {
@@ -819,6 +1063,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.genRunning = epoch;
     this.bg("generate", async () => {
       const { engine, backup } = await this.engInfo();
+      // D-089: answers waiting to be folded shape this stretch (never after a fork: it can't wait).
+      if (this.kit && this.pendingFold.length && !this.forking) await before(this.flushFold(), Date.now() + FOLD_WAIT_MS);
       let got = 0;
       // A year is accepted once, when it continues the buffer: with the hedge racing, the first
       // version of a year wins (and the per-call mock fallback can't overwrite a real year).
@@ -833,6 +1079,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         });
         this.catchUpLog();
         this.maybePrepare();
+        this.refillSmalls();
       };
       // Hedge the slow-first-token tail (25-60 s stalls on the heavy model): if nothing has
       // streamed after HEDGE_MS, a fast writer races the same stretch; first version wins.
