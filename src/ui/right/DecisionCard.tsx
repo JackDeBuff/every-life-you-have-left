@@ -2,6 +2,7 @@
  * The decision card (SPEC §3): the question, why I'm asking, four genuinely different answers,
  * an always-visible "say more" box with hold-to-talk, and submit. Small ones slow the clock and
  * can slide; big ones dim the world and end in the fork moment.
+ * The warm-up (D-090) uses the same card (`warm`): no clock, a step count, Skip, and Next.
  * Keys: 1–4 select · Enter submits · Shift+Enter new line.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -15,7 +16,17 @@ import { playForkMoment } from "../motion/forkMoment";
 import { sim, useSim } from "../session";
 import { useUi } from "../uiStore";
 
-export function DecisionCard({ d }: { d: Decision }) {
+/** A warm-up question on the decision card: where it sits in the warm-up. */
+export interface WarmCard {
+  /** 1-based position among the questions being asked. */
+  step: number;
+  /** How many will be asked (known once the coverage check lands; null before). */
+  total: number | null;
+  /** Steps for the pips: done / now / next. */
+  pips: ("done" | "now" | "next")[];
+}
+
+export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
   const speed = useSim((s) => s.speed);
   const quote = useSim((s) => (d.whyQuoteId ? s.profile?.quotes.find((q) => q.id === d.whyQuoteId) : undefined));
   const setForking = useUi((s) => s.setForking);
@@ -30,8 +41,9 @@ export function DecisionCard({ d }: { d: Decision }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const drain = useRef<HTMLDivElement>(null);
   const big = d.kind === "big";
-  const timeout = !big ? SPEED_CONFIG[speed].smallTimeoutSec : null;
+  const timeout = !big && !warm ? SPEED_CONFIG[speed].smallTimeoutSec : null;
   const canSubmit = (!!sel || text.trim().length > 1) && !busy;
+  const lastWarm = !!warm && warm.total !== null && warm.step >= warm.total;
 
   // Arrive: small ones rise from the bottom of the dialogue; big ones settle into the whole pane.
   useEffect(() => {
@@ -92,8 +104,25 @@ export function DecisionCard({ d }: { d: Decision }) {
     await sim().answer({ decisionId: d.id, optionId: null, text: null, via: "tap", slid: true });
   }
 
+  /** Warm-up: send at once (the next question replaces this card when it lands); fade meanwhile. */
+  async function sendWarm(skip: boolean) {
+    if (busy || !card.current) return;
+    if (!skip && !canSubmit) return;
+    setBusy(true);
+    const t = text.trim();
+    const p = sim().answerWarmup(skip ? { questionId: d.id, optionId: null, text: null, via: "tap", skip: true } : { questionId: d.id, optionId: sel, text: t || null, via: t ? via : "tap" });
+    if (!reducedMotion()) gsap.to(card.current, { opacity: 0.35, y: -6, duration: 0.2, ease: "expo.in" });
+    try {
+      await p;
+    } catch {
+      setBusy(false);
+      if (card.current) gsap.to(card.current, { opacity: 1, y: 0, duration: 0.2 });
+    }
+  }
+
   async function submit() {
     if (!canSubmit || !card.current) return;
+    if (warm) return sendWarm(false);
     setBusy(true);
     const answer = { decisionId: d.id, optionId: sel, text: text.trim() || null, via: text.trim() ? via : ("tap" as const) };
     if (big) {
@@ -158,14 +187,28 @@ export function DecisionCard({ d }: { d: Decision }) {
   });
 
   return (
-    <article className="dcard" ref={card} data-kind={d.kind} aria-label={big ? "A big decision" : "A small decision"}>
+    <article
+      className="dcard"
+      ref={card}
+      data-kind={warm ? "warmup" : d.kind}
+      aria-label={warm ? `Getting to know you, question ${warm.step}${warm.total ? ` of ${warm.total}` : ""}` : big ? "A big decision" : "A small decision"}
+    >
       {timeout && !engaged && (
         <div className="dcard-drain" aria-hidden="true">
           <div ref={drain} />
         </div>
       )}
       <header className="dcard-head">
-        {big ? (
+        {warm ? (
+          <>
+            <span className="dk">Before your life starts{warm.total ? ` · ${warm.step} of ${warm.total}` : ""}</span>
+            <span className="warm-pips" aria-hidden="true">
+              {warm.pips.map((p, i) => (
+                <i key={i} data-p={p} />
+              ))}
+            </span>
+          </>
+        ) : big ? (
           <span className="dk big">
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
               <rect x="2" y="2" width="8" height="8" transform="rotate(45 6 6)" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.3" />
@@ -175,9 +218,11 @@ export function DecisionCard({ d }: { d: Decision }) {
         ) : (
           <span className="dk">Small · time slows, it won't stop</span>
         )}
-        <span className="label faint">
-          {d.age} · {d.year}
-        </span>
+        {!warm && (
+          <span className="label faint">
+            {d.age} · {d.year}
+          </span>
+        )}
       </header>
 
       <h2 className="dq" data-len={d.prompt.length > 170 ? "xl" : d.prompt.length > 110 ? "l" : undefined}>
@@ -229,7 +274,7 @@ export function DecisionCard({ d }: { d: Decision }) {
             className="textarea voice-input"
             rows={1}
             value={text}
-            placeholder={sel ? `“I'd ${d.options.find((o) => o.id === sel)?.label.toLowerCase().replace(/^i'?d?\s/, "") ?? "do that"}, but only if…”` : d.placeholder}
+            placeholder={sel && !warm ? `“I'd ${d.options.find((o) => o.id === sel)?.label.toLowerCase().replace(/^i'?d?\s/, "") ?? "do that"}, but only if…”` : sel ? "Add the details, in your own words…" : d.placeholder}
             disabled={busy}
             onFocus={() => setEngaged(true)}
             onChange={(e) => {
@@ -260,14 +305,24 @@ export function DecisionCard({ d }: { d: Decision }) {
         )}
         <p className="say-micro">
           <Icon name="quotes" size={12} />
-          <span>
-            Your own words steer this life more than a tap.<span className="say-micro-more"> I keep them, and later turning points will quote them back to you.</span>
-          </span>
+          {warm ? (
+            <span>
+              Your own words count most.<span className="say-micro-more"> I keep them, and every life will quote them back to you.</span>
+            </span>
+          ) : (
+            <span>
+              Your own words steer this life more than a tap.<span className="say-micro-more"> I keep them, and later turning points will quote them back to you.</span>
+            </span>
+          )}
         </p>
       </div>
 
       <footer className="dcard-foot">
-        {timeout && !engaged && left !== null ? (
+        {warm ? (
+          <button className="btn quiet sm skip" disabled={busy} onClick={() => void sendWarm(true)}>
+            Skip this one
+          </button>
+        ) : timeout && !engaged && left !== null ? (
           <button className="btn quiet sm slide" onClick={() => void slide()}>
             Let it slide · {left}s
           </button>
@@ -276,8 +331,8 @@ export function DecisionCard({ d }: { d: Decision }) {
             <span className="kbd">1</span>–<span className="kbd">4</span> pick · <span className="kbd">↵</span> decide<span className="kh-nl"> · <span className="kbd">⇧↵</span> new line</span>
           </span>
         )}
-        <button className={`btn ${big ? "sun" : ""} decide`} disabled={!canSubmit} onClick={() => void submit()}>
-          {big ? "Split here" : "Decide"} <Icon name="enter" size={14} />
+        <button className={`btn ${big || lastWarm ? "sun" : ""} decide`} disabled={!canSubmit} onClick={() => void submit()}>
+          {warm ? (lastWarm ? "Start my life" : "Next") : big ? "Split here" : "Decide"} <Icon name="enter" size={14} />
         </button>
       </footer>
     </article>

@@ -15,6 +15,7 @@ import { KNOWN_PLACES } from "../ui/mock/life";
 import { gsap, reducedMotion } from "../ui/motion";
 import { startPortraits } from "../ui/media";
 import { backend, sim } from "../ui/session";
+import { uploadDocument } from "../lib/agent-client";
 import { LongDay } from "../ui/start/LongDay";
 
 const SPEEDS: { id: SpeedMode; key: string; title: string; note: string }[] = [
@@ -117,17 +118,23 @@ export default function Start() {
     if (!reducedMotion() && rootRef.current) {
       gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 0.4, duration: 0.5, stagger: 0.03 });
     }
+    const live = backend() === "live";
     try {
-      await sim().start(input);
+      // Live: the uploads' text goes with start, so the warm-up (D-090) skips what they already say.
+      await sim().start(input, live ? docs.map((d) => ({ kind: d.kind, text: d.text.slice(0, 60_000) })) : undefined);
     } catch {
       setBusy(false);
       setErr("I couldn't reach the life engine. Check the Wi-Fi and try again, or play the offline demo.");
       if (rootRef.current) gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 1, duration: 0.3 });
       return;
     }
-    // The screen changes when the agent opens the first fork; until then the button says so.
-    for (const d of docs) void sim().addDocument(d.kind, d.text, d.file).catch(() => {});
-    if (backend() === "live") startPortraits({ sessionId: sim().sessionId, age: ageN, endAge, appearance: input.appearance, selfie: selfie?.file ?? null });
+    // The screen changes as soon as the agent has a profile (the warm-up's first question).
+    // Live: the raw files still go to R2 (the agent sees the same text and doesn't add it twice).
+    for (const d of docs) {
+      if (live) void uploadDocument({ sessionId: sim().sessionId, kind: d.kind, text: d.text, file: d.file }).catch(() => {});
+      else void sim().addDocument(d.kind, d.text, d.file).catch(() => {});
+    }
+    if (live) startPortraits({ sessionId: sim().sessionId, age: ageN, endAge, appearance: input.appearance, selfie: selfie?.file ?? null });
     const j = jumpParams();
     if (j && backend() === "mock") await fastForward(j.age, j.stopAtBig);
   }

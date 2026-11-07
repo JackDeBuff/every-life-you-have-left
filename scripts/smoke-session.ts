@@ -107,6 +107,19 @@ async function main() {
     }
     if (s.phase === "ended") break;
 
+    if (s.phase === "warmup") {
+      // D-090: words for the first question, taps for the rest.
+      const cur = s.warmup?.current;
+      if (cur) {
+        const q = s.warmup!.questions.find((x) => x.id === cur)!;
+        const first = !s.warmup!.questions.some((x) => x.status === "answered");
+        log(`WARM-UP ${q.key}: "${q.prompt}"`);
+        await call("answerWarmup", first ? { questionId: cur, optionId: null, text: "I'm a barista and money is tight; Lisbon keeps calling.", via: "text" } : { questionId: cur, optionId: q.options[0]!.id, text: null, via: "tap" });
+        await until((x) => x.warmup?.current !== cur, "next warm-up question", 30_000);
+      } else await sleep(60);
+      continue;
+    }
+
     if (s.phase === "deciding") {
       const d = s.decisions.find((x) => x.kind === "big" && x.status === "pending");
       if (d) {

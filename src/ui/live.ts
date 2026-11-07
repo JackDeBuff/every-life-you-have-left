@@ -51,6 +51,7 @@ const blank = (sessionId: string): ClientState => ({
   bufferedTo: null,
   engine: "mock",
   error: null,
+  warmup: null,
   dialogue: [],
   connection: "connecting",
   backend: "live",
@@ -86,7 +87,7 @@ function visibleDecisions(st: AgentState): Decision[] {
 }
 
 function deriveDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
-  const key = [decisions, st.answers, st.chat, st.profile?.quotes, st.profile?.knowMeScore, st.endAge, local];
+  const key = [decisions, st.answers, st.chat, st.profile?.quotes, st.profile?.knowMeScore, st.endAge, st.warmup, local];
   if (key.length === memo.dlgKey.length && key.every((k, i) => k === memo.dlgKey[i])) return memo.dialogue;
   memo.dlgKey = key;
   memo.dialogue = buildDialogue(st, decisions);
@@ -108,10 +109,32 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
     });
 
   // The start line, in the user's own words (one or more quotes), then the guide's welcome.
-  // Start-line quotes: "start" (engine) / "start.line" (offline mock).
-  for (const q of p.quotes.filter((x) => x.questionId === "start" || x.questionId === "start.line")) push({ id: `start-${q.id}`, role: "you", text: q.text, quoteId: q.id }, p.age, -3);
-  push({ id: "intro-1", role: "guide", text: `Hi ${p.firstName}. I'm going to play your life forward from ${p.age} to ${st.endAge}, one year at a time. Your answers steer it.` }, p.age, -2);
-  push({ id: "intro-2", role: "guide", text: "Every big choice splits it. The lives you don't pick keep running in the background. The first fork is today." }, p.age, -1);
+  // Start-line quotes: "start" (engine) / "start.line" (offline mock). Warm-up answers are "start"
+  // quotes too (they are part of what's on their mind) but sit under their own question below.
+  const w = st.warmup ?? null;
+  const warmQuoteIds = new Set((w?.questions ?? []).map((q) => q.answer?.quoteId).filter((x): x is string => !!x));
+  for (const q of p.quotes.filter((x) => (x.questionId === "start" || x.questionId === "start.line") && !warmQuoteIds.has(x.id)))
+    push({ id: `start-${q.id}`, role: "you", text: q.text, quoteId: q.id }, p.age, -3);
+  const asked = (w?.questions ?? []).filter((q) => q.status !== "covered");
+  if (w && asked.length) {
+    const n = asked.length;
+    push({ id: "intro-1", role: "guide", text: `Hi ${p.firstName}. Before your life starts, ${n === 1 ? "one quick question" : `${n} quick questions`}, so the lives sound like yours.` }, p.age, -2);
+    for (const q of asked) {
+      if (q.status !== "answered" && q.status !== "skipped") continue;
+      const t = Date.parse(q.answer?.at ?? "") || Date.parse(w.doneAt ?? "") || Date.now();
+      push({ id: `wq-${q.id}`, role: "guide", text: q.prompt }, p.age, t - 1);
+      if (q.status === "skipped" || !q.answer) push({ id: `wa-${q.id}`, role: "system", text: "Skipped." }, p.age, t);
+      else {
+        const opt = q.options.find((o) => o.id === q.answer!.optionId);
+        push({ id: `wa-${q.id}`, role: "you", text: q.answer.text ?? opt?.label ?? "…", quoteId: q.answer.quoteId }, p.age, t);
+      }
+    }
+    if (w.status === "finishing" || w.status === "done")
+      push({ id: "intro-2", role: "guide", text: `Thank you. I'll play your life forward from ${p.age} to ${st.endAge}, one year at a time. Every big choice splits it, and the lives you don't pick keep running. The first fork is today.` }, p.age, (Date.parse(w.doneAt ?? "") || Date.now()) + 1);
+  } else {
+    push({ id: "intro-1", role: "guide", text: `Hi ${p.firstName}. I'm going to play your life forward from ${p.age} to ${st.endAge}, one year at a time. Your answers steer it.` }, p.age, -2);
+    push({ id: "intro-2", role: "guide", text: "Every big choice splits it. The lives you don't pick keep running in the background. The first fork is today." }, p.age, -1);
+  }
 
   for (const d of decisions) {
     const ans = st.answers.find((x) => x.decisionId === d.id);
@@ -232,9 +255,11 @@ export const useLiveSim = create<LiveSim>()((set, get) => {
 
   return {
     ...blank(""),
-    async start(input) {
-      await calls().start(input);
+    async start(input, docs) {
+      await calls().start(input, docs);
     },
+    answerWarmup: (a) => calls().answerWarmup(a),
+    forget: (kind, id) => calls().forget(kind, id),
     async answer(a) {
       if (a.slid || (!a.optionId && !a.text?.trim())) return calls().slide(a.decisionId);
       return calls().answer({ ...a, slid: undefined });

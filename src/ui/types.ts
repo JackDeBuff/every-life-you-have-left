@@ -8,9 +8,9 @@
  * Both backends fill `ClientState`: the live agent (src/ui/live.ts) and the offline mock
  * (src/ui/mock/store.ts, `?demo=alex`).
  */
-import type { Ending, InterludeCut, SafetyResult } from "../../shared/engine";
-import type { SessionCalls } from "../../shared/sim";
-import type { AgentState, AnswerInput, ChatMessage } from "../../worker/agent/protocol";
+import type { DocInput, Ending, InterludeCut, SafetyResult } from "../../shared/engine";
+import type { SessionCalls, StartInput } from "../../shared/sim";
+import type { AgentState, AnswerInput, ChatMessage, ForgetKind, WarmAnswerInput, WarmQuestion, WarmupState } from "../../worker/agent/protocol";
 
 export type ChatRole = "guide" | "you" | "future" | "system";
 
@@ -51,8 +51,14 @@ export type ClientState = AgentState & UiDerived;
  *  - "Let it slide": answer({ decisionId, optionId: null, text: null, via: "tap", slid: true }).
  *  - Interlude finished (or skipped): pause(false) moves phase "interlude" → "playing".
  *  - sayTo(life, age, text): life = "interviewer" | "chosen" | branchId.
+ *  - The warm-up (live only; the offline demo has none): answerWarmup({ questionId, optionId, text, via })
+ *    or { ..., skip: true }; forget(kind, id) removes a "Here's what I learned" item.
  */
-export interface ClientCalls extends Omit<SessionCalls, "answer" | "addDocument"> {
+export interface ClientCalls extends Omit<SessionCalls, "start" | "answer" | "addDocument"> {
+  /** `docs`: the start screen's uploads, sent with start so the warm-up knows what they already say. */
+  start(input: StartInput, docs?: DocInput[]): Promise<void>;
+  answerWarmup(a: WarmAnswerInput): Promise<void>;
+  forget(kind: ForgetKind, id: string): Promise<void>;
   answer(a: AnswerInput): Promise<void>;
   /** Text from pdf.js (or a paste); the raw file, when there is one, goes to R2 via /api/upload. */
   addDocument(kind: "cv" | "linkedin" | "ai_export", text: string, file?: File | null): Promise<void>;
@@ -61,4 +67,4 @@ export interface ClientCalls extends Omit<SessionCalls, "answer" | "addDocument"
   dismissSafety(): void;
 }
 
-export type { AgentState, AnswerInput, ChatMessage, Ending, InterludeCut, SafetyResult };
+export type { AgentState, AnswerInput, ChatMessage, Ending, ForgetKind, InterludeCut, SafetyResult, WarmAnswerInput, WarmQuestion, WarmupState };

@@ -8,6 +8,7 @@ import { Bio, LeftPane } from "../ui/left/Bio";
 import { LifeRose } from "../ui/left/LifeRose";
 import { TellMeMore } from "../ui/left/TellMeMore";
 import { Interlude } from "../ui/middle/Interlude";
+import { Learned } from "../ui/middle/Learned";
 import { LifeLog } from "../ui/middle/LifeLog";
 import { CurrentWorld } from "../ui/middle/WorldView";
 import { setSun } from "../ui/motion";
@@ -84,7 +85,7 @@ export default function Play() {
           <CurrentWorld />
           <MeanwhileOverlay />
         </div>
-        <LifeLog />
+        {phase === "warmup" ? <Learned /> : <LifeLog />}
       </main>
       <RightPane />
     </div>
@@ -117,7 +118,9 @@ function PhonePlay({ dim }: { dim: boolean }) {
   const states = useSim((s) => s.status);
   const log = useSim((s) => s.log);
   const lastGuide = useSim((s) => [...s.dialogue].reverse().find((c) => c.channel === "main"));
-  const open = sheetOpen || !!pending || !!forking;
+  // The warm-up's questions hold the sheet open like any card (D-090).
+  const warming = useSim((s) => s.phase === "warmup");
+  const open = sheetOpen || !!pending || !!forking || warming;
   const tabs = useMemo(() => ["log", "bio", "settings"] as const, []);
   return (
     <div className="phone" data-dim={dim} data-sheet={open}>
@@ -140,7 +143,7 @@ function PhonePlay({ dim }: { dim: boolean }) {
         ))}
       </nav>
       <div className="ph-body">
-        {tab === "log" && <LifeLog />}
+        {tab === "log" && (warming ? <Learned /> : <LifeLog />)}
         {tab === "bio" && (
           <div className="ph-bio scroll">
             <Bio />
@@ -155,7 +158,7 @@ function PhonePlay({ dim }: { dim: boolean }) {
         )}
       </div>
       <section className="sheet" data-open={open} aria-label="Conversation">
-        <button className="sheet-handle" onClick={() => setSheet(!sheetOpen)} aria-expanded={open} disabled={!!pending}>
+        <button className="sheet-handle" onClick={() => setSheet(!sheetOpen)} aria-expanded={open} disabled={!!pending || warming}>
           <span className="grip" />
           {!open && <span className="small sheet-peek">{lastGuide?.text ?? "Conversation"}</span>}
         </button>
