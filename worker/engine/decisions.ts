@@ -20,6 +20,29 @@ export function decisionId(state: SessionState, age: number): string {
   return `d-${age}-${n}`;
 }
 
+
+const CLAIMS_WORDS = /\b(you said|you told me|you wrote|you mentioned|in your words|your words)\b/i;
+const STOP = new Set("the a an and or but to of in on for with at by from is are was were be been it its this that you your i me my we our they them their so if as not no just".split(" "));
+const contentWords = (t: string) => new Set((t.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? []).filter((w) => w.length > 2 && !STOP.has(w)));
+
+/**
+ * A "why I'm asking" line may only claim the user said something when it cites a real quote
+ * that it actually echoes. Otherwise (no valid quote, or a "you said ..." that shares no words with
+ * the quote) fall back to a grounded, non-attributing line. Guards against the model copying the
+ * prompt's example ("You said money scares you...") or inventing a quote. QA bug, Sat Nov 7.
+ */
+export function groundWhy(why: string, quoteText: string | null, kind: "big" | "small"): string {
+  const neutral = kind === "big" ? "This is one of the moments a life turns on." : "It helps your lives sound like you.";
+  const w = why.trim();
+  if (!w) return neutral;
+  if (!CLAIMS_WORDS.test(w)) return w;
+  if (!quoteText) return neutral;
+  const q = contentWords(quoteText);
+  let shared = 0;
+  for (const word of contentWords(w)) if (q.has(word)) shared++;
+  return shared >= 2 || (shared >= 1 && q.size <= 4) ? w : neutral;
+}
+
 export function finalize(state: SessionState, slot: DecisionSlot, draft: DecisionDraft, kind: "big" | "small", domain: DomainKey, seed = ""): Decision {
   const profile = state.profile!;
   const quoteIds = new Set(profile.quotes.map((q) => q.id));
@@ -45,8 +68,12 @@ export function finalize(state: SessionState, slot: DecisionSlot, draft: Decisio
     age: slot.age,
     domains: domains.length ? domains : [domain],
     prompt: draft.prompt.trim(),
-    whyAsking: draft.whyAsking.trim(),
     whyQuoteId: draft.whyQuoteId && quoteIds.has(draft.whyQuoteId) ? draft.whyQuoteId : null,
+    whyAsking: groundWhy(
+      draft.whyAsking,
+      draft.whyQuoteId && quoteIds.has(draft.whyQuoteId) ? profile.quotes.find((q) => q.id === draft.whyQuoteId)?.text ?? null : null,
+      kind,
+    ),
     options,
     placeholder: draft.placeholder?.trim() || "Or tell me what you'd really do...",
     status: "pending",
