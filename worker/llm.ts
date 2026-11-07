@@ -42,9 +42,9 @@
  *       → Promise<{ text; model; ms }>        // OpenAI-compatible endpoint on Agent Platform
  *
  *   generateImage(prompt, opts?: { image?: { mimeType; data: base64 }; aspectRatio?: "1:1"|"3:4"|"4:3"|...; model?; signal? })
- *       → Promise<{ bytes: Uint8Array; mimeType: string; model: string }>
+ *       → Promise<{ bytes: Uint8Array; mimeType: string; model: string }>   // JPEG by default (~190 KB)
  *
- *   tts(text, opts?: { voice?: string; style?: string; model?; signal? })
+ *   tts(text, opts?: { voice?: string; style?: string; model?; signal? })   // style = short tag, e.g. "slow, warm, older voice"
  *       → Promise<{ bytes: Uint8Array; mimeType: "audio/wav"; model: string }>   // PCM wrapped as WAV
  *     VOICES.future = an older, warm voice for future selves; VOICES.interviewer = neutral.
  *
@@ -338,20 +338,37 @@ export async function generateImage(
   const parts: Part[] = [];
   if (opts.image) parts.push({ inlineData: opts.image });
   parts.push({ text: prompt });
-  const r = await generate(e, {
-    models: list,
-    contents: [{ role: "user", parts }],
-    timeoutMs: opts.timeoutMs ?? 60_000,
-    attempts: 1,
-    signal: opts.signal,
-    generationConfig: {
-      responseModalities: ["TEXT", "IMAGE"],
-      ...(opts.aspectRatio ? { imageConfig: { aspectRatio: opts.aspectRatio } } : {}),
-    },
-  });
-  const img = inlinePart(r.parts);
-  if (!img) throw new GeminiError(`${r.model}: no image in response (${r.finishReason ?? "?"})`, 502, r.model, true);
-  return { bytes: b64ToBytes(img.data), mimeType: img.mimeType || "image/png", model: r.model };
+  // JPEG q85 is ~190 KB vs ~1.6 MB PNG. If a model rejects imageOutputOptions (400), retry it plain,
+  // then move to the next model.
+  let last: unknown = null;
+  for (const model of list) {
+    for (const jpeg of [true, false]) {
+      try {
+        const r = await generate(e, {
+          models: [model],
+          contents: [{ role: "user", parts }],
+          timeoutMs: opts.timeoutMs ?? 60_000,
+          attempts: 1,
+          signal: opts.signal,
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+            imageConfig: {
+              ...(opts.aspectRatio ? { aspectRatio: opts.aspectRatio } : {}),
+              ...(jpeg ? { imageOutputOptions: { mimeType: "image/jpeg", compressionQuality: 85 } } : {}),
+            },
+          },
+        });
+        const img = inlinePart(r.parts);
+        if (!img) throw new GeminiError(`${r.model}: no image in response (${r.finishReason ?? "?"})`, 502, r.model, true);
+        return { bytes: b64ToBytes(img.data), mimeType: img.mimeType || "image/png", model: r.model };
+      } catch (err) {
+        last = err;
+        if (err instanceof GenerationDisabledError || opts.signal?.aborted) throw err;
+        if (!(err instanceof GeminiError && err.status === 400 && jpeg)) break; // only a 400 on the jpeg try retries plain
+      }
+    }
+  }
+  throw last ?? new GeminiError("no image models", 500, "", false);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -369,7 +386,8 @@ export async function tts(
 ): Promise<{ bytes: Uint8Array; mimeType: "audio/wav"; model: string }> {
   const e = env();
   const list = opts.model ? [opts.model] : [...new Set([e.MODEL_TTS, ...TTS_MODELS_DEFAULT].filter(Boolean) as string[])];
-  const say = opts.style ? `${opts.style}: ${text}` : text;
+  // gemini-3.8-flash-tts speaks "Style: text" prefixes aloud; a bracketed tag steers delivery silently.
+  const say = opts.style ? `[${opts.style.replace(/[[\]]/g, "")}] ${text}` : text;
   const r = await generate(e, {
     models: list,
     contents: say,

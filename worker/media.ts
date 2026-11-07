@@ -99,7 +99,7 @@ function describe(app: Appearance | null): string {
     app.hairColor ? `${app.hairColor.replace("_", " ")} hair colour` : null,
     app.skinTone ? SKIN[app.skinTone] : null,
     app.glasses ? "glasses" : null,
-    app.facialHair ? "a short beard" : null,
+    app.facialHair === true ? "a short beard" : app.facialHair === false ? "clean-shaven" : null,
   ].filter(Boolean);
   return parts.length ? `a person with ${parts.join(", ")}` : "a friendly, neutral-looking person";
 }
@@ -153,7 +153,7 @@ media.post("/api/portrait", async (c) => {
         prompt = `Draw ${describe(appearance?.success ? appearance.data : null)}, about ${forAge} years old. ${STYLE}`;
       }
     } else {
-      const base = await c.env.UPLOADS.get(`portraits/${sessionId}/now.png`);
+      const base = await c.env.UPLOADS.get(`portraits/${sessionId}/base`);
       if (base) {
         image = { mimeType: base.httpMetadata?.contentType ?? "image/png", data: bytesToB64(new Uint8Array(await base.arrayBuffer())) };
         prompt = AGED(forAge);
@@ -165,7 +165,7 @@ media.post("/api/portrait", async (c) => {
     const ext = img.mimeType.includes("jpeg") ? "jpg" : img.mimeType.split("/")[1] ?? "png";
     const unique = `portraits/${sessionId}/${band.data}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
     const meta = { httpMetadata: { contentType: img.mimeType } };
-    await Promise.all([c.env.UPLOADS.put(unique, img.bytes, meta), band.data === "now" ? c.env.UPLOADS.put(`portraits/${sessionId}/now.png`, img.bytes, meta) : null]);
+    await Promise.all([c.env.UPLOADS.put(unique, img.bytes, meta), band.data === "now" ? c.env.UPLOADS.put(`portraits/${sessionId}/base`, img.bytes, meta) : null]);
     void noteMedia(c.env, unique, sessionId, "portrait", band.data, img.model);
     const portrait: Portrait = { band: band.data, url: `/media/${unique}`, forAge };
     try {
@@ -199,7 +199,7 @@ media.post("/api/tts", async (c) => {
     : VOICES.future;
   const style =
     body.style?.slice(0, 200) ??
-    (voice === VOICES.interviewer ? "Say this in a calm, friendly voice" : "Read this slowly and warmly, like an older person looking back on their life");
+    (voice === VOICES.interviewer ? "calm, friendly" : "slow, warm, older voice, looking back on a life");
   const key = `tts/${await sha256(`${voice}|${style}|${text}`)}.wav`;
   const hit = await c.env.UPLOADS.get(key);
   if (hit) return new Response(hit.body, { headers: { "content-type": "audio/wav", "cache-control": "public, max-age=31536000, immutable", "x-media-url": `/media/${key}` } });
@@ -279,6 +279,6 @@ media.get("/media/*", async (c) => {
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
   headers.set("etag", obj.httpEtag);
-  headers.set("cache-control", key.endsWith("/now.png") ? "no-cache" : "public, max-age=31536000, immutable");
+  headers.set("cache-control", key.endsWith("/base") ? "no-cache" : "public, max-age=31536000, immutable");
   return new Response(obj.body, { headers });
 });
