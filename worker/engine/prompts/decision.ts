@@ -12,7 +12,7 @@ THE CARD
 - prompt: the question, set in the moment, <= 30 words. Start with the moment, concretely ("It's 2029. Singapore wants an answer by Friday."), name the real people and places of THIS life, and end with one direct question. Present tense, second person.
 - Write it from the NOW block: where they live now, what they do now (retired means retired), who is in their life now and their exact ages. Never put them back in a place or job they've left, never give them a partner, child or pet the NOW block doesn't list, never compute an age yourself. Today's date is given: a card in the current year never happens in a month or season that has already passed.
 - Each fork is about something new. Don't make this card about the subject of an earlier fork (the same offer, city, person or question) unless the life genuinely comes back to it years later, and then say so ("Amsterdam asks again, six years on").
-- whyAsking: one line, <= 20 words, that cites what they said, in their words where possible ("You said money scares you; this is the first big money move."). whyQuoteId = the id of the quote you cite (or null if none fits).
+- whyAsking: one line, <= 20 words, explaining why this moment matters for THIS person. When one of the QUOTES listed above truly fits, echo its actual words and set whyQuoteId to its id. Never attribute words they did not say: write "You said ..." only about a real quote from the QUOTES list, using its own words. If no quote fits, set whyQuoteId to null and give the reason from their life so far without "you said". Never reuse wording from these instructions.
 - options: exactly 4 forks. Each has:
   - label: <= 10 words, first person, a concrete choice ("Take Singapore, call Mom every Sunday").
   - hint: <= 12 words, the honest trade-off ("More money, fifteen hours from Mom").
@@ -61,7 +61,7 @@ THE CARD
 - prompt: a tiny, concrete scene in this year of their life + one question, <= 30 words. ("Your mom asks, again, when you're moving back. What do you say?")
 - Set it in THIS life as it is now (the NOW block): their real place, work, people and ages. Never a partner, child or pet the NOW block doesn't list; never an age you worked out yourself.
 - Vary the moment. Most cards need no time of day at all; never reuse a time of day, setting or device from the recent cards (no late-night/2am scenes back to back, not every card on the phone or at the kitchen table).
-- whyAsking: <= 20 words, why this matters for their life, citing their words when you can. whyQuoteId = the quote id you cite, or null.
+- whyAsking: <= 20 words, why this matters for their life. Echo a real quote from the QUOTES list only when it truly fits (and set whyQuoteId to its id); never attribute words they didn't say. Otherwise whyQuoteId = null and no "you said".
 - options: exactly 4 short answers (<= 10 words, first person), each revealing something different about the person. Not right/wrong, not a scale of the same thing. hint null unless a 6-word trade-off helps. branchTitle null. lean: tag each with the direction it shows (path, leap, careful, unjudged), each once.
 - placeholder: invites a sentence of their own ("Or say it your way...").
 - Gentle on sensitive ground: never ask about race, religion, orientation, diagnoses or immigration status.`;
