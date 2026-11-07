@@ -30,12 +30,34 @@ of you at any age.
 
 ## Commands
 ```bash
-npm run dev            # Vite + workerd locally; reads .dev.vars
-npm run build
-npx wrangler deploy    # wrangler is NOT global; always npx
-npx wrangler d1 migrations apply <db> --local|--remote
-npm run eval           # (WP1) synthetic-persona life generation evals
+npm run dev               # Vite + workerd locally (SPA + /api); reads .dev.vars
+npm run build             # tsc -b + vite build (client + worker)
+npm run deploy            # build + wrangler deploy → https://every-life-you-have-left.supawich.workers.dev
+npm run typecheck         # tsc -b over app, worker and scripts (strict)
+npm run check:demo        # zod + invariant check of shared/demo/*.json
+npm run demo:build        # regenerate shared/demo/alex.json from scripts/demo/build-alex.ts
+npm run db:migrate:local  # D1 migrations (elyl-db) on the local dev DB
+npm run db:migrate:remote # D1 migrations on production
+npm run cf-typegen        # regenerate worker-configuration.d.ts after editing wrangler.jsonc
+npm run eval              # (WP1) synthetic-persona life generation evals; placeholder now
+npx wrangler ...          # wrangler is NOT global; always npx
 ```
+Smoke tests (prod): `/usr/bin/curl -s $URL/api/health` and `/usr/bin/curl -s -X POST $URL/api/smoke`
+(`?stream=1` exercises the streaming path). Demo stream without Gemini: `GET /api/demo/life/<key>`.
+
+## Repo map
+- `shared/` — the contract: `schema.ts` (zod + types + `geminiSchema()` + SSE envelope),
+  `domains.ts` (10 domains, 4 families), `lives.ts` (4 archetypes, ink tokens), `baseRates.ts`
+  (curated US table, stable ids), `validate.ts` (`checkLife` invariants), `demo/alex.json` (Alex:
+  profile, plan, 4 lives 2026→2071, pause P1 + re-tune).
+- `worker/` — Hono API: `index.ts` (routes), `gemini.ts` (Agent Platform client: generate, stream,
+  textDeltas, fallback chains, kill switch), `sse.ts` (envelope helpers). WP1 adds `prompts/`.
+- `src/` — React SPA: `App.tsx` + `lib/router.ts` (state router), `screens/` (placeholders),
+  `lib/` (`api.ts`, `stream.ts` envelope client, `session.ts` store), `styles/tokens.css` (neutral
+  placeholder theme; use the variables, never raw colours).
+- `migrations/` — D1 schema (`0001_init.sql`). `scripts/` — `check-demo.ts`, `demo/`, `eval/`.
+- `wrangler.jsonc` — Worker config (D1 `DB` = elyl-db, R2 `UPLOADS` = elyl-uploads, vars).
+  Secrets: `GCP_API_KEY`, `ADMIN_PASSCODE` (both in `.dev.vars` locally).
 
 ## Rules
 - **Secrets:** `GCP_API_KEY` lives only in `.dev.vars` (gitignored) and `npx wrangler secret put`.
