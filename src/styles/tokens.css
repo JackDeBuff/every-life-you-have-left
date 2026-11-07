@@ -1,86 +1,176 @@
 /*
- * Design tokens: NEUTRAL PLACEHOLDER. The theme (Paper / Night / wildcard) and fonts are still
- * being chosen (D-051, D-052). Code must use these variables, never raw colours, so the theme
- * can be swapped in one file. Life inks are referenced by shared/lives.ts (ARCHETYPES[k].ink).
- * Rules: no purple gradients, no glassmorphism, not 1 in 8 Billion's charcoal + pink/mint.
+ * Design tokens: "A life is one long day" (docs/UI.md). Code uses these variables, never raw colours.
+ * Light = Daylight, dark = Blue hour. The sun (--sun) is set at runtime from the playhead.
+ * Life inks (--ink-path etc.) are kept for shared/lives.ts; v2 lives are told apart by dash + numeral.
  */
-:root {
-  color-scheme: light dark;
+@import "@fontsource-variable/mona-sans/wdth.css";
+@import "@fontsource-variable/mona-sans/wdth-italic.css";
+@import "@fontsource-variable/source-serif-4/opsz-italic.css";
 
-  /* surface + text */
-  --bg: #f6f5f2;
-  --surface: #ffffff;
-  --text: #1d1d1b;
-  --text-muted: #6b6a66;
-  --line: #d9d7d1;
-  --focus: #1d1d1b;
-
-  /* life inks (placeholder, deliberately plain) */
-  --ink-path: #2f4f6f;
-  --ink-leap: #a0522d;
-  --ink-careful: #5f6b5a;
-  --ink-unjudged: #8a6d1f;
-
-  /* tone */
-  --tone-up: #3d6b4f;
-  --tone-down: #8a3b33;
-  --tone-mixed: #6b6a66;
-
-  /* type */
-  --font-display: Georgia, "Times New Roman", serif;
-  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --step--1: 0.875rem;
-  --step-0: 1rem;
-  --step-1: 1.25rem;
-  --step-2: 1.6rem;
-  --step-3: 2.2rem;
-
-  /* space + shape */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 1rem;
-  --space-4: 1.5rem;
-  --space-5: 2.5rem;
-  --radius: 6px;
-  --measure: 38rem;
-
-  /* motion */
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --dur-fast: 150ms;
-  --dur: 300ms;
+@property --sun {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f5b21f;
 }
 
+:root {
+  color-scheme: light;
+
+  /* frame */
+  --canvas: #e4e9eb;
+  --panel: #f4f7f8;
+  --raised: #ffffff;
+  --sunken: #ebf0f1;
+  --ink: #0d1a1f;
+  --ink-2: #44555c;
+  --ink-3: #6b7c83;
+  --hair: rgb(13 26 31 / 0.12);
+  --hair-2: rgb(13 26 31 / 0.22);
+  --scrim: rgb(228 233 235 / 0.72);
+  --on-sun: #0d1a1f;
+
+  /* the sun: you, now (runtime) */
+  --sun: #f5b21f;
+  --sun-soft: color-mix(in oklab, var(--sun) 26%, transparent);
+  --sun-text: color-mix(in oklab, var(--sun) 52%, var(--ink));
+
+  /* four families (data only) */
+  --fam-work: #2f6bd8;
+  --fam-people: #d2405e;
+  --fam-inner: #7b55d6;
+  --fam-direction: #23935a;
+
+  /* tone */
+  --tone-up: #23935a;
+  --tone-down: #c4483c;
+  --tone-mixed: #6b7c83;
+
+  /* calm (crisis banner) */
+  --calm: #dfeaf3;
+  --calm-ink: #173a55;
+
+  /* legacy life inks (shared/lives.ts) */
+  --ink-path: var(--ink);
+  --ink-leap: var(--ink-2);
+  --ink-careful: var(--ink-2);
+  --ink-unjudged: var(--ink-2);
+
+  /* type */
+  --f-sans: "Mona Sans Variable", "Mona Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-voice: "Source Serif 4 Variable", "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --w-wide: 118%;
+  --w-wider: 125%;
+  --w-cond: 82%;
+  --w-data: 88%;
+  --fs-label: 11px;
+  --fs-meta: 12.5px;
+  --fs-small: 13.5px;
+  --fs-body: 15px;
+  --fs-lead: 18px;
+  --fs-h3: 22px;
+  --fs-q-small: 24px;
+  --fs-q: 30px;
+  --fs-num: 60px;
+  --fs-hero: clamp(52px, 6.4vw, 96px);
+
+  /* space */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s7: 32px;
+  --s8: 48px;
+  --s9: 64px;
+
+  /* shape */
+  --r1: 2px;
+  --r2: 8px;
+  --lift: 0 1px 0 rgb(13 26 31 / 0.04), 0 12px 32px -12px rgb(13 26 31 / 0.22);
+
+  /* motion */
+  --e-press: cubic-bezier(0.3, 0.7, 0.4, 1);
+  --e-settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --e-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --e-tide: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-press: 90ms;
+  --t-micro: 140ms;
+  --t-quick: 220ms;
+  --t-base: 360ms;
+  --t-slow: 640ms;
+
+  /* layout */
+  --bar-h: 64px;
+  --left-w: 300px;
+  --right-w: 420px;
+}
+
+@media (max-width: 1360px) {
+  :root {
+    --left-w: 280px;
+    --right-w: 384px;
+  }
+}
+
+/* Blue hour */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #161615;
-    --surface: #1f1f1d;
-    --text: #ecebe7;
-    --text-muted: #a3a29d;
-    --line: #3a3936;
-    --focus: #ecebe7;
-    --ink-path: #8fb3d6;
-    --ink-leap: #e0956a;
-    --ink-careful: #a9b5a2;
-    --ink-unjudged: #d9b85c;
+    color-scheme: dark;
+    --canvas: #05090b;
+    --panel: #0a1215;
+    --raised: #101b1f;
+    --sunken: #071013;
+    --ink: #e3ebec;
+    --ink-2: #a2b3b8;
+    --ink-3: #6e8288;
+    --hair: rgb(227 235 236 / 0.09);
+    --hair-2: rgb(227 235 236 / 0.18);
+    --scrim: rgb(5 9 11 / 0.7);
+    --on-sun: #0b1316;
+    --sun-text: color-mix(in oklab, var(--sun) 82%, var(--ink));
+    --fam-work: #6ea2ff;
+    --fam-people: #ff7d96;
+    --fam-inner: #ae92ff;
+    --fam-direction: #5bd08f;
+    --tone-up: #5bd08f;
+    --tone-down: #ff8a7a;
+    --calm: #10283a;
+    --calm-ink: #cfe3f2;
+    --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.6);
   }
 }
 :root[data-theme="dark"] {
-  --bg: #161615;
-  --surface: #1f1f1d;
-  --text: #ecebe7;
-  --text-muted: #a3a29d;
-  --line: #3a3936;
-  --focus: #ecebe7;
-  --ink-path: #8fb3d6;
-  --ink-leap: #e0956a;
-  --ink-careful: #a9b5a2;
-  --ink-unjudged: #d9b85c;
+  color-scheme: dark;
+  --canvas: #05090b;
+  --panel: #0a1215;
+  --raised: #101b1f;
+  --sunken: #071013;
+  --ink: #e3ebec;
+  --ink-2: #a2b3b8;
+  --ink-3: #6e8288;
+  --hair: rgb(227 235 236 / 0.09);
+  --hair-2: rgb(227 235 236 / 0.18);
+  --scrim: rgb(5 9 11 / 0.7);
+  --on-sun: #0b1316;
+  --sun-text: color-mix(in oklab, var(--sun) 82%, var(--ink));
+  --fam-work: #6ea2ff;
+  --fam-people: #ff7d96;
+  --fam-inner: #ae92ff;
+  --fam-direction: #5bd08f;
+  --tone-up: #5bd08f;
+  --tone-down: #ff8a7a;
+  --calm: #10283a;
+  --calm-ink: #cfe3f2;
+  --lift: 0 1px 0 rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.6);
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --dur-fast: 0ms;
-    --dur: 0ms;
+    --t-press: 0ms;
+    --t-micro: 0ms;
+    --t-quick: 160ms;
+    --t-base: 200ms;
+    --t-slow: 200ms;
   }
 }

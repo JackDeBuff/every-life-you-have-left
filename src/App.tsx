@@ -1,44 +1,31 @@
-import type { ComponentType } from "react";
-import { SCREENS, useRouter, type Screen } from "./lib/router";
+import { useEffect } from "react";
 import Admin from "./screens/Admin";
-import Consent from "./screens/Consent";
-import Explainer from "./screens/Explainer";
-import Letters from "./screens/Letters";
-import ProfileReview from "./screens/ProfileReview";
-import Questions from "./screens/Questions";
-import Result from "./screens/Result";
-import Setup from "./screens/Setup";
-import Story from "./screens/Story";
-import Uploads from "./screens/Uploads";
+import Ending from "./screens/Ending";
+import Play from "./screens/Play";
+import Start from "./screens/Start";
+import { CrisisBanner } from "./ui/CrisisBanner";
+import { setSun } from "./ui/motion";
+import { useSim } from "./ui/session";
 
-const VIEWS: Record<Screen, ComponentType> = {
-  explainer: Explainer,
-  consent: Consent,
-  setup: Setup,
-  uploads: Uploads,
-  profile: ProfileReview,
-  questions: Questions,
-  story: Story,
-  result: Result,
-  letters: Letters,
-  admin: Admin,
-};
-
+/** Screens follow the session phase: start → playing/deciding/interlude → ended. /admin is separate. */
 export default function App() {
-  const { screen, go } = useRouter();
-  const View = VIEWS[screen];
+  const phase = useSim((s) => s.phase);
+  const hasProfile = useSim((s) => !!s.profile);
+
+  useEffect(() => {
+    // ?theme=dark|light forces a theme (screenshots, projectors); otherwise follow the system.
+    const t = new URLSearchParams(location.search).get("theme");
+    if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+  }, []);
+  useEffect(() => {
+    if (phase === "start") setSun(0);
+  }, [phase]);
+
+  if (location.pathname.startsWith("/admin")) return <Admin />;
   return (
-    <div className="shell">
-      <View />
-      {import.meta.env.DEV && (
-        <nav className="devnav" aria-label="Dev screens">
-          {SCREENS.map((s) => (
-            <button key={s} aria-current={s === screen ? "page" : undefined} onClick={() => go(s)}>
-              {s}
-            </button>
-          ))}
-        </nav>
-      )}
-    </div>
+    <>
+      {phase === "start" || !hasProfile ? <Start /> : phase === "ended" ? <Ending /> : <Play />}
+      <CrisisBanner />
+    </>
   );
 }

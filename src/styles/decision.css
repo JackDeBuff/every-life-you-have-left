@@ -1,0 +1,70 @@
+/* The decision card: the heart. A hairline-framed sheet, not a shadow card. Sun edge = you, now. */
+.dcard {
+  position: relative; flex: none;
+  display: flex; flex-direction: column; gap: var(--s4);
+  padding: var(--s5) var(--s5) var(--s4);
+  background: var(--raised);
+  border-top: 2px solid var(--sun);
+  overflow-y: auto; max-height: 78%;
+}
+.dcard[data-kind="big"] {
+  flex: 1 1 auto; max-height: none;
+  padding: var(--s5) var(--s5) var(--s4);
+  gap: var(--s4);
+  justify-content: flex-start;
+}
+.dcard-drain { position: absolute; left: 0; right: 0; top: -2px; height: 2px; background: var(--hair); }
+.dcard-drain > div { height: 100%; background: var(--ink); transform-origin: left; }
+.dcard-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); }
+.dk {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2);
+}
+.dk.big { color: var(--ink); }
+.dq {
+  font-size: var(--fs-q-small); font-weight: 650; font-stretch: var(--w-wide);
+  letter-spacing: -0.022em; line-height: 1.1; text-wrap: balance;
+}
+.dcard[data-kind="big"] .dq { font-size: 28px; line-height: 1.06; }
+.dwhy { font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+.dwhy .label { margin-right: 4px; }
+.dwhy .voice { color: var(--ink); }
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tile {
+  position: relative; text-align: left;
+  display: grid; grid-template-columns: 22px 1fr; grid-auto-rows: auto; column-gap: 10px; row-gap: 2px; align-content: start;
+  padding: 11px 12px 12px 10px; min-height: 64px;
+  background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r1);
+  transition: border-color var(--t-micro) var(--e-press), background var(--t-micro), transform var(--t-press) var(--e-press), box-shadow var(--t-micro);
+}
+.dcard[data-kind="big"] .tile { min-height: 84px; padding: 12px 12px 12px 10px; }
+.tile:hover:not(:disabled) { border-color: var(--ink-3); background: var(--raised); }
+.tile:active:not(:disabled) { transform: translateY(1px); }
+.tile[data-on="true"] { border-color: var(--ink); background: var(--raised); box-shadow: inset 3px 0 0 var(--sun); }
+.tile:disabled { cursor: default; }
+.kc {
+  grid-row: 1 / span 3; width: 20px; height: 20px; display: grid; place-items: center; margin-top: 1px;
+  border: 1px solid var(--hair-2); border-bottom-width: 2px; border-radius: 3px;
+  font-size: 11px; font-weight: 700; font-stretch: var(--w-cond); color: var(--ink-3);
+  transition: all var(--t-micro) var(--e-press);
+}
+.tile:hover .kc { color: var(--ink); border-color: var(--ink-3); }
+.tile[data-on="true"] .kc { background: var(--sun); border-color: var(--sun); color: var(--on-sun); }
+.tile-fork { font-size: 10.5px; font-weight: 720; font-stretch: var(--w-cond); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.tile[data-on="true"] .tile-fork { color: var(--sun-text); }
+.tile-label { font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.dcard[data-kind="big"] .tile-label { font-size: 15px; }
+.tile-hint { font-size: 12.5px; color: var(--ink-3); line-height: 1.3; }
+
+.say { display: grid; gap: 6px; }
+.say-l { display: flex; justify-content: space-between; }
+.say .say-field .textarea { padding-right: 46px; min-height: 64px; }
+.say .say-field .talk { right: 8px; }
+.say-micro { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+.say-micro svg { flex: none; margin-top: 2px; color: var(--sun-text); }
+
+.dcard-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: auto; padding-top: var(--s2); }
+.keys-hint { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.btn.decide { min-width: 120px; }
+.btn.slide { color: var(--ink-2); font-stretch: var(--w-data); }
