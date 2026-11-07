@@ -32,6 +32,8 @@ export interface SceneProps {
   onMomentDone?: () => void;
   onCut?: (index: number, cut: InterludeCut) => void;
   onInterludeDone?: () => void;
+  /** Seconds per interlude cut (default 2.5). */
+  cutSeconds?: number;
   /** DOM-level fade (interlude cut joins). */
   fade: (on: boolean) => void;
   /** Reduced motion: called with a snapshot before a change is applied. */
@@ -108,6 +110,7 @@ function preloadFor(layout: Layout) {
 
 export function WorldScene(props: SceneProps) {
   const { mode, cuts, appearance, onMomentDone, onCut, onInterludeDone, fade, snapshot, quality } = props;
+  const cutLen = Math.max(1.2, props.cutSeconds ?? 2.5);
   const { time, reduced } = useMotion();
   const { gl, invalidate } = useThree();
   const rig = useRef<RigState>(makeRig());
@@ -227,27 +230,38 @@ export function WorldScene(props: SceneProps) {
   // ----- interlude: three cuts, ~2.5 s each, title-card feel -----
   const cutT0 = useRef(time());
   const cutsKey = cuts?.map((c) => `${c.branchId}${c.age}`).join("|") ?? "";
+  const cutState = useRef({ index: 0, fading: false, finished: false });
+  // The interlude a frame is timing. A frame can run between the commit that switches to a new
+  // interlude and the effects below; without this, it would time the new cuts with the last
+  // interlude's clock and index and end the new one at once.
+  const timing = useRef("");
   useEffect(() => {
     if (mode !== "interlude" || !cuts?.length) return;
     setCutIndex(0);
     cutT0.current = time();
+    cutState.current = { index: 0, fading: false, finished: false };
+    timing.current = cutsKey;
     for (const c of cuts) preloadFor(compose(c.scene, appearance));
     onCut?.(0, cuts[0]!);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, cutsKey]);
-  const cutState = useRef({ index: 0, fading: false, finished: false });
   useEffect(() => {
     cutState.current = { index: cutIndex, fading: false, finished: false };
-  }, [cutIndex, cutsKey]);
+  }, [cutIndex]);
   useFrame(() => {
     if (mode !== "interlude" || !cuts?.length) {
       rig.current.shot = null;
       memory.current = Math.max(0, memory.current - 0.05);
+      timing.current = "";
       return;
     }
+    if (timing.current !== cutsKey) {
+      timing.current = cutsKey;
+      cutT0.current = time();
+      cutState.current = { index: 0, fading: false, finished: false };
+    }
     memory.current = 0.6;
-    const CUT = 2.5;
-    const k = (time() - cutT0.current) / CUT;
+    const k = (time() - cutT0.current) / cutLen;
     const i = cutState.current.index;
     const yaw0 = 22 + i * 32;
     rig.current.shot = { yaw0, yaw1: yaw0 + (reduced ? 0 : 10), dist0: 27, dist1: reduced ? 27 : 22, pitch: 27, t: clamp01(k) };

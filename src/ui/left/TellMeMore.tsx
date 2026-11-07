@@ -18,7 +18,7 @@ export interface AddedDoc {
 
 const LABEL: Record<DocKind, string> = { cv: "CV", linkedin: "LinkedIn", ai_export: "AI export" };
 
-export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]; onAdd: (kind: DocKind, text: string, name: string) => void; dense?: boolean }) {
+export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]; onAdd: (kind: DocKind, text: string, name: string, file?: File) => void; dense?: boolean }) {
   const [busy, setBusy] = useState<DocKind | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const has = (k: DocKind) => added.find((d) => d.kind === k);
@@ -30,7 +30,7 @@ export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]
     try {
       const text = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") ? await pdfText(f) : await f.text();
       if (text.trim().length < 40) throw new Error("That file has almost no text in it. A scanned PDF? Try exporting it again as text.");
-      onAdd(kind, text, f.name);
+      onAdd(kind, text, f.name, f);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't read that file.");
     } finally {
@@ -113,9 +113,9 @@ export function TellMeMore() {
       <UploadSlots
         dense
         added={added}
-        onAdd={(kind, text, name) => {
+        onAdd={(kind, text, name, file) => {
           setAdded((a) => [...a.filter((d) => d.kind !== kind), { kind, name, chars: text.length }]);
-          void sim().addDocument(kind, text);
+          void sim().addDocument(kind, text, file).catch(() => {});
         }}
       />
     </section>

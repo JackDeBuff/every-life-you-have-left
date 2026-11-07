@@ -170,6 +170,7 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 .crisis b { font-weight: 650; }
 .crisis a { color: inherit; font-weight: 600; }
+.crisis a.btn { color: var(--b-fg); }
 .crisis .icon { margin-top: 2px; }
 .crisis .actions { display: flex; gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap; }
 .crisis .btn { --b-bg: var(--calm-ink); --b-fg: var(--calm); height: 30px; font-size: 13px; }
@@ -183,3 +184,17 @@ h1, h2, h3, h4, p { margin: 0; }
 
 /* Screenshot mode (?still=1): CSS animations land on their end state. */
 .still *, .still *::before, .still *::after { animation-duration: 0.001s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; transition-delay: 0s !important; }
+
+/* Connection notice (bad Wi-Fi → offer the offline demo) */
+.conn-note {
+  position: fixed; z-index: 80; left: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px));
+  display: grid; grid-template-columns: auto 1fr; gap: var(--s3); align-items: start;
+  padding: var(--s3) var(--s4); background: var(--raised); color: var(--ink);
+  border: 1px solid var(--hair-2); border-radius: var(--r2); box-shadow: var(--lift);
+  font-size: 13.5px; line-height: 1.45;
+  animation: slidein var(--t-base) var(--e-settle) both;
+}
+.conn-note b { font-weight: 650; }
+.conn-note .actions { display: flex; gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap; }
+.conn-dot { width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--sun); animation: dot 1.2s var(--e-tide) infinite; }
+.start-err { color: var(--ink); background: var(--sun-soft); padding: 8px 12px; border-radius: var(--r1); margin: 0; }

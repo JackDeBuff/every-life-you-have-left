@@ -9,7 +9,7 @@ import { LifeRose } from "../ui/left/LifeRose";
 import { TellMeMore } from "../ui/left/TellMeMore";
 import { Interlude } from "../ui/middle/Interlude";
 import { LifeLog } from "../ui/middle/LifeLog";
-import { WorldSlot } from "../ui/middle/WorldSlot";
+import { CurrentWorld } from "../ui/middle/WorldView";
 import { setSun } from "../ui/motion";
 import { LiveSettings } from "../ui/right/LiveSettings";
 import { RightPane } from "../ui/right/Dialogue";
@@ -61,7 +61,6 @@ function useAutopilot() {
 export default function Play() {
   const phone = useMedia("(max-width: 819px)");
   const phase = useSim((s) => s.phase);
-  const interlude = useSim((s) => s.interlude);
   const pendingBig = useSim((s) => s.decisions.some((d) => d.kind === "big" && d.status === "pending"));
   const forking = useUi((s) => s.forking);
   useSunSync();
@@ -74,9 +73,8 @@ export default function Play() {
   }, []);
 
   const dim = pendingBig && !forking;
-  const showInterlude = phase === "interlude" && !!interlude && !forking;
 
-  if (phone) return <PhonePlay dim={dim} showInterlude={showInterlude} />;
+  if (phone) return <PhonePlay dim={dim} />;
   return (
     <div className="play" data-dim={dim} data-phase={phase}>
       <TimelineBar />
@@ -84,7 +82,7 @@ export default function Play() {
       <main className="pane middle" data-region="middle" aria-label="Your life">
         <div className="world-wrap">
           <CurrentWorld />
-          {showInterlude && interlude && <Interlude key={interlude.map((c) => c.branchId).join()} cuts={interlude} />}
+          <MeanwhileOverlay />
         </div>
         <LifeLog />
       </main>
@@ -93,22 +91,32 @@ export default function Play() {
   );
 }
 
-function CurrentWorld() {
-  const spec = useSim((s) => s.years.find((y) => y.year === s.playhead.year)?.scene ?? null);
-  return <WorldSlot spec={spec} />;
+/**
+ * "Meanwhile, in your other lives…" from the end of the fork moment: while the agent writes the
+ * branches (phase still "deciding", the card answered) the title holds; the cuts play when they
+ * arrive (phase "interlude"). Periodic interludes (1×/2×) just start at "interlude".
+ */
+function MeanwhileOverlay() {
+  const phase = useSim((s) => s.phase);
+  const cuts = useSim((s) => s.interlude);
+  const pendingBig = useSim((s) => s.decisions.some((d) => d.kind === "big" && d.status === "pending"));
+  const lastFork = useSim((s) => s.decisions.findLast((d) => d.kind === "big" && d.status === "answered")?.id ?? "none");
+  const forking = useUi((s) => !!s.forking);
+  const show = !forking && (phase === "interlude" || (phase === "deciding" && !pendingBig && lastFork !== "none"));
+  if (!show) return null;
+  return <Interlude key={lastFork} cuts={cuts ?? []} />;
 }
 
-function PhonePlay({ dim, showInterlude }: { dim: boolean; showInterlude: boolean }) {
+function PhonePlay({ dim }: { dim: boolean }) {
   const tab = useUi((s) => s.mobileTab);
   const setTab = useUi((s) => s.setMobileTab);
   const sheetOpen = useUi((s) => s.sheetOpen);
   const setSheet = useUi((s) => s.setSheetOpen);
-  const interlude = useSim((s) => s.interlude);
   const pending = useSim((s) => s.decisions.find((d) => d.status === "pending"));
   const forking = useUi((s) => s.forking);
   const states = useSim((s) => s.status);
   const log = useSim((s) => s.log);
-  const lastGuide = useSim((s) => [...s.chat].reverse().find((c) => c.channel === "main"));
+  const lastGuide = useSim((s) => [...s.dialogue].reverse().find((c) => c.channel === "main"));
   const open = sheetOpen || !!pending || !!forking;
   const tabs = useMemo(() => ["log", "bio", "settings"] as const, []);
   return (
@@ -122,7 +130,7 @@ function PhonePlay({ dim, showInterlude }: { dim: boolean; showInterlude: boolea
       </div>
       <div className="world-wrap ph-world">
         <CurrentWorld />
-        {showInterlude && interlude && <Interlude key={interlude.map((c) => c.branchId).join()} cuts={interlude} />}
+        <MeanwhileOverlay />
       </div>
       <nav className="ph-tabs" role="tablist">
         {tabs.map((t) => (

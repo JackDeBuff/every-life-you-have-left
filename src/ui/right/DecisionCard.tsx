@@ -46,11 +46,17 @@ export function DecisionCard({ d }: { d: Decision }) {
   }, [big]);
 
   // "Let it slide": a hairline drains over the timeout at 2×/4×. Engaging stops it.
+  const drainTw = useRef<gsap.core.Tween | null>(null);
+  // The countdown only runs while life is playing (not during an interlude or a fork).
+  const running = useSim((s) => s.phase === "playing" && !s.playhead.paused);
+  useEffect(() => {
+    drainTw.current?.paused(!running);
+  }, [running]);
   useEffect(() => {
     if (!timeout || engaged || busy) return;
     const p = { v: 1 };
     setLeft(timeout);
-    const tw = gsap.to(p, {
+    const tw = (drainTw.current = gsap.to(p, {
       v: 0,
       duration: timeout,
       ease: "none",
@@ -59,9 +65,11 @@ export function DecisionCard({ d }: { d: Decision }) {
         setLeft(Math.ceil(p.v * timeout));
       },
       onComplete: () => void slide(),
-    });
+      paused: sim().phase !== "playing" || sim().playhead.paused,
+    }));
     return () => {
       tw.kill();
+      drainTw.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeout, engaged, busy]);
@@ -70,7 +78,7 @@ export function DecisionCard({ d }: { d: Decision }) {
     if (busy) return;
     setBusy(true);
     if (card.current && !reducedMotion()) await gsap.to(card.current, { opacity: 0, y: 16, height: 0, duration: 0.35, ease: "expo.in" });
-    await sim().answer({ decisionId: d.id, optionId: null, text: null, via: "tap" });
+    await sim().answer({ decisionId: d.id, optionId: null, text: null, via: "tap", slid: true });
   }
 
   async function submit() {
@@ -136,7 +144,9 @@ export function DecisionCard({ d }: { d: Decision }) {
         </span>
       </header>
 
-      <h2 className="dq">{d.prompt}</h2>
+      <h2 className="dq" data-len={d.prompt.length > 170 ? "xl" : d.prompt.length > 110 ? "l" : undefined}>
+        {d.prompt}
+      </h2>
       <p className="dwhy">
         <span className="label">Why I'm asking</span>{" "}
         {quote ? <WhyWithQuote text={d.whyAsking} quote={quote.shortForm ?? quote.text} /> : d.whyAsking}
@@ -211,7 +221,7 @@ export function DecisionCard({ d }: { d: Decision }) {
           </button>
         ) : (
           <span className="keys-hint faint meta">
-            <span className="kbd">1</span>–<span className="kbd">4</span> pick · <span className="kbd">↵</span> decide · <span className="kbd">⇧↵</span> new line
+            <span className="kbd">1</span>–<span className="kbd">4</span> pick · <span className="kbd">↵</span> decide<span className="kh-nl"> · <span className="kbd">⇧↵</span> new line</span>
           </span>
         )}
         <button className={`btn ${big ? "sun" : ""} decide`} disabled={!canSubmit} onClick={() => void submit()}>

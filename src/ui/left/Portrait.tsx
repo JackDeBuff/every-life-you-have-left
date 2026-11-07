@@ -22,6 +22,7 @@ function greyed(hex: string, k: number): string {
 }
 
 export type Band = "now" | "35" | "50" | "70";
+const BANDS: Band[] = ["now", "35", "50", "70"];
 export const bandFor = (age: number): Band => (age >= 66 ? "70" : age >= 48 ? "50" : age >= 34 ? "35" : "now");
 
 interface Props {
@@ -36,7 +37,8 @@ interface Props {
 
 export function Portrait({ appearance, age, progress, portraits = [], size = 104, label }: Props) {
   const band = bandFor(age);
-  const real = portraits.find((p) => p.band === band) ?? null;
+  // The generated band for this age, else the closest younger one (aged versions arrive lazily).
+  const real = BANDS.slice(0, BANDS.indexOf(band) + 1).reverse().map((b) => portraits.find((p) => p.band === b)).find(Boolean) ?? null;
   // Keep the previous band mounted for a crossfade.
   const [shown, setShown] = useState<{ band: Band; prev: Band | null }>({ band, prev: null });
   useEffect(() => {
@@ -55,7 +57,7 @@ export function Portrait({ appearance, age, progress, portraits = [], size = 104
         <circle cx={103 - progress * 2} cy={24 + progress * 74} r="8" fill="var(--sun)" opacity={0.95} />
       </svg>
       {real ? (
-        <img className="portrait-layer" src={real.url} alt="" />
+        <img key={real.url} className="portrait-layer in real" src={real.url} alt="" draggable={false} />
       ) : (
         <>
           {shown.prev && <Figure key={`p-${shown.prev}`} appearance={appearance} band={shown.prev} className="portrait-layer out" />}

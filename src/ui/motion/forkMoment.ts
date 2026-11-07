@@ -17,6 +17,7 @@ export function playForkMoment(card: HTMLElement, decisionId: string, chosenId: 
 
     if (reducedMotion() || !chosen) {
       gsap.to(others, { opacity: 0.15, duration: 0.25, onComplete: () => void setTimeout(resolve, 500) });
+      window.setTimeout(resolve, 1500); // rAF can stall (throttled window): never hold the fork
       return;
     }
 
@@ -25,10 +26,16 @@ export function playForkMoment(card: HTMLElement, decisionId: string, chosenId: 
     document.body.appendChild(layer);
     const tl = gsap.timeline({
       onComplete: () => {
+        window.clearTimeout(guard);
         layer.remove();
         resolve();
       },
     });
+    // GSAP runs on rAF, which a throttled or occluded window can stop. The fork must not hang on
+    // it: jump to the end (and complete) if it hasn't finished in time.
+    const guard = window.setTimeout(() => {
+      if (tl.progress() < 1) tl.progress(1);
+    }, 3400);
 
     // 1. Lock the chosen tile; the others lose colour.
     tl.to(chosen, { scale: 1.015, duration: 0.18, ease: "expo.out" }, 0);

@@ -29,6 +29,8 @@ export interface WorldProps {
   onInterludeDone?: () => void;
   /** Freeze animation (e.g. while a decision card dims the pane). */
   paused?: boolean;
+  /** Interlude: seconds per cut (default 2.5). The UI shortens it in Auto to keep the run ≤3 min. */
+  cutSeconds?: number;
   className?: string;
 }
 
@@ -73,7 +75,7 @@ export function Poster({ caption }: { caption?: string }) {
   );
 }
 
-export function World({ spec, mode = "life", cuts, appearance = null, onMomentDone, onCut, onInterludeDone, paused = false, className }: WorldProps) {
+export function World({ spec, mode = "life", cuts, appearance = null, onMomentDone, onCut, onInterludeDone, paused = false, cutSeconds, className }: WorldProps) {
   const reduced = usePrefersReducedMotion();
   const [gl] = useState(webglAvailable);
   const host = useRef<HTMLDivElement>(null);
@@ -184,6 +186,7 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
               onMomentDone={onMomentDone}
               onCut={onCut}
               onInterludeDone={onInterludeDone}
+              cutSeconds={cutSeconds}
               fade={fade}
               snapshot={snapshot}
               quality={degraded ? "low" : quality}

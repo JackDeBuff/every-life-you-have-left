@@ -6,22 +6,36 @@
  *   no GCP_API_KEY              → mock
  *
  * The real module is found with import.meta.glob, so a missing worker/engine/index.ts can't break
- * the build: the glob is just empty. The module may export any of:
- *   export function createEngine(env: Env): Engine    (preferred)
- *   export const engine: Engine
- *   export default Engine | (env) => Engine
+ * the build: the glob is just empty. worker/engine/index.ts exports
+ *   createEngine({ llm: createFetchLlm({ apiKey, project, location }) }): Engine
+ *   provisionalProfile(input): Profile   (code-only, lets the first card render before the profile)
+ * Older shapes (createEngine(env), `engine`, default) still load.
  */
 import type { Engine } from "../shared/engine";
+import type { Profile } from "../shared/schema";
+import type { StartInput } from "../shared/sim";
 import { createMockEngine } from "./engine-mock";
 import { bindLlm, generationEnabled, type LlmEnv } from "./llm";
 
 export type EngineKind = "mock" | "real";
 
 type EngineModule = {
-  createEngine?: (env: Env) => Engine;
+  createEngine?: (arg: never) => Engine;
+  createFetchLlm?: (cfg: { apiKey: string; project: string; location?: string }) => unknown;
+  provisionalProfile?: (input: StartInput) => Profile;
   engine?: Engine;
   default?: Engine | ((env: Env) => Engine);
 };
+
+export interface LoadedEngine {
+  engine: Engine;
+  kind: EngineKind;
+  reason: string;
+  /** Code-only profile from the start screen (real engine only), for the first card in parallel. */
+  provisional?: (input: StartInput) => Profile;
+  /** Real engine only: the same engine with the fast model writing every year, to race stalls. */
+  backup?: Engine;
+}
 
 const REAL = import.meta.glob<EngineModule>("./engine/index.ts");
 
@@ -32,19 +46,33 @@ export function wantsReal(env: Env): boolean {
 
 const isEngine = (x: unknown): x is Engine => !!x && typeof x === "object" && typeof (x as Engine).generateYears === "function";
 
-export async function loadEngine(env: Env): Promise<{ engine: Engine; kind: EngineKind; reason: string }> {
+export async function loadEngine(env: Env): Promise<LoadedEngine> {
   bindLlm(env as unknown as LlmEnv);
   if (!wantsReal(env)) return { engine: createMockEngine(), kind: "mock", reason: generationEnabled(env) ? "ENGINE=mock" : "generation_disabled" };
   const load = REAL["./engine/index.ts"];
   if (!load) return { engine: createMockEngine(), kind: "mock", reason: "engine_missing" };
   try {
     const mod = await load();
+    const llm =
+      typeof mod.createFetchLlm === "function"
+        ? mod.createFetchLlm({ apiKey: env.GCP_API_KEY, project: env.GCP_PROJECT, location: (env as Env & { GCP_LOCATION?: string }).GCP_LOCATION || "global" })
+        : null;
+    type Create = (d: { llm: unknown; models?: Record<string, unknown> }) => Engine;
     const made =
-      typeof mod.createEngine === "function" ? mod.createEngine(env)
+      typeof mod.createEngine === "function" && llm
+        ? (mod.createEngine as Create)({ llm })
+      : typeof mod.createEngine === "function" ? (mod.createEngine as (env: Env) => Engine)(env)
       : isEngine(mod.engine) ? mod.engine
       : typeof mod.default === "function" ? (mod.default as (env: Env) => Engine)(env)
       : mod.default;
-    if (isEngine(made)) return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok" };
+    // The hedge writer: every year on the fast model (no heavy lead after forks). No mock fallback:
+    // if it fails, the primary simply keeps going.
+    const FAST = env.MODEL_FAST || "gemini-3.5-flash-lite";
+    const backup =
+      typeof mod.createEngine === "function" && llm
+        ? (mod.createEngine as Create)({ llm, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
+        : undefined;
+    if (isEngine(made)) return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile, backup: isEngine(backup) ? backup : undefined };
     return { engine: createMockEngine(), kind: "mock", reason: "engine_bad_export" };
   } catch (e) {
     console.error("engine load failed", e instanceof Error ? e.name : "error");

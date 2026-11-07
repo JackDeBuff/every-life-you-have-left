@@ -259,9 +259,26 @@
 .lid.bottom { bottom: 0; transform-origin: bottom; border-radius: 50% 50% 0 0 / 18% 18% 0 0; }
 .il-skip { position: absolute; top: var(--s3); right: var(--s3); color: rgb(255 255 255 / 0.8); z-index: 4; }
 .il-skip:hover { color: #fff; background: rgb(255 255 255 / 0.12); }
+/* Over the 3D world: the world plays the cuts; the overlay is title + captions only. */
+.interlude.driven { pointer-events: none; }
+.interlude.driven .il-skip { pointer-events: auto; }
+.il-shade { position: absolute; inset: 0; background: rgb(8 18 30 / 0.55); }
+.interlude.driven .il-tint[data-cut="true"] { background: linear-gradient(180deg, rgb(8 18 30 / 0) 45%, rgb(8 18 30 / 0.55)); }
+.interlude.driven .il-cap { bottom: calc(7% + var(--s4)); }
+.interlude.driven .il-head { top: calc(7% + var(--s2)); }
+.interlude.driven .il-skip { top: calc(7% + var(--s1)); }
+
+/* "Life is thinking…": the buffer is behind the playhead, or the agent is working. */
+.thinking-chip {
+  position: absolute; top: var(--s3); left: var(--s4); z-index: 4; margin: 0;
+  display: inline-flex; align-items: center; gap: 2px; padding: 5px 10px 5px 11px;
+  font-size: 12px; font-weight: 600; font-stretch: var(--w-data); letter-spacing: 0.02em;
+  color: #fff; background: rgb(8 18 30 / 0.55); border-radius: 999px;
+  animation: slidein var(--t-base) var(--e-settle) both;
+}
 
 /* ---------------------------------------------------------------- right */
-.right { display: flex; flex-direction: column; min-height: 0; position: relative; }
+.right { display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
 .settings { border-bottom: 1px solid var(--hair); flex: none; }
 .settings-head {
   width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: var(--s3); align-items: center;
@@ -396,3 +413,9 @@
   .so-far { margin-top: var(--s2); padding-top: var(--s2); }
 }
 .dl-you[data-cont="true"] { margin-top: -12px; padding-top: 2px; }
+
+.us-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px solid var(--hair-2); border-radius: var(--r1); font-size: 10.5px; vertical-align: 1px; color: var(--ink-2); }
+.thinking-line { animation: fadein var(--t-base) var(--e-settle) both; }
+@keyframes fadein { from { opacity: 0; } }
+.il-wait { position: absolute; left: var(--s6); top: calc(50% + clamp(34px, 3.6vw, 54px) + var(--s2)); color: rgb(255 255 255 / 0.72); margin: 0; display: inline-flex; align-items: center; }
+.settings-empty { grid-column: 1 / -1; margin: 0 0 var(--s2); }
