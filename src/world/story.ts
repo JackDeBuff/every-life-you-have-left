@@ -21,7 +21,7 @@ export interface CastMember {
   isNew: boolean;
 }
 
-export type BeatKind = "birth" | "partner" | "wedding" | "pet" | "visit" | "move" | "home" | "work" | "retire" | "parting";
+export type BeatKind = "birth" | "partner" | "wedding" | "pet" | "visit" | "move" | "home" | "work" | "retire" | "parting" | "friend";
 
 export interface StoryBeat {
   kind: BeatKind;
@@ -51,8 +51,22 @@ export function displayName(name: string): string {
 }
 const generic = (name: string) => /^(your|my|the)\s/i.test(name.trim());
 
+/** Friends and colleagues ("other" in the ledger) only name the scene's own friend / colleague figures; they are never added. */
 const sceneRole = (p: LifePerson): Role | null =>
-  p.role === "partner" ? "partner" : p.role === "child" || p.role === "grandchild" ? "child" : p.role === "parent" ? "parent" : p.role === "pet" ? "pet" : null;
+  p.role === "partner"
+    ? "partner"
+    : p.role === "child" || p.role === "grandchild"
+      ? "child"
+      : p.role === "parent"
+        ? "parent"
+        : p.role === "pet"
+          ? "pet"
+          : p.role === "other"
+            ? /colleague|cowork|co-work|boss|manager|mentor|client/i.test(p.relation)
+              ? "colleague"
+              : "friend"
+            : null;
+const ADDABLE: Role[] = ["partner", "child", "pet", "parent"];
 
 const idOf = (p: LifePerson) => `${p.role}|${p.name.toLowerCase()}`;
 
@@ -60,6 +74,7 @@ const idOf = (p: LifePerson) => `${p.role}|${p.name.toLowerCase()}`;
 const HOMEY: SceneSpec["activity"][] = ["family_time", "resting", "celebrating", "moving", "socializing", "traveling", "caregiving", "exercising"];
 const WITH_KIDS: SceneSpec["activity"][] = ["family_time", "resting", "celebrating", "moving"];
 const VISIT_OK: SceneSpec["activity"][] = ["family_time", "resting", "celebrating", "socializing"];
+const AT_WORK: SceneSpec["activity"][] = ["office_work", "studying", "commuting", "job_hunting"];
 
 const HOME_TEXT: Partial<Record<SceneSpec["home"], string>> = {
   house: "A house of your own",
@@ -97,6 +112,7 @@ export function storyFor(year: SimYear | null, prev: SimYear | null): WorldStory
   const room = () => 6 - base.length - extra.length;
   const add = (p: LifePerson, why: "new" | "home" | "visit") => {
     const role = sceneRole(p)!;
+    if (!ADDABLE.includes(role)) return false;
     const shown = (have[role] ?? 0) + extra.filter((x) => x.role === role).length;
     const inLedger = people.filter((q) => sceneRole(q) === role).indexOf(p);
     if (inLedger < shown || room() <= 0) return false;
@@ -105,7 +121,8 @@ export function storyFor(year: SimYear | null, prev: SimYear | null): WorldStory
     return true;
   };
   // arrivals first (a newborn, a new partner, a new pet), then the household
-  for (const p of people) if (isNew(p)) add(p, "new");
+  // (not into a workplace scene: a newborn at the office desk reads wrong; the beat line still says it)
+  if (!AT_WORK.includes(spec.activity)) for (const p of people) if (isNew(p)) add(p, "new");
   if (HOMEY.includes(spec.activity)) for (const p of people) if (sceneRole(p) !== "parent") add(p, "home");
   // a parent who is in the ledger but not the scene drops by now and then (never invented: only a
   // living parent from this year's ledger), on a calm home year with nothing else to tell
@@ -168,6 +185,11 @@ export function storyFor(year: SimYear | null, prev: SimYear | null): WorldStory
   else if (newWork) beat = /retir/i.test(work) ? { kind: "retire", text: "You retire", focus: "self0" } : { kind: "work", text: `Now: ${words(work, 6)}`, focus: "self0" };
   else if (partnerGone) beat = { kind: "parting", text: generic(partnerGone.name) ? "A parting of ways" : `You and ${displayName(partnerGone.name)} part`, who: who(partnerGone), focus: "self0" };
   else if (visitor) beat = { kind: "visit", text: `${displayName(visitor.name)} visits`, who: who(visitor), focus: keyOf.get(visitor) ?? "self0" };
+  else {
+    // a new friend who is actually in the frame this year
+    const friend = people.find((p) => p.role === "other" && isNew(p) && keyOf.has(p) && !generic(p.name));
+    if (friend) beat = { kind: "friend", text: `A new friend: ${displayName(friend.name)}`, who: who(friend), focus: keyOf.get(friend)! };
+  }
 
   return { year: year.year, cast, beat, extra };
 }
