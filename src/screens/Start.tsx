@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { endAgeFor } from "../../shared/schema";
 import type { Appearance, SpeedMode, StartInput } from "../../shared/sim";
+import { fastForward, jumpParams } from "../ui/devJump";
 import { HoldToTalk } from "../ui/HoldToTalk";
 import { Icon } from "../ui/icons";
 import { HAIR, Portrait, SKIN_SWATCHES } from "../ui/left/Portrait";
@@ -44,7 +45,7 @@ const SAMPLE = {
   name: "Alex",
   age: "25",
   place: "Durham, NC",
-  line: "Singapore offered me a transfer and I haven't answered. Money scares me, I still have $28k in loans. And honestly, if nobody judged me, I'd paint for a living.",
+  line: "I'm a data analyst at a regional bank. Singapore offered me a transfer and I haven't answered. Money scares me, I still have $28k in loans. If nobody judged me, I'd paint for a living.",
 };
 
 export default function Start() {
@@ -101,7 +102,14 @@ export default function Start() {
     }
     await sim().start(input);
     for (const d of docs) void sim().addDocument(d.kind, d.text);
+    const j = jumpParams();
+    if (j) await fastForward(j.age, j.stopAtBig);
   }
+
+  useEffect(() => {
+    if (demo && jumpParams()) void begin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="start" ref={rootRef}>

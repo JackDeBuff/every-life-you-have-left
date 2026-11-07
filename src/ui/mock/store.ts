@@ -501,12 +501,15 @@ export const useMockSim = create<Store>()((set, get) => {
       I.input = input;
       const endAge = endAgeFor(input.age);
       const startYear = NOW_YEAR;
-      const q1: Quote = { id: `q${++I.qn}`, text: input.line.trim() || "I'm not sure yet.", questionId: "start.line", source: "answer", shortForm: shortOf(input.line.trim() || "I'm not sure yet.", 12) };
+      // Each sentence of the start line becomes its own quote, so a turning point can cite the exact one.
+      const sentences = (input.line.trim() || "I'm not sure yet.").split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter((x) => x.length > 2);
+      const startQuotes: Quote[] = sentences.map((text) => ({ id: `q${++I.qn}`, text, questionId: "start.line", source: "answer", shortForm: shortOf(text, 12) }));
+      const q1 = startQuotes[0]!;
       const traj = initialTraj({ firstName: input.firstName, age: input.age, city: input.city, region: input.region, country: input.country, line: input.line });
       const offer = offerPlaceOf(input.line, input.city);
       if (offer) I.extraPlaces.push(placeTraits(offer, null, "").place.replace(/, $/, ""));
       const worries = Object.fromEntries(DOMAIN_KEYS.map((k) => [k, 0.1])) as Profile["worries"];
-      for (const d of tagQuote(q1.text)) worries[d] = 0.7;
+      for (const d of tagQuote(input.line)) worries[d] = 0.7;
       const profile: Profile = {
         sessionId: get().sessionId,
         profileVersion: 1,
@@ -529,7 +532,7 @@ export const useMockSim = create<Store>()((set, get) => {
         money: { feel: traj.netWorth < 0 ? "tight" : "okay", incomeUsd: traj.income, debtUsd: traj.netWorth < 0 ? -traj.netWorth : null, debtKind: traj.netWorth < 0 ? "student_loans" : null, savingsUsd: null, supportsFamily: false, assumed: true },
         worries,
         seeds: { path: { text: q1.text, quoteIds: [q1.id] }, leap: { text: q1.text, quoteIds: [q1.id] }, careful: { text: q1.text, quoteIds: [q1.id] }, unjudged: { text: q1.text, quoteIds: [q1.id] } },
-        quotes: [q1],
+        quotes: startQuotes,
         assumptions: [{ field: "money.incomeUsd", value: String(traj.income), reason: "Typical for your age; tell me more to fix it." }],
         knowMeScore: Math.min(60, 16 + Math.round(input.line.length / 12) + (input.hasSelfie ? 3 : 0)),
         updatedAt: new Date().toISOString(),
@@ -555,7 +558,7 @@ export const useMockSim = create<Store>()((set, get) => {
       planSlots(startYear, input.speed);
       regenerate(startYear);
       patch({ status: traj.states, settings: settingsFor(traj, profile.quotes, [], I.extraPlaces), phase: "playing" });
-      if (input.line.trim()) chat({ role: "you", text: input.line.trim(), quoteId: q1.id });
+      if (input.line.trim()) for (const q of startQuotes) chat({ role: "you", text: q.text, quoteId: q.id });
       chat({ role: "guide", text: `Hi ${input.firstName}. I'm going to play your life forward from ${input.age} to ${endAge}, one year at a time. Your answers steer it.` });
       chat({ role: "guide", text: "Every big choice splits it. The lives you don't pick keep running in the background. The first fork is today." });
       makeDecision(startYear, "big");
@@ -614,7 +617,7 @@ export const useMockSim = create<Store>()((set, get) => {
       logYear(d.year);
       const t = I.trajAt.get(d.year) ?? I.baseTraj!;
       patch({ settings: settingsFor(t, get().profile!.quotes, get().settings, I.extraPlaces) });
-      chat({ role: "guide", text: `Your life continues with “${opt!.branchTitle ?? opt!.label}”. ${others.map((o) => `“${o}”`).join(", ")} keep running in the background.`, decisionId: null });
+      chat({ role: "guide", text: `“${opt!.branchTitle ?? opt!.label}” it is. The other ${others.length === 1 ? "life keeps" : `${others.length === 3 ? "three" : others.length} lives keep`} running without you. You'll see them now and then.`, decisionId: null });
       startInterlude(d.year);
     },
 

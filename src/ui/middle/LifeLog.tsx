@@ -32,9 +32,26 @@ export function LifeLog() {
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const on = () => setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 60);
+    let user = false;
+    const mark = () => {
+      user = true;
+    };
+    const on = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+      if (atBottom) setPinned(true);
+      else if (user) setPinned(false);
+      user = false;
+    };
+    el.addEventListener("wheel", mark, { passive: true });
+    el.addEventListener("touchmove", mark, { passive: true });
+    el.addEventListener("keydown", mark);
     el.addEventListener("scroll", on, { passive: true });
-    return () => el.removeEventListener("scroll", on);
+    return () => {
+      el.removeEventListener("wheel", mark);
+      el.removeEventListener("touchmove", mark);
+      el.removeEventListener("keydown", mark);
+      el.removeEventListener("scroll", on);
+    };
   }, []);
 
   return (

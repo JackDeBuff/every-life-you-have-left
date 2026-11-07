@@ -253,7 +253,7 @@ const RULES: Rule[] = [
   },
   {
     id: "meet",
-    chance: (t, age) => (t.partner === "none" && age >= 23 && age <= 48 ? 0.06 + t.family * 0.12 + t.balance * 0.1 : 0),
+    chance: (t, age) => (t.partner === "none" && age >= 23 && age <= 48 ? 0.03 + t.family * 0.1 + t.balance * 0.08 : 0),
     apply: (t, _a, year, r) => {
       t.partner = "dating";
       t.partnerName = pick(r, NAMES);
@@ -462,7 +462,23 @@ export function stepYear(prev: Traj, year: number, age: number, ctx: LifeCtx): {
 
   // Queued events from decisions come first.
   for (const q of t.queued.filter((e) => e.year === year)) {
+    if (q.category === "child") t.kids.push(year);
+    if (q.category === "love_start" && t.partner === "none") {
+      t.partner = "partner";
+      t.partnerName = t.partnerName ?? "your partner";
+      t.partnerSince = year;
+    }
     drafts.push({ ...q, turning: true });
+  }
+  // Caring for a parent ends, once and gently, after many years (content rule: old age, offscreen).
+  if (t.caring && t.flags.care && year - t.flags.care >= 11 && !t.flags.careEnd) {
+    t.flags.careEnd = year;
+    t.caring = false;
+    const who = t.parent === "your parents" ? "Your father" : t.parent;
+    drafts.push({
+      domain: "family", category: "caregiving", title: `${who}'s long life ends, gently`, tone: "mixed", baseRate: null, moment: null, activity: "family_time",
+      narrative: "A long life, a quiet last year, everyone in the room. The house is quieter after.", delta: { family: -4, happiness: -4 }, turning: false,
+    });
   }
   t.queued = t.queued.filter((e) => e.year > year);
 

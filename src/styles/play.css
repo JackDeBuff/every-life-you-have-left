@@ -394,3 +394,4 @@
   .tmm-head p { font-size: 12.5px; }
   .so-far { margin-top: var(--s2); padding-top: var(--s2); }
 }
+.dl-you[data-cont="true"] { margin-top: -12px; padding-top: 2px; }

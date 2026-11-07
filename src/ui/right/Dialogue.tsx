@@ -62,7 +62,7 @@ function Dialogue({ hidden }: { hidden: boolean }) {
 
   return (
     <div className="dialogue scroll" ref={box} data-hidden={hidden} aria-hidden={hidden} role="log" aria-label="Conversation">
-      {main.map((c) => {
+      {main.map((c, i) => {
         if (c.decisionId && c.role === "guide") {
           const d = decisions.find((x) => x.id === c.decisionId);
           if (!d || d.status === "pending" || forking?.decisionId === d.id) return null;
@@ -75,17 +75,19 @@ function Dialogue({ hidden }: { hidden: boolean }) {
             </div>
           );
         }
-        return <Entry key={c.id} c={c} />;
+        const prev = main[i - 1];
+        const cont = !!prev && prev.role === "you" && c.role === "you" && prev.age === c.age && !prev.decisionId && !c.decisionId;
+        return <Entry key={c.id} c={c} cont={cont} />;
       })}
     </div>
   );
 }
 
-function Entry({ c }: { c: ChatEntry }) {
+function Entry({ c, cont = false }: { c: ChatEntry; cont?: boolean }) {
   if (c.role === "you") {
     return (
-      <div className="dl dl-you" data-quote-id={c.quoteId ?? undefined}>
-        <span className="dl-tag label you">You{c.age !== null ? ` · ${c.age}` : ""}</span>
+      <div className="dl dl-you" data-cont={cont} data-quote-id={c.quoteId ?? undefined}>
+        {!cont && <span className="dl-tag label you">You{c.age !== null ? ` · ${c.age}` : ""}</span>}
         {c.quoteId ? (
           <p className="voice">
             <mark>{c.text}</mark>

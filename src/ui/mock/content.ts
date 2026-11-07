@@ -86,9 +86,10 @@ function moveTo(city: string, far = true): Effect["move"] {
 
 const q = (quotes: Quote[], d: DomainKey): Quote | null => {
   for (let i = quotes.length - 1; i >= 0; i--) if (tagQuote(quotes[i]!.text).includes(d)) return quotes[i]!;
-  return quotes[0] ?? null;
+  return null;
 };
-const said = (x: Quote | null) => (x ? `“${x.shortForm ?? shortOf(x.text, 9)}”` : "");
+/** "You said “…” " when a quote fits; nothing otherwise (never cite a sentence that doesn't apply). */
+const said = (x: Quote | null, verb = "You said") => (x ? `${verb} “${x.shortForm ?? shortOf(x.text, 9)}” ` : "");
 
 const PLACEHOLDERS = [
   "Or tell me what you'd really do…",
@@ -121,9 +122,9 @@ function base(c: Ctx, domains: DomainKey[], prompt: string, why: string, whyQ: Q
 
 function forkOffer(c: Ctx, place: string): DecisionDraft {
   const { t, year } = c;
-  const why = q(c.quotes, "risk");
+  const why = c.quotes.find((x) => x.text.toLowerCase().includes(place.toLowerCase())) ?? q(c.quotes, "risk");
   return base(c, ["career", "family", "risk"], `It's ${year}. ${place} wants an answer by Friday.`,
-    `You said ${said(why)} This is the first fork, and it splits everything after it.`, why, [
+    `${said(why)}This is the first fork, and it splits everything after it.`, why, [
     {
       label: `Say yes and move to ${place}`, hint: "Bigger pay, new city, far from home", branchTitle: `Take ${place}`,
       effect: { move: moveTo(place), incomeMul: 1.34, drive: 0.2, family: -0.1, risk: 26, leap: true,
@@ -154,7 +155,7 @@ function forkCraft(c: Ctx): DecisionDraft {
   const { t, year } = c;
   const why = q(c.quotes, "lifeGoals");
   return base(c, ["lifeGoals", "career", "wealth"], `It's ${year}. A small gallery says they'd show your ${t.craftNoun}, if you have twelve pieces by spring.`,
-    `You said ${said(why)} Here's the door.`, why, [
+    `${said(why)}Here's the door.`, why, [
     { label: "Say yes, and work every night until spring", hint: "Exhausting, and the job stays", branchTitle: "Make the twelve",
       effect: { craft: 0.3, drive: 0.1, balance: -0.12, queue: [{ inYears: 1, domain: "achievement", category: "achievement", title: "Your first show opens", narrative: "Twelve pieces, two sold, one to a stranger.", tone: "up", baseRate: null, moment: "first_show", activity: "studio_creating" }] } },
     { label: "Say not yet. Keep it a hobby", hint: "Safer, and it stays private", branchTitle: "Keep it a hobby", effect: { caution: 0.12, craft: -0.1, drive: 0.08 } },
@@ -170,7 +171,7 @@ function forkMoney(c: Ctx): DecisionDraft {
   const debt = Math.max(0, -c.t.netWorth);
   return base(c, ["wealth", "risk", "lifeGoals"],
     debt > 0 ? `It's ${year}. $${Math.round(debt / 1000)}k of loans, and a little left over each month. Where does it go?` : `It's ${year}. For the first time, there's money left at the end of the month. Where does it go?`,
-    `You said ${said(why)} This is your first big money move.`, why, [
+    `${said(why)}This is your first big money move.`, why, [
     { label: "Throw everything at the debt", hint: "Debt-free in three years, nothing else", branchTitle: "Debt-free first", effect: { caution: 0.22, netWorthAdd: 6000, invest: "cash" } },
     { label: "Invest it, pay the minimum", hint: "Lets time do the work; feels risky", branchTitle: "Let it compound", effect: { invest: "index", caution: -0.05, risk: 6 } },
     { label: "Spend it on the move you keep postponing", hint: "A new city now, savings later", branchTitle: "Move now", effect: { move: moveTo("Chicago", false), incomeMul: 1.1, risk: 18, leap: true } },
@@ -182,7 +183,7 @@ function forkWork(c: Ctx): DecisionDraft {
   const { year } = c;
   const why = q(c.quotes, "career");
   return base(c, ["career", "mentalHealth", "lifeGoals"], `It's ${year}. Another Monday at the same desk. What do you do about work?`,
-    `You said ${said(why)} So let's start here.`, why, [
+    `${said(why)}So let's start here.`, why, [
     { label: "Ask for the harder role where you are", hint: "Climb, and stay in the same building", branchTitle: "Climb where you are", effect: { drive: 0.22, incomeMul: 1.1 } },
     { label: "Start interviewing elsewhere this month", hint: "New people, a pay bump, a reset", branchTitle: "Switch companies", effect: { drive: 0.1, incomeMul: 1.15, risk: 10 } },
     { label: "Go back to school for something else", hint: "Two lean years, a different career", branchTitle: "Retrain", effect: { workKind: "employee", work: "Student, then a new field", incomeMul: 0.4, netWorthAdd: -30000, risk: 22, leap: true } },
@@ -194,7 +195,7 @@ function forkLove(c: Ctx): DecisionDraft {
   const { year } = c;
   const why = q(c.quotes, "relationships");
   return base(c, ["relationships", "family", "happiness"], `It's ${year}. The person you've been seeing asks if this is going somewhere.`,
-    `You said ${said(why)} This one decides who's in the picture.`, why, [
+    `${said(why)}This one decides who's in the picture.`, why, [
     { label: "Yes. Let's move in together", hint: "Fast, warm, a shared lease", branchTitle: "Move in together", effect: { family: 0.15, seekPartner: true, queue: [{ inYears: 0, domain: "relationships", category: "love_start", title: "You move in together", narrative: "A second toothbrush, then a second bookshelf.", tone: "up", baseRate: null, moment: "moving_in" }] } },
     { label: "I don't know yet. Slow down", hint: "Honest, and it might cost you", branchTitle: "Take it slow", effect: { caution: 0.1 } },
     { label: "No. End it kindly", hint: "Hard now, freer later", branchTitle: "End it kindly", effect: { balance: 0.08, drive: 0.1 } },
@@ -206,7 +207,7 @@ function forkSchool(c: Ctx): DecisionDraft {
   const { year } = c;
   const why = q(c.quotes, "achievement");
   return base(c, ["achievement", "career", "wealth"], `It's ${year}. The acceptance letter came. Classes start in August.`,
-    `You said ${said(why)} This one sets your next decade.`, why, [
+    `${said(why)}This one sets your next decade.`, why, [
     { label: "Go, and take the loans", hint: "Two years, a new ceiling", branchTitle: "Take the degree", effect: { netWorthAdd: -60000, drive: 0.15, incomeMul: 0.3, queue: [{ inYears: 2, domain: "achievement", category: "achievement", title: "You graduate", narrative: "A gown that doesn't fit and a job offer that does.", tone: "up", baseRate: "hh_income_edu", moment: "graduation" }] } },
     { label: "Defer a year and save first", hint: "Slower, calmer, less debt", branchTitle: "Defer a year", effect: { caution: 0.15 } },
     { label: "Skip it, learn on the job", hint: "Earn now, prove it later", branchTitle: "Learn on the job", effect: { drive: 0.15 } },
@@ -218,7 +219,7 @@ function forkGeneric(c: Ctx): DecisionDraft {
   const { year, age, t } = c;
   const why = q(c.quotes, "lifeGoals");
   return base(c, ["lifeGoals", "career", "relationships"], `It's ${year}. You're ${age}, in ${t.city}. If one thing changed this year, which would it be?`,
-    `You said ${said(why)} Let's start with what you'd change.`, why, [
+    `${said(why)}Let's start with what you'd change.`, why, [
     { label: "Where I live", hint: "A new city, new friends, a reset", branchTitle: "Move somewhere new", effect: { move: moveTo("Lisbon"), risk: 22, leap: true } },
     { label: "What I do for work", hint: "Different days, different people", branchTitle: "New line of work", effect: { drive: 0.2, workKind: "employee", work: "Starting over in a new field", incomeMul: 0.8, risk: 12 } },
     { label: "Who I spend my time with", hint: "People first for a while", branchTitle: "People first", effect: { family: 0.22, balance: 0.15 } },
@@ -245,7 +246,7 @@ function forkRoots(c: Ctx): DecisionDraft {
   const { year, t } = c;
   const why = q(c.quotes, "wealth");
   return base(c, ["wealth", "lifeGoals", "relationships"], `It's ${year}. Your lease is up in ${t.city}, and you've been saving.`,
-    `You said ${said(why)} Where you live decides a lot of what comes next.`, why, [
+    `${said(why)}Where you live decides a lot of what comes next.`, why, [
     { label: "Buy a small place here", hint: "Roots, a mortgage, a door to paint", branchTitle: "Put down roots", effect: { caution: 0.15, home: "townhouse", queue: [{ inYears: 0, domain: "wealth", category: "home", title: "Keys to a place of your own", narrative: "Two bedrooms, one bad radiator, all yours.", tone: "up", baseRate: "first_home", moment: "house_keys", activity: "moving" }] } },
     { label: "Move somewhere cheaper with more space", hint: "A yard and a longer drive", branchTitle: "Move for space", effect: { move: moveTo("Wilmington", false), home: "house", balance: 0.1 } },
     { label: "Move to a big city for the career", hint: "Smaller flat, bigger rooms at work", branchTitle: "Big city years", effect: { move: moveTo("New York", true), drive: 0.18, incomeMul: 1.25, home: "apartment_small", risk: 14 } },
@@ -258,7 +259,7 @@ function forkKids(c: Ctx): DecisionDraft {
   const why = q(c.quotes, "children");
   const who = t.partnerName && t.partnerName !== "your partner" ? t.partnerName : "Your partner";
   return base(c, ["children", "relationships", "wealth"], `It's ${year}. ${who} asks the question you've both been circling: kids?`,
-    `You told me ${said(why)} This one changes the shape of every year after.`, why, [
+    `${said(why, "You told me")}This one changes the shape of every year after.`, why, [
     { label: "Yes, let's try this year", hint: "A fuller house, less sleep", branchTitle: "Have a child", effect: { kidsPlan: "yes", family: 0.18, balance: 0.06 } },
     { label: "Not yet. Ask me again in three years", hint: "Time to build first", branchTitle: "Wait a while", effect: { kidsPlan: "later", drive: 0.1 } },
     { label: "We'd rather not, and that's a full life too", hint: "Freedom, travel, other kinds of family", branchTitle: "Child-free", effect: { kidsPlan: "no", balance: 0.12, craft: 0.08 } },
@@ -270,7 +271,7 @@ function forkSingle(c: Ctx): DecisionDraft {
   const { year, age } = c;
   const why = q(c.quotes, "relationships");
   return base(c, ["relationships", "family", "happiness"], `It's ${year}. You're ${age}, single, and your friends are pairing off.`,
-    `You said ${said(why)} Who's in your life next is worth deciding on purpose.`, why, [
+    `${said(why)}Who's in your life next is worth deciding on purpose.`, why, [
     { label: "Try, seriously, to meet someone", hint: "Apps, set-ups, saying yes", branchTitle: "Look for love", effect: { seekPartner: true, balance: 0.12, kidsPlan: "yes" } },
     { label: "Build a life with friends instead", hint: "Chosen family, on purpose", branchTitle: "Chosen family", effect: { balance: 0.15, kidsPlan: "no" } },
     { label: "Move closer to family", hint: "Sunday dinners, smaller city", branchTitle: "Go home", effect: { family: 0.25, move: null } },
@@ -282,7 +283,7 @@ function forkPivot(c: Ctx): DecisionDraft {
   const { year } = c;
   const why = q(c.quotes, "career");
   return base(c, ["career", "mentalHealth", "achievement"], `It's ${year}. You're good at your job, and tired of it. A younger you would be surprised.`,
-    `You said ${said(why)} This is the middle, and middles can turn.`, why, [
+    `${said(why)}This is the middle, and middles can turn.`, why, [
     { label: "Push for the top job", hint: "More money, more weight", branchTitle: "Go for the top", effect: { drive: 0.22, incomeMul: 1.22, balance: -0.1 } },
     { label: "Step down to something calmer", hint: "Less pay, more evenings", branchTitle: "Downshift", effect: { drive: -0.2, balance: 0.24, incomeMul: 0.82 } },
     { label: "Start your own firm", hint: "Your clients, your risk", branchTitle: "Go independent", effect: { workKind: "founder", work: "Running your own small firm", incomeMul: 0.85, risk: 28, leap: true } },
@@ -295,7 +296,7 @@ function forkParents(c: Ctx): DecisionDraft {
   const why = q(c.quotes, "family");
   const p = cap(t.parent);
   return base(c, ["family", "mentalHealth", "wealth"], `It's ${year}. ${p} fell in the kitchen. Nothing broken, but it scared you both.`,
-    `You said ${said(why)} This is what that looks like now.`, why, [
+    `${said(why)}This is what that looks like now.`, why, [
     { label: `Move ${t.parent} in with you`, hint: "Close, and a lot on you", branchTitle: `Bring ${t.parent} home`, effect: { caring: true, family: 0.2, balance: -0.08 } },
     { label: "Move back to be nearby", hint: "Your city for theirs", branchTitle: "Move back", effect: { move: null, family: 0.2, caring: true } },
     { label: "Pay for good care close to them", hint: "Money instead of time", branchTitle: "Pay for care", effect: { netWorthAdd: -40000, caution: 0.05 } },
@@ -307,7 +308,7 @@ function forkNext(c: Ctx): DecisionDraft {
   const { year } = c;
   const why = q(c.quotes, "lifeGoals");
   return base(c, ["lifeGoals", "happiness", "wealth"], `It's ${year}. You could stop working in two years. What's the next part for?`,
-    `You said ${said(why)} The last fork is about what's left.`, why, [
+    `${said(why)}The last fork is about what's left.`, why, [
     { label: "Retire early and live smaller", hint: "Time over money", branchTitle: "Retire early", effect: { retireAge: c.age + 1, balance: 0.25 } },
     { label: "Keep working. It's who you are", hint: "Purpose, and a later finish line", branchTitle: "Keep going", effect: { retireAge: 69, drive: 0.1 } },
     { label: "Start the thing you never did", hint: "A late beginning", branchTitle: "A late start", effect: { craft: 0.4, workKind: "creative", work: `${c.t.craftPerson}, finally`, leap: true } },

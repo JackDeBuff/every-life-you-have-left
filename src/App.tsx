@@ -14,8 +14,11 @@ export default function App() {
 
   useEffect(() => {
     // ?theme=dark|light forces a theme (screenshots, projectors); otherwise follow the system.
-    const t = new URLSearchParams(location.search).get("theme");
+    const q = new URLSearchParams(location.search);
+    const t = q.get("theme");
     if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+    // ?still=1: finish every CSS animation instantly (headless screenshots).
+    if (q.get("still")) document.documentElement.classList.add("still");
   }, []);
   useEffect(() => {
     if (phase === "start") setSun(0);

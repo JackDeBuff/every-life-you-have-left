@@ -180,3 +180,6 @@ h1, h2, h3, h4, p { margin: 0; }
 
 /* Theme switch (dev + judges) */
 .theme-toggle { position: fixed; right: 10px; bottom: 10px; z-index: 80; }
+
+/* Screenshot mode (?still=1): CSS animations land on their end state. */
+.still *, .still *::before, .still *::after { animation-duration: 0.001s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; transition-delay: 0s !important; }

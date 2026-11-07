@@ -116,6 +116,12 @@ export function TimelineBar() {
               {startAge}
             </text>
           </g>
+          {/* An open fork sits on top of the sun: you are standing at it. */}
+          {bigs
+            .filter((d) => d.status === "pending")
+            .map((d) => (
+              <rect key={d.id} x={x(d.year) - 6.5} y={LINE_Y - 6.5} width="13" height="13" transform={`rotate(45 ${x(d.year)} ${LINE_Y})`} className="tl-fork" data-pending="true" data-fork-marker={d.id} />
+            ))}
         </svg>
         {bigs.map((d) => (
           <ForkPeek key={d.id} d={d} left={x(d.year)} branches={branches.filter((b) => b.forkDecisionId === d.id)} />
@@ -165,16 +171,9 @@ function Threads({ d, x, branches }: { d: Decision; x: number; branches: Branch[
           </g>
         );
       })}
-      <rect
-        x={x - 5}
-        y={LINE_Y - 5}
-        width="10"
-        height="10"
-        transform={`rotate(45 ${x} ${LINE_Y})`}
-        className="tl-fork"
-        data-pending={d.status === "pending"}
-        data-fork-marker={d.id}
-      />
+      {d.status !== "pending" && (
+        <rect x={x - 5} y={LINE_Y - 5} width="10" height="10" transform={`rotate(45 ${x} ${LINE_Y})`} className="tl-fork" data-fork-marker={d.id} />
+      )}
     </g>
   );
 }
