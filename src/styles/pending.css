@@ -2,8 +2,8 @@
 .card-pending { gap: var(--s4); }
 .card-pending .cp-stage {
   margin: 0; display: flex; align-items: baseline; gap: 2px;
-  font-size: var(--fs-q-small); font-weight: 650; font-stretch: var(--w-wide);
-  letter-spacing: -0.022em; line-height: 1.1; color: var(--ink);
+  font-size: var(--fs-q-text); font-weight: 620; font-stretch: 100%;
+  letter-spacing: -0.012em; line-height: 1.28; color: var(--ink);
 }
 .card-pending .cp-line { animation: cp-in var(--t-slow) var(--e-settle) both; }
 .card-pending .cp-stage .dots { color: var(--ink-3); }
@@ -14,7 +14,7 @@
   animation: cp-tile var(--t-slow) var(--e-settle) both; animation-delay: calc(var(--k) * 110ms + 150ms);
 }
 .card-pending .cp-tile .kc { color: var(--ink-3); }
-.card-pending .cp-bar { grid-column: 2; display: block; height: 9px; width: 86%; margin-top: 5px; border-radius: 3px; background: var(--sunken); }
+.card-pending .cp-bar { display: block; height: 9px; width: 86%; margin-top: 6px; border-radius: 3px; background: var(--sunken); }
 .card-pending .cp-bar.short { width: 54%; }
 .card-pending .cp-tile::after {
   content: ""; position: absolute; inset: 0;

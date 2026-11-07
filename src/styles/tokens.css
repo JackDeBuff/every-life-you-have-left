@@ -70,6 +70,8 @@
   --fs-h3: 22px;
   --fs-q-small: 24px;
   --fs-q: 30px;
+  /* the decision card's question: the text width (not the wide display), sized to read */
+  --fs-q-text: 21px;
   --fs-num: 60px;
   --fs-hero: clamp(52px, 6.4vw, 96px);
 

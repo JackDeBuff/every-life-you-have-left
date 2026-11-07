@@ -1,109 +1,101 @@
 /**
- * Live life settings (SPEC §5): 3–5 generated controls. A change is a nudge: it applies from next
- * year, is logged, and the row says so ("from 35 →").
+ * "Steer this life" (SPEC §5): 3–5 generated controls. A change is a nudge: it never rewrites what
+ * has happened, it bends the life from next year on, and it goes in the life log.
  *
- * In the right pane the decision card comes first: while a decision is open the panel folds into a
- * one-line summary bar ("Life settings · 4 · nudges apply from 32"), and it opens again on its own
- * once nothing is pending (or whenever the user clicks the bar). Open, it is one column of rows
- * (two only when the panel is truly wide), capped at ~40% of the pane with its own scroll.
+ * On desktop it is the right pane's second tab ("Decisions | Steer this life", Dialogue.tsx); on
+ * the phone, the Steer tab. It is always open where it is shown: a short explainer that says what a
+ * nudge does and from which age, then one row per control (two columns only when the pane is truly
+ * wide). A nudge shows itself three ways: the row flashes and keeps an "Applied · from 28" tag, a
+ * status line at the top says what changed (aria-live), and the life log gets its line.
  */
 import * as Select from "@radix-ui/react-select";
 import * as Slider from "@radix-ui/react-slider";
 import * as Switch from "@radix-ui/react-switch";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { SPEED_CONFIG, type LiveSetting, type SpeedMode } from "../../../shared/sim";
+import { useEffect, useId, useRef, useState } from "react";
+import type { LiveSetting, SettingNudge } from "../../../shared/sim";
 import { Icon } from "../icons";
 import { gsap, reducedMotion } from "../motion";
 import { sim, useSim } from "../session";
 
-/** The open decision the right pane is showing, if any. */
-export type PendingCard = { id: string; big: boolean } | null;
+/** How long the "just applied" line stays at the top of the panel. */
+const APPLIED_MS = 6000;
 
-/**
- * After a card resolves, wait for a quiet stretch before re-opening: at 1×/2×/4× the next small
- * card is often only seconds away, and the panel shouldn't flap open and shut between them.
- * About a year and a half of play time (2.25 s in Auto, 6 s at 2×), never under 1.4 s.
- */
-const reopenMs = (speed: SpeedMode) => Math.max(1400, SPEED_CONFIG[speed].secondsPerYear * 1500);
+/** The latest nudge, while it is fresh enough to call "just applied" (for the tab's dot). */
+export function useFreshNudge(): SettingNudge | null {
+  const last = useSim((s) => s.nudges[s.nudges.length - 1] ?? null);
+  const [fresh, setFresh] = useState<SettingNudge | null>(null);
+  const seen = useRef(last);
+  useEffect(() => {
+    if (!last || last === seen.current) return;
+    seen.current = last;
+    setFresh(last);
+    const id = window.setTimeout(() => setFresh(null), APPLIED_MS);
+    return () => window.clearTimeout(id);
+  }, [last]);
+  return fresh;
+}
 
-/**
- * `pending` drives the right pane's auto-collapse (undefined = a plain panel, e.g. the phone's
- * Settings tab: open, toggled by hand). `collapsed` is the older prop: true forces it shut.
- */
-export function LiveSettings({ pending, collapsed = false }: { pending?: PendingCard; collapsed?: boolean }) {
+export function LiveSettings({ id, labelledBy }: { id?: string; labelledBy?: string }) {
   const settings = useSim((s) => s.settings);
   const age = useSim((s) => s.playhead.age);
-  const auto = pending !== undefined;
-  const key = pending?.id ?? "none";
-  // The user's own click wins, but only for the card (or the idle stretch) it was made under.
-  const [choice, setChoice] = useState<{ key: string; open: boolean } | null>(null);
-  const [idleOpen, setIdleOpen] = useState(!pending);
-  const chose = choice && choice.key === key ? choice.open : null;
-  const prevKey = useRef(key);
-
-  // Before paint, so a card never shows under an open panel even for a frame.
-  useLayoutEffect(() => {
-    const was = prevKey.current;
-    if (!auto || was === key) return;
-    prevKey.current = key;
-    // Opened by hand during the card that just resolved: stay open, no flap.
-    const keepOpen = !pending && choice?.key === was && choice.open;
-    setChoice(null);
-    if (pending) {
-      setIdleOpen(false);
-      return;
-    }
-    if (keepOpen) {
-      setIdleOpen(true);
-      return;
-    }
-    const id = window.setTimeout(() => setIdleOpen(true), reopenMs(sim().speed));
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, key]);
-
-  const big = !!pending?.big;
-  const open = collapsed || big ? false : auto ? (chose ?? (!pending && idleOpen)) : (chose ?? true);
-  const nudgeNote = settings.length ? `nudges apply from ${age + 1}` : "being written";
-  const bodyId = useId();
+  const nudges = useSim((s) => s.nudges);
+  const ended = useSim((s) => s.phase === "ended");
+  const fresh = useFreshNudge();
+  const next = age + 1;
+  const freshSetting = fresh ? settings.find((s) => s.id === fresh.settingId) : undefined;
 
   return (
-    <section className="settings" aria-label="Life settings" data-open={open} data-big={big}>
-      <button
-        type="button"
-        className="settings-head"
-        onClick={() => setChoice({ key, open: !open })}
-        aria-expanded={open}
-        aria-controls={bodyId}
-        disabled={collapsed || big}
-        title={open ? "Fold the life settings" : "Open the life settings"}
-      >
-        <span className="label">Life settings</span>
-        {settings.length > 0 && (
+    <section className="steer scroll" id={id} aria-labelledby={labelledBy} aria-label={labelledBy ? undefined : "Steer this life"}>
+      <header className="steer-intro">
+        <div className="steer-title">
+          <h2 className="steer-h">Steer this life</h2>
+          <span className="steer-from" title={`Changes apply from age ${next}`}>
+            Applies from <b className="data">{next}</b> <Icon name="arrowRight" size={11} />
+          </span>
+        </div>
+        <p className="steer-lede">
+          A nudge doesn't rewrite the past. Change a setting and this life bends from age {next} on. Each nudge goes in the life log, and you can change it again
+          any time.
+        </p>
+      </header>
+
+      <p className="steer-status" role="status" aria-live="polite" data-on={!!fresh}>
+        {fresh && (
           <>
-            <span className="settings-dot" aria-hidden="true">·</span>
-            <span className="set-count" aria-label={`${settings.length} settings`}>
-              {settings.length}
+            <Icon name="check" size={13} />
+            <span>
+              <b>Nudge applied</b>
+              {freshSetting ? <> · {freshSetting.label} → {valueLabel(freshSetting, fresh.to)}</> : null}. It shapes your life from {fresh.age + 1}.
             </span>
           </>
         )}
-        <span className="settings-dot" aria-hidden="true">·</span>
-        <span className="settings-note label">{nudgeNote}</span>
-        <Icon name="caretDown" size={13} className="settings-caret" aria-hidden="true" />
-      </button>
-      <div className="settings-fold" inert={!open}>
-        <div className="settings-body scroll" id={bodyId}>
-          <div className="settings-grid">
-            {!settings.length && <p className="settings-empty small faint">Writing a few controls from what you told me…</p>}
-            {settings.map((s) => (
-              <SettingRow key={s.id} s={s} nextAge={age + 1} />
-            ))}
-          </div>
-        </div>
+      </p>
+
+      <div className="steer-grid">
+        {!settings.length && <p className="settings-empty small faint">{ended ? "This life is over: nothing left to steer." : "Writing a few controls from what you told me…"}</p>}
+        {settings.map((s) => (
+          <SettingRow key={s.id} s={s} nextAge={next} last={nudges.findLast((n) => n.settingId === s.id) ?? null} age={age} disabled={ended} />
+        ))}
       </div>
     </section>
   );
+}
+
+/** What a value reads as, for the status line ("Work-life balance → 70% All life"). */
+function valueLabel(s: LiveSetting, v: string): string {
+  if (s.type === "slider") {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return v;
+    if (n === 50) return "even";
+    return n > 50 ? `${n}% ${s.rightLabel ?? "right"}` : `${100 - n}% ${s.leftLabel ?? "left"}`;
+  }
+  if (s.type === "toggle") return v === "true" ? "on" : "off";
+  if (s.type === "chips" && s.multi) {
+    const vals = v ? v.split(",") : [];
+    return vals.length ? vals.map((x) => s.options.find((o) => o.value === x)?.label ?? x).join(", ") : "none";
+  }
+  return s.options.find((o) => o.value === v)?.label ?? v;
 }
 
 /**
@@ -113,12 +105,12 @@ export function LiveSettings({ pending, collapsed = false }: { pending?: Pending
  */
 const settleMs = (s: LiveSetting) => (s.type === "slider" ? 700 : s.type === "chips" && s.multi ? 900 : 0);
 
-function SettingRow({ s, nextAge }: { s: LiveSetting; nextAge: number }) {
-  const [flash, setFlash] = useState(0);
+function SettingRow({ s, nextAge, last, age, disabled }: { s: LiveSetting; nextAge: number; last: SettingNudge | null; age: number; disabled: boolean }) {
   // What the control shows while a change settles (and until the session echoes it back).
   const [draft, setDraft] = useState<string | null>(null);
   const row = useRef<HTMLDivElement>(null);
   const hintId = useId();
+  const labelId = useId();
   const latest = useRef(s);
   latest.current = s;
   const pendingTo = useRef<string | null>(null);
@@ -136,8 +128,7 @@ function SettingRow({ s, nextAge }: { s: LiveSetting; nextAge: number }) {
       return;
     }
     void sim().nudge(cur.id, to);
-    setFlash((f) => f + 1);
-    if (row.current && !reducedMotion()) gsap.fromTo(row.current, { backgroundColor: "var(--sun-soft)" }, { backgroundColor: "rgba(0,0,0,0)", duration: 1.4, ease: "sine.inOut" });
+    if (row.current && !reducedMotion()) gsap.fromTo(row.current, { backgroundColor: "var(--sun-soft)" }, { backgroundColor: "rgba(0,0,0,0)", duration: 1.6, ease: "sine.inOut", clearProps: "backgroundColor" });
   };
   const change = (to: string) => {
     setDraft(to);
@@ -161,34 +152,38 @@ function SettingRow({ s, nextAge }: { s: LiveSetting; nextAge: number }) {
   // Leaving mid-settle still counts as the user's change.
   useEffect(() => () => flush(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!flash) return;
-    const id = window.setTimeout(() => setFlash(0), 4200);
-    return () => clearTimeout(id);
-  }, [flash]);
   const shown = draft === null ? s : { ...s, value: draft };
+  const settling = draft !== null && draft !== s.value;
+  // The tag stays while the nudge is recent (this year or last): "Applied · from 28".
+  const recent = last && last.age >= age - 1 ? last : null;
 
   return (
-    <div className="set-row" ref={row} data-type={s.type}>
+    <div className="set-row" ref={row} data-type={s.type} data-nudged={!!recent}>
       <div className="set-top">
-        <span className="set-label">{s.label}</span>
-        {flash > 0 && (
-          <span key={flash} className="set-applies label">
-            from {nextAge} <Icon name="arrowRight" size={10} />
+        <span className="set-label" id={labelId}>
+          {s.label}
+        </span>
+        {settling ? (
+          <span className="set-applies label" data-state="settling">
+            Applying…
           </span>
-        )}
+        ) : recent ? (
+          <span key={`${recent.age}-${recent.to}`} className="set-applies label" title={`You nudged this at ${recent.age}. It shapes your life from ${recent.age + 1}.`}>
+            <Icon name="check" size={11} /> Applied · from {recent.age + 1}
+          </span>
+        ) : null}
       </div>
       {s.hint && (
         <p className="set-hint" id={hintId}>
           {s.hint}
         </p>
       )}
-      <Control s={shown} onChange={change} describedBy={s.hint ? hintId : undefined} />
+      <Control s={shown} onChange={change} describedBy={s.hint ? hintId : undefined} disabled={disabled} nextAge={nextAge} />
     </div>
   );
 }
 
-function Control({ s, onChange, describedBy }: { s: LiveSetting; onChange: (v: string) => void; describedBy?: string }) {
+function Control({ s, onChange, describedBy, disabled, nextAge }: { s: LiveSetting; onChange: (v: string) => void; describedBy?: string; disabled: boolean; nextAge: number }) {
   if (s.type === "chips") {
     const items = s.options.map((o) => (
       <ToggleGroup.Item key={o.value} value={o.value} className="seg-item">
@@ -198,13 +193,13 @@ function Control({ s, onChange, describedBy }: { s: LiveSetting; onChange: (v: s
     if (s.multi) {
       const vals = s.value ? s.value.split(",") : [];
       return (
-        <ToggleGroup.Root type="multiple" className="seg" value={vals} onValueChange={(v) => onChange(v.join(","))} aria-label={s.label} aria-describedby={describedBy}>
+        <ToggleGroup.Root type="multiple" className="seg" value={vals} disabled={disabled} onValueChange={(v) => onChange(v.join(","))} aria-label={s.label} aria-describedby={describedBy}>
           {items}
         </ToggleGroup.Root>
       );
     }
     return (
-      <ToggleGroup.Root type="single" className="seg" value={s.value} onValueChange={(v) => v && onChange(v)} aria-label={s.label} aria-describedby={describedBy}>
+      <ToggleGroup.Root type="single" className="seg" value={s.value} disabled={disabled} onValueChange={(v) => v && onChange(v)} aria-label={s.label} aria-describedby={describedBy}>
         {items}
       </ToggleGroup.Root>
     );
@@ -212,13 +207,13 @@ function Control({ s, onChange, describedBy }: { s: LiveSetting; onChange: (v: s
   if (s.type === "select") {
     const current = s.options.find((o) => o.value === s.value)?.label ?? s.value;
     return (
-      <Select.Root value={s.value} onValueChange={onChange}>
+      <Select.Root value={s.value} onValueChange={onChange} disabled={disabled}>
         <Select.Trigger className="sel" aria-label={s.label} aria-describedby={describedBy} title={current}>
           <span className="sel-value">
             <Select.Value />
           </span>
           <Select.Icon className="sel-ico">
-            <Icon name="caretDown" size={12} />
+            <Icon name="caretDown" size={13} />
           </Select.Icon>
         </Select.Trigger>
         <Select.Portal>
@@ -238,33 +233,58 @@ function Control({ s, onChange, describedBy }: { s: LiveSetting; onChange: (v: s
       </Select.Root>
     );
   }
-  if (s.type === "slider") return <BalanceSlider s={s} onChange={onChange} describedBy={describedBy} />;
+  if (s.type === "slider") return <BalanceSlider s={s} onChange={onChange} describedBy={describedBy} disabled={disabled} nextAge={nextAge} />;
   return (
     <div className="sw-row">
-      <Switch.Root className="sw" checked={s.value === "true"} onCheckedChange={(c) => onChange(String(c))} aria-label={s.label} aria-describedby={describedBy}>
+      <Switch.Root className="sw" checked={s.value === "true"} disabled={disabled} onCheckedChange={(c) => onChange(String(c))} aria-label={s.label} aria-describedby={describedBy}>
         <Switch.Thumb className="sw-thumb" />
       </Switch.Root>
-      <span className="small muted">{s.value === "true" ? "Yes, by default" : "Not by default"}</span>
+      <span className="sw-state">{s.value === "true" ? "Yes, by default" : "Not by default"}</span>
     </div>
   );
 }
 
-function BalanceSlider({ s, onChange, describedBy }: { s: LiveSetting; onChange: (v: string) => void; describedBy?: string }) {
+/**
+ * A balance between two ends: both ends are labelled with their share ("All work 30 · 70 All life"),
+ * the nearer end in ink; the fill runs from the centre to the thumb, so the lean reads at a glance.
+ */
+function BalanceSlider({ s, onChange, describedBy, disabled, nextAge }: { s: LiveSetting; onChange: (v: string) => void; describedBy?: string; disabled: boolean; nextAge: number }) {
   const num = (x: string) => (x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : 50);
   const [v, setV] = useState(num(s.value));
   useEffect(() => setV(num(s.value)), [s.value]);
+  const left = s.leftLabel ?? "Less";
+  const right = s.rightLabel ?? "More";
+  const lo = Math.min(v, 50);
+  const hi = Math.max(v, 50);
+  const text = v === 50 ? `Even between ${left} and ${right}` : v > 50 ? `${v}% ${right}, ${100 - v}% ${left}` : `${100 - v}% ${left}, ${v}% ${right}`;
   return (
     <div className="sl">
-      <Slider.Root className="sl-root" value={[v]} min={0} max={100} step={5} onValueChange={([x]) => setV(x!)} onValueCommit={([x]) => onChange(String(x))} aria-label={s.label} aria-describedby={describedBy}>
-        <Slider.Track className="sl-track">
-          <Slider.Range className="sl-range" />
-        </Slider.Track>
-        <Slider.Thumb className="sl-thumb" aria-label={s.label} />
-      </Slider.Root>
-      <div className="sl-ends label">
-        <span>{s.leftLabel}</span>
-        <span>{s.rightLabel}</span>
+      <div className="sl-ends" aria-hidden="true">
+        <span data-near={v < 50}>
+          {left} <b className="data">{100 - v}</b>
+        </span>
+        <span data-near={v > 50}>
+          <b className="data">{v}</b> {right}
+        </span>
       </div>
+      <Slider.Root
+        className="sl-root"
+        value={[v]}
+        min={0}
+        max={100}
+        step={5}
+        disabled={disabled}
+        onValueChange={([x]) => setV(x!)}
+        onValueCommit={([x]) => onChange(String(x))}
+        aria-label={s.label}
+        aria-describedby={describedBy}
+      >
+        <Slider.Track className="sl-track">
+          <span className="sl-mid" aria-hidden="true" />
+          <span className="sl-lean" aria-hidden="true" style={{ left: `${lo}%`, width: `${hi - lo}%` }} />
+        </Slider.Track>
+        <Slider.Thumb className="sl-thumb" aria-label={s.label} aria-valuetext={`${text}, from age ${nextAge}`} />
+      </Slider.Root>
     </div>
   );
 }

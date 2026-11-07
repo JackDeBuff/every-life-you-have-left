@@ -170,6 +170,8 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
   // Keyboard: 1–4 select (when not typing), Enter submits, Shift+Enter is a newline.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // On the Steer tab the card is mounted but hidden: its keys are off.
+      if (!card.current || card.current.getClientRects().length === 0) return;
       const typing = document.activeElement === ta.current;
       const other = (document.activeElement as HTMLElement | null)?.closest("input, select, [role=slider], [role=combobox]");
       if (other) return;
@@ -244,13 +246,16 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
         )}
       </header>
 
+      {/* Long questions step down a size so they stay within ~4 lines in the default pane width. */}
       <h2 className="dq" data-len={d.prompt.length > 170 ? "xl" : d.prompt.length > 110 ? "l" : undefined}>
         {d.prompt}
       </h2>
-      <p className="dwhy">
-        <span className="label">Why I'm asking</span>{" "}
-        {quote ? <WhyWithQuote text={d.whyAsking} quote={quote.shortForm ?? quote.text} /> : d.whyAsking}
-      </p>
+      {d.whyAsking && (
+        <p className="dwhy">
+          <span className="dwhy-k">Why I'm asking</span>
+          <span className="dwhy-t">{quote ? <WhyWithQuote text={d.whyAsking} quote={quote.shortForm ?? quote.text} /> : d.whyAsking}</span>
+        </p>
+      )}
 
       <div className="tiles" role="radiogroup" aria-label="Answers">
         {d.options.map((o, i) => (
@@ -269,14 +274,16 @@ export function DecisionCard({ d, warm }: { d: Decision; warm?: WarmCard }) {
               setEngaged(true);
             }}
           >
-            {/* A block inside the (flex) button: buttons centre their content, the text should sit at the top. */}
+            {/* Key badge in its own column, the words in the other: the label wraps under itself, not under the key. */}
             <span className="tile-in">
               <span className="kc" aria-hidden="true">
-                {sel === o.id ? <Icon name="check" size={11} /> : i + 1}
+                {sel === o.id ? <Icon name="check" size={12} /> : i + 1}
               </span>
-              {big && o.branchTitle && <span className="tile-fork">{o.branchTitle}</span>}
-              <span className="tile-label">{o.label}</span>
-              {o.hint && <span className="tile-hint">{o.hint}</span>}
+              <span className="tile-words">
+                {big && o.branchTitle && <span className="tile-fork">{o.branchTitle}</span>}
+                <span className="tile-label">{o.label}</span>
+                {o.hint && <span className="tile-hint">{o.hint}</span>}
+              </span>
             </span>
           </button>
         ))}

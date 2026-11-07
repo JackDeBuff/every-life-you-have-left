@@ -77,9 +77,13 @@ export function CardPending({ variant = "fork" }: { variant?: "fork" | "reading"
       <div className="tiles cp-tiles" aria-hidden="true">
         {[1, 2, 3, 4].map((k) => (
           <div key={k} className="tile cp-tile" style={{ ["--k" as string]: k }}>
-            <span className="kc">{k}</span>
-            <span className="cp-bar" />
-            <span className="cp-bar short" />
+            <span className="tile-in">
+              <span className="kc">{k}</span>
+              <span className="tile-words">
+                <span className="cp-bar" />
+                <span className="cp-bar short" />
+              </span>
+            </span>
           </div>
         ))}
       </div>

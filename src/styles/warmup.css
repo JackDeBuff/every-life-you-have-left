@@ -7,10 +7,7 @@
 
 /* ---- the card ---- */
 .dcard[data-kind="warmup"] { padding: var(--s5) var(--s5) 0; gap: var(--s4); }
-.dcard[data-kind="warmup"] .dq { font-size: 23px; line-height: 1.12; }
-.dcard[data-kind="warmup"] .dq[data-len="l"], .dcard[data-kind="warmup"] .dq[data-len="xl"] { font-size: 20px; }
-.dcard[data-kind="warmup"] .tile { min-height: 54px; padding: 10px 11px 10px 10px; }
-.dcard[data-kind="warmup"] .tile-label { font-size: 14px; line-height: 1.32; }
+.dcard[data-kind="warmup"] .tile-label { font-size: 14.5px; }
 .dcard[data-kind="warmup"] .dcard-foot { padding-bottom: var(--s3); }
 .dcard[data-kind="warmup"] .btn.skip { color: var(--ink-2); font-stretch: var(--w-data); }
 
@@ -21,10 +18,7 @@
 
 @media (max-height: 820px) {
   .dcard[data-kind="warmup"] { padding-top: var(--s4); gap: var(--s3); }
-  .dcard[data-kind="warmup"] .dq { font-size: 20px; }
-  .dcard[data-kind="warmup"] .tile { min-height: 44px; padding: 8px 10px; }
-  .dcard[data-kind="warmup"] .tile-label { font-size: 13.5px; }
-  .dcard[data-kind="warmup"] .dwhy { font-size: 13px; }
+  .dcard[data-kind="warmup"] .dq { font-size: 19.5px; }
   .dcard[data-kind="warmup"] .say-micro-more { display: none; }
 }
 
