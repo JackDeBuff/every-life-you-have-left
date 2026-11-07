@@ -3,7 +3,7 @@ import type { Ending, SafetyResult } from "../../shared/engine";
 import type { Branch, LiveSetting, LogLine, SessionState, SimYear } from "../../shared/sim";
 import { fixPeopleNumbers, peopleIssues, similarity } from "./consistency";
 import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, settingValueLabel, yearLine } from "./context";
-import { branchForks, forksTaken, lifeAt, nowBlock, peopleNowLine, peopleSummary, type LifeNow } from "./ledger";
+import { branchForks, forksTaken, lifeAt, nowBlock, peopleNowLine, peopleSummary, profileAsOf, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
 import { ENDING_SYSTEM, endingPrompt, SAFETY_SYSTEM, SETTINGS_SYSTEM, settingsPrompt } from "./prompts/extras";
 import { EndingLLM, SafetyLLM, SettingsLLM } from "./schemas";
@@ -136,7 +136,7 @@ export async function endingFor(call: Caller, state: SessionState, branches: Bra
   );
   for (const b of branches) {
     const shared = state.years.filter((y) => y.year < b.forkYear);
-    const bEnd = lifeAt(profile, [...shared, ...b.years], endYear, branchForks(state, b));
+    const bEnd = lifeAt(profileAsOf(profile, state.decisions, b.forkYear), [...shared, ...b.years], endYear, branchForks(state, b));
     ends[b.id] = bEnd;
     lives.push(
       `id "${b.id}": "${b.title}" (forked at ${b.forkAge} in ${b.forkYear}; five-year answer is spoken at ${b.forkAge})\nShared past up to then: ${shared.length ? yearLine(shared[shared.length - 1]!) : "(none)"}\nAt the fork: ${startCtx(shared, b.forkYear)}\n${compactLife(b.years, b.forkYear, 14)}\n${nowBlock(bEnd, { title: `AT THE END (${endYear})` })}`,

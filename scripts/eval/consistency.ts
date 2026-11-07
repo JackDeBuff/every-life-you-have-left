@@ -12,7 +12,7 @@ import type { Profile } from "../../shared/schema";
 import type { Branch, Decision, SimYear } from "../../shared/sim";
 import { pastTimeIssues } from "../../worker/engine/calendar";
 import { framingIssues, peopleIssues, repeatTopicIssues, similarity, stateIssues, type Issue } from "../../worker/engine/consistency";
-import { advance, here, lifeAt, lifeOf, type LifeNow } from "../../worker/engine/ledger";
+import { advance, here, lifeAt, lifeOf, profileAsOf, type LifeNow } from "../../worker/engine/ledger";
 
 export interface ConsistencyReport {
   counts: Record<string, number>;
@@ -124,7 +124,7 @@ export function checkSession(t: Transcript, today = new Date()): ConsistencyRepo
     const shared = years.filter((y) => y.year < b.forkYear);
     const bl = b.years.at(-1);
     if (!bl) continue;
-    const bn = lifeAt(p, [...shared, ...b.years], bl.year);
+    const bn = lifeAt(profileAsOf(p, t.decisions, b.forkYear), [...shared, ...b.years], bl.year);
     const sp = bl.scene.people;
     const issues: Issue[] = [];
     if (sp.filter((x) => x.role === "child").length !== here(bn, "child").length) issues.push({ kind: "count", msg: `people line shows ${sp.filter((x) => x.role === "child").length} children; its ledger has ${here(bn, "child").length}` });
@@ -138,7 +138,7 @@ export function checkSession(t: Transcript, today = new Date()): ConsistencyRepo
       const b = t.branches.find((x) => x.id === c.branchId);
       if (!b) continue;
       const yr = p.birthYear + c.age;
-      const bn = lifeAt(p, [...years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= yr)], yr);
+      const bn = lifeAt(profileAsOf(p, t.decisions, b.forkYear), [...years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= yr)], yr);
       add(`interlude ${yr} (${b.title}) "${c.caption.slice(0, 60)}"`, peopleIssues(c.caption, bn));
     }
   }

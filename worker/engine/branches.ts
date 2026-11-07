@@ -14,7 +14,7 @@ import { branchPath } from "./money";
 import { clamp, norm, truncateWords } from "./util";
 import { writeYears, type WriterEnv } from "./years";
 import { fixPeopleNumbers } from "./consistency";
-import { branchForks, lifeAt, peopleNowLine, type LifeNow } from "./ledger";
+import { branchForks, lifeAt, peopleNowLine, profileAsOf, type LifeNow } from "./ledger";
 
 // ---------------------------------------------------------------------------------------------
 // Divergence: state distance + path difference (research/03 §3.1 "divergence guarantee")
@@ -111,9 +111,9 @@ export async function stepBranchTo(env: BranchEnv, state: SessionState, branch: 
   // The branch knows the person as they were at the fork: answers to the chosen life's later
   // decisions describe events this life never had, so they are left out (they leaked chosen-life
   // plot into branches and cut divergence in the first eval run).
-  const laterDecisionIds = new Set(state.decisions.filter((d) => d.year > branch.forkYear).map((d) => d.id));
   const profile = env.writer.profile;
-  const branchProfile = { ...profile, quotes: profile.quotes.filter((q) => !q.questionId || !laterDecisionIds.has(q.questionId)) };
+  // (people and facts only those later answers named are left out too: ledger.ts profileAsOf)
+  const branchProfile = profileAsOf(profile, state.decisions, branch.forkYear);
   const known = new Set(branchProfile.quotes.map((q) => q.id));
   const focus = [decision?.whyQuoteId, ...profile.seeds.leap.quoteIds, ...profile.seeds.unjudged.quoteIds].filter(
     (x): x is string => Boolean(x) && known.has(x!),
@@ -170,7 +170,7 @@ function snapshotsAt(branches: Branch[], year: number): { b: Branch; snap: SimYe
 
 /** A branch's life ledger at `year` (shared past + its own years): who is in it, ages computed. */
 function branchNow(state: SessionState, b: Branch, year: number): LifeNow {
-  return lifeAt(state.profile!, [...state.years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= year)], year);
+  return lifeAt(profileAsOf(state.profile!, state.decisions, b.forkYear), [...state.years.filter((y) => y.year < b.forkYear), ...b.years.filter((y) => y.year <= year)], year);
 }
 
 /** One fast call: a caption per branch at `year` ("Meanwhile, in your other lives..."). */

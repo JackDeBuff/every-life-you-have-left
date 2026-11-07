@@ -188,18 +188,27 @@ export function petYears(name: string, species: string, adoptedYoung = true): nu
   const r = (hash32(`pet:${name}:${species}`) % 1000) / 1000;
   const [lo, hi] = species === "cat" ? [13, 17] : species === "dog" ? [10, 14] : species === "parrot" || species === "tortoise" || species === "turtle" ? [25, 35] : [5, 9];
   const life = Math.round(lo + r * (hi - lo));
-  return adoptedYoung ? life - 1 : Math.max(3, life - 5);
+  return adoptedYoung ? life : Math.max(3, life - 5);
 }
 
 export function initialPeople(profile: Profile): LedgerPerson[] {
   const start = profile.startYear;
   const corpus = [...profile.quotes.map((q) => q.text), ...profile.facts.map((f) => f.value)].join("\n");
   const out: LedgerPerson[] = [];
-  const add = (p: Omit<LedgerPerson, "key" | "since" | "status" | "until" | "goneAt"> & { goneAt?: number | null }) => {
+  const add = (p: Omit<LedgerPerson, "key" | "since" | "status" | "until" | "goneAt"> & { goneAt?: number | null; since?: number }) => {
     const key = personKey(p.role, p.name);
     if (out.some((x) => x.key === key)) return;
-    out.push({ ...p, key, since: start, status: "here", until: null, goneAt: p.goneAt ?? null });
+    out.push({ ...p, key, since: p.since ?? start, status: "here", until: null, goneAt: p.goneAt ?? null });
   };
+  // Someone first named in a decision answer ("d-<age>-<n>") enters the life in that decision's
+  // year, not on day one (Elena, named at 29, must not be the partner of a branch forked at 21).
+  const quoteYear = new Map(
+    profile.quotes.map((q) => {
+      const m = q.questionId?.match(/^d-(\d+)-/);
+      return [q.id, m ? profile.birthYear + Number(m[1]) : start] as const;
+    }),
+  );
+  const sinceOf = (quoteIds: string[] | undefined) => (quoteIds?.length ? Math.min(...quoteIds.map((id) => quoteYear.get(id) ?? start)) : start);
   let pluralKids = false;
   for (const pp of profile.people) {
     const role = roleOf(pp.relation, pp.label);
@@ -228,10 +237,38 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     } else if (role === "parent") born = profile.birthYear - 30;
     const species = role === "pet" ? speciesOf(`${pp.relation} ${pp.label}`) : null;
     add({
+      since: sinceOf(pp.quoteIds),
       name, generic, role, relation: role === "pet" && species ? species : pp.relation.toLowerCase(), born, ageKnown,
       // a pet they "just adopted" / a puppy is young; otherwise assume it's already a few years old
       goneAt: role === "pet" && species ? start + petYears(name, species, /\b(just (?:adopted|got)|new (?:puppy|kitten|dog|cat)|puppy|kitten)\b/i.test(corpus)) : null,
     });
+  }
+  // Pets they named in their own words but the profile didn't list as people ("I just adopted a
+  // dog, Barnaby"): without this the dog never enters the ledger and lives forever.
+  for (const q of profile.quotes) {
+    const a = q.text.match(/\b(dog|puppy|cat|kitten|rabbit|parrot)\b,?\s+(?:named\s+|called\s+)?([A-Z][\p{L}'-]+)/u);
+    const b = a ? null : q.text.match(/\b([A-Z][\p{L}'-]+),?\s+(?:my|our|the)\s+(?:[\w-]+\s+)?(dog|puppy|cat|kitten)\b/u);
+    const kindWord = a?.[1] ?? b?.[2];
+    const petName = a?.[2] ?? b?.[1];
+    if (!kindWord || !petName || out.some((p) => p.role === "pet" && p.name.toLowerCase() === petName.toLowerCase())) continue;
+    const species = speciesOf(kindWord);
+    const since = quoteYear.get(q.id) ?? start;
+    const young = /\b(just (?:adopted|got)|new (?:puppy|kitten|dog|cat)|puppy|kitten)\b/i.test(q.text);
+    add({ since, name: petName, generic: false, role: "pet", relation: species, born: since, ageKnown: false, goneAt: since + petYears(petName, species, young) });
+  }
+  // The profile sometimes lists one person twice ("younger sister" and "Casey"): when a role that is
+  // usually one person has exactly one stand-in and one named entry, keep the named one.
+  for (const role of ["partner", "sibling"] as const) {
+    const generic = out.filter((p) => p.role === role && p.generic);
+    const named = out.filter((p) => p.role === role && !p.generic);
+    if (generic.length === 1 && named.length === 1) {
+      const g = generic[0]!;
+      const n = named[0]!;
+      if (!n.ageKnown && g.ageKnown) (n.born = g.born), (n.ageKnown = true);
+      if (/younger|older|little|big|elder/.test(g.name)) n.relation = g.name.replace(/^your /, "");
+      n.since = Math.min(n.since, g.since);
+      out.splice(out.indexOf(g), 1);
+    }
   }
   // A partner or children named only in facts ("Married to Jonas", "two kids, 4 and 7").
   const rel = profile.facts.find((f) => f.key === "relationship")?.value ?? "";
@@ -316,7 +353,7 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
   const m = change.match(/^([+-])(partner|child|pet|parent):(.+)$/);
   if (!m) return;
   const [, op, kind, rest] = m as unknown as [string, "+" | "-", "partner" | "child" | "pet" | "parent", string];
-  const here = (r: Role) => people.filter((p) => p.role === r && p.status === "here");
+  const here = (r: Role) => people.filter((p) => p.role === r && p.status === "here" && p.since <= year);
   if (kind === "partner") {
     const name = rest;
     const generic = GENERIC_NAME.test(name);
@@ -333,7 +370,7 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
       }
       if (cur) (cur.status = "ended"), (cur.until = year);
       const old = findByName(people, name, "partner");
-      if (old) return void ((old.status = "here"), (old.until = null));
+      if (old) return void ((old.status = "here"), (old.until = null), (old.since = Math.min(old.since, year)));
       people.push({ key: personKey("partner", name), name: generic ? "your partner" : name, generic, role: "partner", relation: "partner", born: null, ageKnown: false, since: year, status: "here", until: null, goneAt: null });
     } else if (cur) (cur.status = "ended"), (cur.until = year);
     return;
@@ -342,7 +379,11 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
     if (op === "-") return; // children never leave the ledger (content line)
     const [name, yr] = rest.split(":");
     const generic = GENERIC_NAME.test(name!);
-    if (!generic && findByName(here("child"), name!)) return;
+    const known = generic ? undefined : findByName(people.filter((p) => p.role === "child"), name!);
+    if (known) {
+      if (known.since > year) (known.since = yr ? Number(yr) : year), known.ageKnown || ((known.born = known.since), (known.ageKnown = true));
+      return;
+    }
     const n = here("child").length;
     people.push({
       key: personKey("child", generic ? `baby${n + 1}` : name!), name: generic ? (n ? `your child ${n + 1}` : "your child") : name!, generic, role: "child",
@@ -480,7 +521,7 @@ export function advance(prev: LifeNow, y: SimYear): { now: LifeNow; changes: str
 export const ageOf = (p: LedgerPerson, year: number) => (p.born === null ? null : year - p.born);
 /** A parent whose age is only estimated and is now ~95+: no longer shown (never declared dead by code). */
 export const offScreen = (p: LedgerPerson, year: number) => p.role === "parent" && !p.ageKnown && (ageOf(p, year) ?? 0) >= 95;
-export const here = (now: LifeNow, role?: Role) => now.people.filter((p) => p.status === "here" && (!role || p.role === role));
+export const here = (now: LifeNow, role?: Role) => now.people.filter((p) => p.status === "here" && p.since <= now.year && (!role || p.role === role));
 
 /** The YearLife snapshot stored on a year. */
 export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
@@ -491,6 +532,18 @@ export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
       .filter((p) => p.role !== "other" && !offScreen(p, now.year))
       .map((p) => ({ name: p.name, role: p.role, relation: p.relation, age: p.ageKnown || p.role === "parent" ? ageOf(p, now.year) : null })),
   };
+}
+
+/**
+ * The profile as a life that forked at `forkYear` knows it: quotes from decisions after the fork
+ * are dropped, and so are people and facts that only those answers named.
+ */
+export function profileAsOf(profile: Profile, decisions: { id: string; year: number }[], forkYear: number): Profile {
+  const later = new Set(decisions.filter((d) => d.year > forkYear).map((d) => d.id));
+  const quotes = profile.quotes.filter((q) => !q.questionId || !later.has(q.questionId));
+  const known = new Set(quotes.map((q) => q.id));
+  const keep = (ids: string[]) => !ids.length || ids.some((id) => known.has(id));
+  return { ...profile, quotes, people: profile.people.filter((p) => keep(p.quoteIds)), facts: profile.facts.filter((f) => keep(f.quoteIds)) };
 }
 
 // ---------------------------------------------------------------------------------------------

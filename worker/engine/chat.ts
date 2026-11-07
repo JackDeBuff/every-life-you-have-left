@@ -7,7 +7,7 @@ import { getBaseRate } from "../../shared/baseRates";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SessionState, SimYear } from "../../shared/sim";
 import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, yearLine } from "./context";
-import { branchForks, forksTaken, type LifeNow } from "./ledger";
+import { branchForks, forksTaken, profileAsOf, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
 import { futureSelfSystem, INTERVIEWER_SYSTEM } from "./prompts/chat";
 import { BREAK_CHARACTER } from "./prompts/extras";
@@ -88,6 +88,7 @@ export async function* reply(
       return;
     }
     const year = p.birthYear + age;
+    const branchFork = life === "chosen" ? null : (state.branches.find((x) => x.id === life)?.forkYear ?? null);
     const yearsText = l.years.length
       ? l.years
           .filter((y, i, arr) => i >= arr.length - 12 || y.events.some((e) => e.isTurningPoint))
@@ -105,7 +106,7 @@ export async function* reply(
       person: personBlock(p),
       quotes: quotesBlock(p),
       // the life ledger at that age: place, work, people with code-computed ages (never guessed)
-      years: `${yearsText}\n\n${nowContext({ profile: p, years: l.years, atYear: year, path: l.path, today, title: `YOU, NOW (${year})` }).text}`,
+      years: `${yearsText}\n\n${nowContext({ profile: branchFork === null ? p : profileAsOf(p, state.decisions, branchFork), years: l.years, atYear: year, path: l.path, today, title: `YOU, NOW (${year})` }).text}`,
       twin: styleNotes(state),
     });
   }
