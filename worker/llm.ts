@@ -440,11 +440,11 @@ export async function transcribe(audio: { mimeType: string; data: string }, opts
         role: "user",
         parts: [
           { inlineData: audio },
-          { text: "Transcribe this audio verbatim. Return only the words spoken, no labels or notes. If silent, return nothing." },
+          { text: "Transcribe this audio verbatim. Return only the words spoken as plain text: no markdown, no quotes, no labels or notes. If silent, return nothing." },
         ],
       },
     ], opts),
     timeoutMs: opts.timeoutMs ?? 30_000,
   });
-  return r.text.trim();
+  return r.text.replace(/[*_#`>]+/g, "").replace(/\s+/g, " ").trim();
 }
