@@ -12,3 +12,5 @@ coverage/
 
 # agent worktrees
 .claude/worktrees/
+# 3D asset downloads (raw packs, never committed)
+scripts/assets/raw/
