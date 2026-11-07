@@ -52,6 +52,38 @@ export const isCurrency = (c: unknown): c is CurrencyCode => typeof c === "strin
 /** The currency of the country they live in (ISO alpha-2); USD when we don't have it. */
 export const currencyForCountry = (country: string | null | undefined): CurrencyCode => BY_COUNTRY[(country ?? "").toUpperCase()] ?? "USD";
 
+const US_STATES = new Set(
+  "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" "),
+);
+const COUNTRY_WORDS: Record<string, CurrencyCode> = {
+  thailand: "THB", japan: "JPY", "united kingdom": "GBP", uk: "GBP", england: "GBP", scotland: "GBP", wales: "GBP", china: "CNY", india: "INR",
+  korea: "KRW", "south korea": "KRW", singapore: "SGD", vietnam: "VND", "viet nam": "VND", indonesia: "IDR", philippines: "PHP", mexico: "MXN",
+  brazil: "BRL", canada: "CAD", australia: "AUD", germany: "EUR", france: "EUR", spain: "EUR", portugal: "EUR", italy: "EUR", netherlands: "EUR",
+  ireland: "EUR", belgium: "EUR", austria: "EUR", finland: "EUR", greece: "EUR", usa: "USD", us: "USD", "united states": "USD", america: "USD",
+};
+const CITY_WORDS: Record<string, CurrencyCode> = {
+  bangkok: "THB", "chiang mai": "THB", phuket: "THB", tokyo: "JPY", osaka: "JPY", kyoto: "JPY", london: "GBP", manchester: "GBP", edinburgh: "GBP",
+  singapore: "SGD", seoul: "KRW", busan: "KRW", shanghai: "CNY", beijing: "CNY", shenzhen: "CNY", mumbai: "INR", delhi: "INR", "new delhi": "INR",
+  bangalore: "INR", bengaluru: "INR", hanoi: "VND", "ho chi minh city": "VND", jakarta: "IDR", bali: "IDR", manila: "PHP", "mexico city": "MXN",
+  "são paulo": "BRL", "sao paulo": "BRL", "rio de janeiro": "BRL", toronto: "CAD", vancouver: "CAD", montreal: "CAD", sydney: "AUD", melbourne: "AUD",
+  berlin: "EUR", paris: "EUR", madrid: "EUR", barcelona: "EUR", lisbon: "EUR", rome: "EUR", milan: "EUR", amsterdam: "EUR", dublin: "EUR",
+};
+
+/** The currency of a simulated place ("Bangkok, Thailand", "Durham, NC, US"); null when we can't tell. */
+export function currencyForPlace(place: string | null | undefined): CurrencyCode | null {
+  const parts = (place ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  for (const raw of [...parts].reverse()) {
+    const p = raw.toLowerCase();
+    if (COUNTRY_WORDS[p]) return COUNTRY_WORDS[p]!;
+    if (/^[A-Za-z]{2}$/.test(raw)) {
+      const up = raw.toUpperCase();
+      if (US_STATES.has(up)) return "USD"; // "Austin, TX" is Texas, not a country code
+      if (BY_COUNTRY[up]) return BY_COUNTRY[up]!;
+    }
+  }
+  return CITY_WORDS[(parts[0] ?? "").toLowerCase()] ?? null;
+}
+
 /** What the UI shows money in: their pick, else the country's currency. */
 export const displayCurrency = (p: { currency?: string | null; country?: string | null } | null | undefined): CurrencyCode =>
   isCurrency(p?.currency) ? p.currency : currencyForCountry(p?.country);

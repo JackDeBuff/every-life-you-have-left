@@ -5,7 +5,7 @@
  *   npx tsx scripts/eval/currency-check.ts --live   # + Gemini profile extraction for a Thai and a US persona
  * Exits non-zero on any failure. Personas are fictional.
  */
-import { currencyForCountry, detectCurrency, displayCurrency, fixUnconverted, formatMoney, statedAmounts, usdHint } from "../../shared/currency";
+import { currencyForCountry, currencyForPlace, detectCurrency, displayCurrency, fixUnconverted, formatMoney, statedAmounts, usdHint } from "../../shared/currency";
 import type { Profile } from "../../shared/schema";
 import type { StartInput } from "../../shared/sim";
 
@@ -42,6 +42,12 @@ check("country TH -> THB", currencyForCountry("TH") === "THB");
 check("country DE -> EUR", currencyForCountry("de") === "EUR");
 check("country US -> USD", currencyForCountry("US") === "USD");
 check("their pick wins over country", displayCurrency({ currency: "THB", country: "US" }) === "THB");
+check("place: Bangkok, Thailand -> THB", currencyForPlace("Bangkok, Thailand") === "THB");
+check("place: Durham, NC, US -> USD", currencyForPlace("Durham, NC, US") === "USD");
+check("place: Los Angeles, CA is California, not Canada", currencyForPlace("Los Angeles, CA") === "USD");
+check("place: Toronto, ON -> CAD", currencyForPlace("Toronto, ON") === "CAD");
+check("place: Lisbon, Portugal -> EUR", currencyForPlace("Lisbon, Portugal") === "EUR");
+check("place: unknown -> null", currencyForPlace("Lagos, Nigeria") === null);
 check("format ฿3.00M", formatMoney(85_000, "THB") === "฿3.00M", formatMoney(85_000, "THB"));
 check("format short ฿850k", formatMoney(24_079, "THB", true) === "฿850k", formatMoney(24_079, "THB", true));
 check("format USD unchanged", formatMoney(-28_000, "USD") === "−$28,000");
