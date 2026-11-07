@@ -58,6 +58,9 @@ const STALE_YEARS = 3;
 const FOLD_EVERY = 3;
 const FOLD_WAIT_MS = 4000; // the next year call waits at most this long for a pending fold
 const FOLLOWUP_MS = 7000; // the next small card waits at most this long for a follow-up
+// 1x: no NEW small card this late into the year right before a fork (it would be shelved by the
+// fork before anyone could answer it; a 1x year lasts 6 s, 12 s while a card is up).
+const PREFORK_CUTOFF_MS = 6000;
 // Big ones earlier (the playhead waits at a big slot until its decision exists): ~12 s of playback
 // ahead, at least 2 years. A real big decision takes ~5 s on 3.8 Flash, 15-20 s when it stalls.
 const lookaheadBig = (speed: AgentState["speed"]) => Math.max(2, Math.ceil(12 / SPEED_CONFIG[speed].secondsPerYear));
@@ -156,6 +159,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private followUp: Promise<void> | null = null;
   /** When a due (visible) small slot first found nothing to serve. */
   private waitingSince: number | null = null;
+  /** When the playhead entered its current year (or life resumed in it after a fork). */
+  private yearStartedAt = Date.now();
   /** Answers whose quotes are in but which aren't folded into the profile yet. */
   private pendingFold: FoldItem[] = [];
   private foldChain: Promise<void> = Promise.resolve();
@@ -538,6 +543,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (next > s.playhead.year) {
       const yr = s.years.find((y) => y.year === next);
       this.update({ playhead: { year: next, age: this.ageAt(next), paused: false }, status: yr?.states ?? s.status, thinking: starved });
+      this.yearStartedAt = Date.now();
       this.catchUpLog();
     } else if (starved !== s.thinking) {
       this.update({ thinking: starved });
@@ -715,6 +721,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         // it's still open); 2x/4x keep a year between them.
         const gap = s.speed === "1x" ? 0 : 1;
         if (smallBusy || openFork <= sl.year + gap || sl.year <= lastFork) continue;
+        if (gap === 0 && openFork === sl.year + 1 && sl.year === ph && Date.now() - this.yearStartedAt > PREFORK_CUTOFF_MS) continue;
         smallBusy = true;
         // D-089: served from the written-ahead queue (instant); a single card only when batches fail.
         if (this.kit && this.batchMisses < 2) {
@@ -793,7 +800,13 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!kit || this.batching || !s.profile || s.phase === "ended" || s.phase === "start" || this.forking) return;
     if (this.smallQ.length >= REFILL_AT) return;
     const ph = s.playhead.year;
-    const upcoming = this.slots.filter((sl) => sl.kind === "small" && sl.year >= ph && !this.materialized(sl)).slice(this.smallQ.length);
+    // Only the slots before the next fork: the fork changes the context and drops the queue.
+    const nextFork = Math.min(
+      ...s.decisions.filter((d) => d.kind === "big" && d.status === "pending" && d.year >= ph).map((d) => d.year),
+      ...this.slots.filter((sl) => sl.kind === "big" && sl.year >= ph && !this.materialized(sl)).map((sl) => sl.year),
+      Infinity,
+    );
+    const upcoming = this.slots.filter((sl) => sl.kind === "small" && sl.year >= ph && sl.year < nextFork && !this.materialized(sl)).slice(this.smallQ.length);
     if (!upcoming.length) return;
     const want = upcoming.filter((sl) => sl.year <= upcoming[0]!.year + BATCH_YEARS).slice(0, BATCH_MAX);
     // The NOW block reads the years before the first card: after a fork they are being rewritten.
@@ -1255,6 +1268,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   private toPlaying(): void {
     this.update((s) => ({ phase: "playing", thinking: false, playhead: { ...s.playhead, paused: false } }));
+    this.yearStartedAt = Date.now();
     this.persistNow();
     void this.mirror.session(this.s);
     this.gateCheck();

@@ -29,7 +29,7 @@ import type { Caller } from "./models";
 import { guardMoney, knowMeScore, nextQuoteIndex } from "./profile";
 import { ANSWERS_SYSTEM, SMALL_BATCH_SYSTEM, smallBatchPrompt } from "./prompts/decision";
 import { AnswersDeltaLLM, SmallBatchLLM, type DecisionLLM } from "./schemas";
-import { parseSlotReason } from "./slots";
+import { coverage, parseSlotReason } from "./slots";
 import { clamp, norm, truncateWords, wordCount } from "./util";
 
 export interface FoldItem {
@@ -96,24 +96,28 @@ export function createSmallKit(call: Caller, today: () => Date, at: () => string
     const ctx = nowContext({ profile, years: past, atYear: first.year, path: forksTaken(state, first.year), today: t, title: "NOW (the life as it stands for these cards)" });
     // Every small card asked so far (served ones; the queue is the agent's), newest last.
     const smalls = state.decisions.filter((d) => d.kind === "small").sort((a, b) => a.year - b.year);
-    const asked = smalls.slice(-14).map((d) => `- ${d.prompt}`).join("\n");
+    const asked = smalls.slice(-24).map((d) => `- ${d.prompt}`).join("\n");
     const avoid = recentFramings(smalls, 6).join("; ");
-    // One domain per card: a repeat inside the batch takes the next domain the gaps need.
+    // One domain per card, chosen NOW (the plan was made at the start): worry-weighted, toward
+    // what we still know least about, away from domains asked often or just now. Each domain
+    // has several gaps, taken in turn, so 1x's ~150 cards don't ask the same thing again.
+    const cov = coverage(profile, state);
+    const askedIn = (d: DomainKey) => smalls.filter((x) => x.domains[0] === d).length;
+    const recentD = new Set(smalls.slice(-3).map((x) => x.domains[0]));
     const used = new Set<DomainKey>();
-    const lastDomain = smalls.at(-1)?.domains[0];
     const plan = slots.map((sl) => {
       const r = parseSlotReason(sl.reason);
-      let domain = r.domain;
-      let why = r.why;
-      if (used.has(domain) || (used.size === 0 && domain === lastDomain)) {
-        const alt = DOMAIN_KEYS.find((d) => !used.has(d) && d !== lastDomain && d !== domain);
-        if (alt) {
-          domain = alt;
-          why = `we don't know much about ${alt} yet`;
-        }
+      if (r.moment === "followup") {
+        used.add(r.domain);
+        return { slot: sl, domain: r.domain, why: r.why };
       }
+      const age = sl.age;
+      const score = (d: DomainKey) => (1 + 1.5 * profile.worries[d]) * (1.15 - cov[d]) * (d === "children" && age > 50 ? 0.4 : 1) / (1 + 0.35 * askedIn(d)) - (recentD.has(d) ? 0.6 : 0) + (d === r.domain ? 0.15 : 0);
+      const domain = DOMAIN_KEYS.filter((d) => !used.has(d)).sort((a, b) => score(b) - score(a))[0] ?? r.domain;
       used.add(domain);
-      return { slot: sl, domain, why };
+      const gaps = GAPS[domain];
+      const worry = profile.worries[domain];
+      return { slot: sl, domain, why: `${worry >= 0.5 ? `they worry about ${domain} (${worry.toFixed(1)}); ` : ""}we don't know ${gaps[askedIn(domain) % gaps.length]}` };
     });
     const prompt = (feedback?: string, only?: number[]) =>
       smallBatchPrompt({
@@ -348,6 +352,66 @@ export function createSmallKit(call: Caller, today: () => Date, at: () => string
 }
 
 const ETHNIC = /\b(race|racial|ethnic\w*|caucasian|white|black|asian|hispanic|latin[oax]|african[- ]american|arab|indigenous|gender|pronouns?)\b/i;
+
+/** Several gaps per domain, asked in turn (the first matches slots.ts GAP_TEXT). */
+const GAPS: Record<DomainKey, string[]> = {
+  career: [
+    "what they'd miss or be relieved to lose about their work, and what would make them quit",
+    "who at work they trust, and who they're quietly competing with",
+    "what a good working day looks like for them, hour by hour",
+    "what they'd do for work if money didn't matter",
+  ],
+  wealth: [
+    "the money thought they keep to themselves: debts, who depends on their money, what a windfall would really go to",
+    "what they spend on without guilt, and what they feel guilty spending on",
+    "how much would be 'enough', and what they'd do once they had it",
+    "how they talk about money with the people closest to them",
+  ],
+  achievement: [
+    "what they're proud of that would never show up on a CV",
+    "what they'd want to have made or finished ten years from now",
+    "whose praise still matters to them, and whose doesn't anymore",
+  ],
+  family: [
+    "what their family assumed they'd become, and who would be disappointed if they changed course",
+    "what they do for their family that nobody notices",
+    "which family tradition they'd keep, and which they'd quietly drop",
+    "who in the family they're most like, and whether they like that",
+  ],
+  relationships: [
+    "who they'd call when things fall apart, and whether there's someone (or someone hoped for)",
+    "what they need from a partner or close friend that they rarely ask for",
+    "a friendship that faded, and whether they'd fix it",
+    "how they make up after a fight",
+  ],
+  children: [
+    "whether kids are in the picture: yes, no and 'honestly, I don't know' are all real",
+    "what kind of grown-up they'd want to be for the children in their life",
+    "what they'd do differently from how they were raised",
+  ],
+  mentalHealth: [
+    "what's quietly draining them, and who gets to see them when things go badly",
+    "what actually helps them reset after a hard week",
+    "what they worry about that they'd never say out loud",
+    "how they know they're running on empty",
+  ],
+  happiness: [
+    "when they were last truly happy, and what they were doing",
+    "the small ordinary thing that makes a week good",
+    "what they'd do with a free day nobody knew about",
+  ],
+  lifeGoals: [
+    "what they'd do if nobody judged them, and what they're waiting for permission to do",
+    "the place or thing they keep saying 'someday' about",
+    "what they'd regret not trying by seventy",
+    "what they want people to say about them when they're not in the room",
+  ],
+  risk: [
+    "the biggest risk they've taken, and what would have to be true before they'd take another",
+    "a safe choice they're glad they made, and one they regret",
+    "how much uncertainty they can live with before it keeps them up",
+  ],
+};
 
 // ---------------------------------------------------------------------------------------------
 // New-thread heuristics (code only)
