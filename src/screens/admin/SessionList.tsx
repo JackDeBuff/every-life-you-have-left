@@ -171,7 +171,7 @@ export function SessionList({ go, onAuthError }: { go: (r: Partial<Route>) => vo
               <th className="num" title="Decisions answered (+ let slide)">Answers</th>
               <th className="num" title="Years played (mirrored)">Years</th>
               <th className="num" title="As recorded in the session">Recorded</th>
-              <th className="num" title={`At the real prices: sessions priced before ${OLD_RATES_UNTIL} are corrected (worker/admin-cost.ts)`}>Cost</th>
+              <th className="num" title={`At the real prices: sessions priced before ${OLD_RATES_UNTIL} are corrected (worker/admin-cost.ts)`}>Corrected</th>
               <th className="num" title="Engine errors (warnings)">Errors</th>
               <th>Created</th>
               <th>Updated</th>

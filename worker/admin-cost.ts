@@ -93,11 +93,12 @@ export function sessionCost(u: SessionUsage | null | undefined, startedAt: strin
   if (!old) return { recorded: u.usd, corrected: u.usd, oldRates: "no" };
   const upd = t(updatedAt);
   const oldRates = Number.isFinite(upd) && upd > fixed ? "partly" : "yes";
-  let corrected = 0;
+  // recorded + what each purpose was under-priced by (robust to a detail that doesn't sum to usd)
+  let extra = 0;
   if (u.detail && Object.keys(u.detail).length) {
-    for (const [k, d] of Object.entries(u.detail)) corrected += correctedDetail(k, d).usd;
+    for (const [k, d] of Object.entries(u.detail)) extra += correctedDetail(k, d).usd - d.usd;
   } else {
-    for (const [k, usd] of Object.entries(u.byPurpose)) corrected += tierOf(k) === "fast" ? usd : usd * 2;
+    for (const [k, usd] of Object.entries(u.byPurpose)) extra += tierOf(k) === "fast" ? 0 : usd;
   }
-  return { recorded: u.usd, corrected: Math.max(u.usd, corrected), oldRates };
+  return { recorded: u.usd, corrected: u.usd + Math.max(0, extra), oldRates };
 }
