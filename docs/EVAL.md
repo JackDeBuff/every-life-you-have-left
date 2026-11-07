@@ -322,6 +322,41 @@ cap). A judge reading ~10 s per card adds ~70-110 s, so ~3.5-4 min.
 Spend for this pass: $2.55 (2× 13 years $0.25, 2× 26 years $0.43, three 1× 10-year runs $0.92, two Auto runs $0.87,
 a UI check $0.05).
 
+## Engine content after the final QA pass: forks, typed answers, people (Sat Nov 7 ~10am-1pm)
+
+**Why the forks forgot earlier choices.** The NOW block comes from the year ledger, not the profile, but only from the
+years written when the card is written, and big cards are written up to 8 years ahead (Auto), sometimes before the
+previous fork is answered. And the checks were thin: place/employer only on the question, repeat-topic only between
+prompts (not options, chosen paths or typed words), two-letter names (UK, UX) ignored, and "still"/"back"/"this time"
+excused any repeat. Now `forkIssues` checks the question and every option against the ledger and every fork taken
+(one repair, then one regeneration), the agent re-checks a card written ahead when its years land (rewriting it if a
+fork was answered since or it no longer fits), and a fork never rewrites a played year. Typed fork answers are their
+own path (`engine/answers.ts`); ages, pets and friends come from uploads (`Person.born`); one parent's old-age death is
+code-owned and always logged; stated income is an anchor (₦ amounts now parse).
+
+**Measured** with `npm run check:qa -- --live <url>`: Sam (22, Chicago, minimal, Auto, whole life), Chidi (34, Lagos,
+naira, 2×, 16 years, a typed fork answer without a tap and one that refuses the tap), Margo (41, Toronto, AI export only,
+2×, 12-14 years). Before = main at `0127d26` with the old card's typed-answer guess; after = this branch merged with
+main. Both scored by the same code (`scripts/qa/live.ts`); the code checks (`npm run check:qa`) hold the QA's exact cards.
+
+| Violations (3 sessions) | Before | After |
+|---|---|---|
+| Fork offers a path already taken / stays with what they left / repeats an earlier option | 12 | 0 |
+| Fork offers an entry-level step after years in the field; names a past employer; ignores the latest fork | 3 | 0 |
+| A played year rewritten later (Jamie's separation) | 9 | 0 |
+| Typed answer filed under an option, or logged as one | 2 | 1* |
+| People without ages, missing (Biscuit, Hanna), learned panel empty | 5 | 0 |
+| Two parent deaths | 1 | 0 |
+| Stated income off by >10% (₦600k a month); "every dollar" to a naira user | 2 | 0 |
+| **Total** | **34** | **1** |
+
+\* "No, none of these. I'd take a year to teach kids to code" was logged "You chose: None of these"; fixed after the run
+(the label comes from the first sentence that says something), now a code check. After-run cards were repaired by the
+same checker, so read them too: Sam at 27 got a mid-level promotion vs an LA lead role (no junior step); Chidi at 41,
+"London promotes you to team lead"; Sam's father dies once, at Sam's 55, in the log.
+
+Spend for this pass: $2.00 (before $0.94, after $0.91, a 5-year smoke $0.16).
+
 ## Method
 
 **Personas** (`scripts/eval/personas.ts`): eight fictional people, written as the start line they would type
