@@ -3,6 +3,7 @@
  * Letters-style voice when we know little; the digital twin (writes like them) once
  * knowMeScore >= TWIN_THRESHOLD (D-026). The persona only knows its life up to that age.
  */
+import { getBaseRate } from "../../shared/baseRates";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SessionState, SimYear } from "../../shared/sim";
 import { decisionsBlock, lifeSoFarBlock, personBlock, quotesBlock, yearLine } from "./context";
@@ -74,7 +75,9 @@ export async function* reply(
   let system: string;
   if (life === "interviewer") {
     const now = state.years.filter((y) => y.year <= state.playhead.year);
-    system = `${INTERVIEWER_SYSTEM}\n\nWHO THEY ARE\n${personBlock(p)}\n\nTHEIR WORDS\n${quotesBlock(p)}\n\nTHEIR SIMULATED LIFE SO FAR\n${lifeSoFarBlock(now, 20)}\n\nDECISIONS\n${decisionsBlock(state, state.playhead.year)}`;
+    const statIds = [...new Set(now.flatMap((y) => y.events.map((e) => e.baseRate?.statId)).filter((x): x is NonNullable<typeof x> => Boolean(x)))];
+    const stats = statIds.map((id) => getBaseRate(id)).filter((b): b is NonNullable<typeof b> => Boolean(b)).map((b) => `- ${b.display} (${b.source})`).join("\n");
+    system = `${INTERVIEWER_SYSTEM}\n\nWHO THEY ARE\n${personBlock(p)}\n\nTHEIR WORDS\n${quotesBlock(p)}\n\nTHEIR SIMULATED LIFE SO FAR\n${lifeSoFarBlock(now, 20)}\n\nDECISIONS\n${decisionsBlock(state, state.playhead.year)}\n\nSTATISTICS BEHIND THEIR LIFE (cite only these; never invent a number or a study)\n${stats || "(none cited yet: explain with their own words and choices instead)"}`;
   } else {
     const l = lifeYearsUpTo(state, life, age);
     if (!l) {
