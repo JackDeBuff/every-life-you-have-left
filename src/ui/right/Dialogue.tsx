@@ -8,25 +8,56 @@
  * left (flex-basis 0) and scrolls on its own. Nothing overlaps the card.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { Profile } from "../../../shared/schema";
+import type { Decision } from "../../../shared/sim";
 import { HoldToTalk } from "../HoldToTalk";
 import { Icon } from "../icons";
+import { Learned } from "../middle/Learned";
 import { sim, useSim } from "../session";
-import type { ChatEntry } from "../types";
+import type { ChatEntry, WarmQuestion, WarmupState } from "../types";
 import { useUi } from "../uiStore";
 import { CardPending } from "./CardPending";
-import { DecisionCard } from "./DecisionCard";
+import { DecisionCard, type WarmCard } from "./DecisionCard";
 import { LiveSettings } from "./LiveSettings";
+
+/** A warm-up question on the decision card (D-090). */
+function warmDecision(q: WarmQuestion, p: Profile | null): Decision {
+  return {
+    id: q.id, kind: "small", year: p?.startYear ?? 0, age: p?.age ?? 0, domains: q.domains, prompt: q.prompt,
+    whyAsking: q.whyAsking, whyQuoteId: q.whyQuoteId, options: q.options, placeholder: q.placeholder, status: "pending",
+  };
+}
+
+function warmInfo(w: WarmupState, current: string): WarmCard {
+  const asked = w.questions.filter((q) => q.status !== "covered");
+  const pips = asked.map((q): WarmCard["pips"][number] => (q.id === current ? "now" : q.status === "answered" || q.status === "skipped" ? "done" : "next"));
+  return { step: Math.max(1, asked.findIndex((q) => q.id === current) + 1), total: w.checked ? asked.length : null, pips };
+}
 
 export function RightPane() {
   const decisions = useSim((s) => s.decisions);
   const forking = useUi((s) => s.forking);
   const deciding = useSim((s) => s.phase === "deciding");
+  const warm = useSim((s) => (s.phase === "warmup" ? (s.warmup ?? null) : null));
+  const profile = useSim((s) => s.profile);
   // A due fork always takes the pane (it preempts a small card; the agent shelves that one).
   const pendingBig = deciding ? decisions.find((d) => d.kind === "big" && d.status === "pending") : undefined;
   const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending"));
   const big = active?.kind === "big";
   // The first fork is being written: its card's place shows that (never an empty pane).
   const firstPending = useSim((s) => s.phase !== "ended" && !!s.profile && !s.decisions.some((d) => d.kind === "big"));
+  const wq = warm?.current ? warm.questions.find((q) => q.id === warm.current) : undefined;
+  const wd = useMemo(() => (wq ? warmDecision(wq, profile) : null), [wq, profile?.startYear, profile?.age]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (warm) {
+    // The warm-up (D-090): its questions on the decision card; settings come after it.
+    return (
+      <aside className="pane right" data-region="right" data-card="true" data-warm="true" aria-label="Getting to know you">
+        <Learned compact />
+        <Dialogue hidden={false} />
+        {wq && wd ? <DecisionCard key={wq.id} d={wd} warm={warmInfo(warm, wq.id)} /> : <CardPending variant={warm.status === "checking" ? "reading" : "fork"} />}
+      </aside>
+    );
+  }
   return (
     <aside className="pane right" data-region="right" data-big={big} data-card={!!active} aria-label="Settings and conversation">
       <LiveSettings pending={active ? { id: active.id, big } : null} />

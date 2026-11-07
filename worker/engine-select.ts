@@ -16,6 +16,7 @@ import type { Profile } from "../shared/schema";
 import type { StartInput } from "../shared/sim";
 import { createMockEngine } from "./engine-mock";
 import type { SmallDecisionKit } from "./engine/smalls";
+import type { WarmupPort } from "./engine/warmup";
 import { bindLlm, generationEnabled, type LlmEnv } from "./llm";
 
 export type EngineKind = "mock" | "real";
@@ -24,6 +25,7 @@ type EngineModule = {
   createEngine?: (arg: never) => Engine;
   createFetchLlm?: (cfg: { apiKey: string; project: string; location?: string }) => unknown;
   provisionalProfile?: (input: StartInput) => Profile;
+  createWarmup?: (d: { llm: unknown; onUsage?: UsageSink }) => WarmupPort;
   engine?: Engine;
   default?: Engine | ((env: Env) => Engine);
 };
@@ -38,6 +40,10 @@ export interface LoadedEngine {
   backup?: Engine;
   /** Real engine only (D-089): batched small cards, code-side quotes and batched answer folding. */
   small?: SmallDecisionKit;
+  /** Real engine only: every call on the fast model (the warm-up's last-answer refresh of the first fork, <= 3 s). */
+  quick?: Engine;
+  /** Real engine only: the warm-up's model calls (coverage, folds, personalized answers). Mock: code only. */
+  warmup?: WarmupPort;
 }
 
 const REAL = import.meta.glob<EngineModule>("./engine/index.ts");
@@ -79,8 +85,24 @@ export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedE
         ? (mod.createEngine as Create)({ llm, onUsage, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
         : undefined;
     const kit = (made as { small?: SmallDecisionKit } | undefined)?.small;
+    // The warm-up refreshes the first fork after the last answer only if that lands in <= 3 s: the
+    // fast model for every tier (3.8 Flash takes 5-17 s for that card). No mock fallback either.
+    const quick =
+      typeof mod.createEngine === "function" && llm
+        ? (mod.createEngine as Create)({ llm, onUsage, models: { heavy: FAST, repair: FAST, forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
+        : undefined;
+    const warmup = typeof mod.createWarmup === "function" && llm ? mod.createWarmup({ llm, onUsage }) : undefined;
     if (isEngine(made))
-      return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile, backup: isEngine(backup) ? backup : undefined, small: kit ? resilientKit(kit) : undefined };
+      return {
+        engine: resilient(made, createMockEngine()),
+        kind: "real",
+        reason: "ok",
+        provisional: mod.provisionalProfile,
+        backup: isEngine(backup) ? backup : undefined,
+        quick: isEngine(quick) ? quick : undefined,
+        warmup,
+        small: kit ? resilientKit(kit) : undefined,
+      };
     return { engine: createMockEngine(), kind: "mock", reason: "engine_bad_export" };
   } catch (e) {
     console.error("engine load failed", e instanceof Error ? e.name : "error");

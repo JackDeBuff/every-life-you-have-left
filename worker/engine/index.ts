@@ -55,8 +55,9 @@ import { worldTimeline } from "./world";
 import { chosenPath } from "./money";
 import { decisionIdsIn, writeYears, type WriterEnv, type YearMetric } from "./years";
 import { createSmallKit, type SmallDecisionKit } from "./smalls";
+import { warmupWith, type WarmupPort } from "./warmup";
 
-export type { EngineModels, UsageEvent, YearMetric };
+export type { EngineModels, UsageEvent, YearMetric, WarmupPort };
 export type { SmallDecisionKit, FoldItem, FoldResult, Thread } from "./smalls";
 
 /**
@@ -371,6 +372,15 @@ export function createEngine(deps: EngineDeps): EngineWithSmalls {
 export function provisionalProfile(input: StartInput, now: Date = new Date()): Profile {
   const quotes = quotesFromText(input.line, 1, "start", "answer");
   return emptyProfile(input, now.getFullYear(), "s_provisional", quotes, now.toISOString());
+}
+
+/**
+ * The warm-up's model calls (D-090, worker/engine/warmup.ts): coverage check, answer folds and
+ * personalized quick answers, all on the fast tier. The session agent loads it with the engine.
+ */
+export function createWarmup(deps: EngineDeps): WarmupPort {
+  const models: EngineModels = { ...DEFAULT_MODELS, ...deps.models, yearsBySpeed: deps.models?.yearsBySpeed ?? DEFAULT_MODELS.yearsBySpeed };
+  return warmupWith(createCaller({ llm: deps.llm, models, onUsage: deps.onUsage }));
 }
 
 /** At most `n` of the wrapped tasks run at once. */

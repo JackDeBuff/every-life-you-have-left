@@ -126,6 +126,8 @@ const emptyState = (): ClientState => ({
   bufferedTo: null,
   engine: "mock",
   error: null,
+  // The offline demo (?demo=alex) skips the warm-up (D-090): Alex's start line covers it.
+  warmup: null,
   dialogue: [],
   connection: "open",
   backend: "mock",
@@ -506,6 +508,10 @@ export const useMockSim = create<Store>()((set, get) => {
   // -------------------------------------------------------------------------------------------
   return {
     ...emptyState(),
+
+    // No warm-up offline (D-090): these never fire, the demo never enters phase "warmup".
+    async answerWarmup() {},
+    async forget() {},
 
     async start(input) {
       I.timers.forEach(clearTimeout);

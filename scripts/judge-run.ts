@@ -135,6 +135,10 @@ interface Fork {
 }
 const forks: Fork[] = [];
 let firstCard: number | null = null;
+let lastWarm: string | null = null;
+let firstWarm: number | null = null;
+let lastWarmAnswer: number | null = null;
+let warmAsked = 0;
 let starvedS = 0;
 /** Starved stretches: the playhead waiting at a year for the agent (buffer behind, gate, ending). */
 const starves: { at: number; year: number; s: number; why: string }[] = [];
@@ -167,6 +171,22 @@ function frame() {
   const dt = last ? Math.min(1000, now - last) : 16;
   last = now;
   if (!s || s.phase === "start" || !s.profile) return;
+  // The warm-up (D-090): tap an answer to each question after the reading time. The clock is still.
+  if (s.phase === "warmup") {
+    const cur = s.warmup?.current ?? null;
+    if (cur && cur !== lastWarm) {
+      lastWarm = cur;
+      if (firstWarm === null) firstWarm = T();
+      const q = s.warmup!.questions.find((x) => x.id === cur)!;
+      const opt = q.options[warmAsked++ % 4]!;
+      log(`warm-up ${warmAsked}: ${q.key} → "${opt.label}"`);
+      setTimeout(() => {
+        lastWarmAnswer = T();
+        void call("answerWarmup", { questionId: cur, optionId: opt.id, text: null, via: "tap" }).catch((e) => log("answerWarmup failed", e));
+      }, READ_S * 1000);
+    }
+    return;
+  }
   const year = s.playhead.year;
   const visibleDecisions = s.decisions.filter((d) => d.status !== "pending" || d.year <= year);
 
@@ -323,6 +343,7 @@ async function main() {
   const s = state!;
   console.log(`\n— ${SPEED === "auto" ? "Auto judge" : SPEED} run${ended === null ? ` (stopped at ${s.playhead.year}, age ${s.playhead.age})` : ""} —`);
   console.log(`total (Start → ending): ${fmt(ended)} s   first card: ${fmt(firstCard)} s   starved: ${starvedS.toFixed(1)} s   moments: ${momentsPlayed} (${momentHoldS.toFixed(1)} s held)`);
+  console.log(`warm-up: ${warmAsked} questions, first at ${fmt(firstWarm)} s, last answer at ${fmt(lastWarmAnswer)} s → first fork ${lastWarmAnswer !== null && firstCard !== null ? `${(firstCard - lastWarmAnswer).toFixed(1)} s later` : "-"}`);
   console.log("fork  age  shown  answer  cuts   il.start il.end resumed  answer→cuts  answer→resume  firstYear");
   for (const [i, f] of forks.entries()) {
     const ac = f.cuts !== null && f.answered !== null ? f.cuts - f.answered : null;
@@ -368,7 +389,7 @@ async function main() {
   console.log(`engine ${s.engine}, error ${s.error ?? "none"}`);
   if (out) {
     const fs = await import("node:fs");
-    fs.writeFileSync(out, JSON.stringify({ sessionId, speed: SPEED, legacy, readS: READ_S, smallReadS: SMALL_READ_S, total: ended, wall: T(), firstCard, starvedS, momentsPlayed, forks, smallAnswered, smallWithText, smallGaps, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage, snap, decisions: s.decisions.map((d) => ({ id: d.id, kind: d.kind, year: d.year, status: d.status, prompt: d.prompt })), answers: s.answers }, null, 2));
+    fs.writeFileSync(out, JSON.stringify({ sessionId, speed: SPEED, legacy, readS: READ_S, smallReadS: SMALL_READ_S, total: ended, wall: T(), firstCard, warmup: { asked: warmAsked, first: firstWarm, lastAnswer: lastWarmAnswer }, starvedS, momentsPlayed, forks, smallAnswered, smallWithText, smallGaps, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage, snap, decisions: s.decisions.map((d) => ({ id: d.id, kind: d.kind, year: d.year, status: d.status, prompt: d.prompt })), answers: s.answers }, null, 2));
   }
   ws.close();
   process.exit(ended !== null || STOP_YEARS > 0 ? 0 : 1);
