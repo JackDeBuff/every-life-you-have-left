@@ -74,8 +74,9 @@ export default function Ending() {
   const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
   const message = useMemo(
-    () => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} Decide the small things faster and the big things slower. It worked out better than you'd think.`,
-    [chosenLast, lives, p.city],
+    // The engine writes a postcard line from this life (ending.postcard); the fixed line is only a fallback.
+    () => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} ${(s.ending as { postcard?: string } | null)?.postcard ?? "Decide the small things faster and the big things slower. It worked out better than you'd think."}`,
+    [chosenLast, lives, p.city, s.ending],
   );
 
   return (
