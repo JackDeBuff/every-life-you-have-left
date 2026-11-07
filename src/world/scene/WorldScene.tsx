@@ -50,8 +50,8 @@ interface IslandItem {
 }
 
 const ALL_KITS: StaticKit[] = ["nature", "street", "props", "suburban", "commercial", "cars", "interior", "camp", "food"];
-const LIFE_DIST = 26.5;
-const INDOOR_DIST = 13;
+const LIFE_DIST = 23.5;
+const INDOOR_DIST = 10.8;
 
 function Diorama({ item, self, frozen }: { item: IslandItem; self: SelfTracker; frozen: boolean }) {
   const ref = useRef<Group>(null);
@@ -198,7 +198,7 @@ export function WorldScene(props: SceneProps) {
     if (mode === "interlude") return;
     const step = yearStep.current;
     R.yaw = 38 + Math.sin(step * 1.7) * 11;
-    R.pitch = layout.indoor ? 35 : 30;
+    R.pitch = layout.indoor ? 37 : 30;
     R.dist = layout.indoor ? INDOOR_DIST : LIFE_DIST;
     R.focus.set(layout.focus[0], layout.focus[1], layout.focus[2]);
     R.shot = null;

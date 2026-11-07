@@ -391,8 +391,9 @@ function composeSetting(b: Builder, setting: Setting) {
       b.proc("mailbox", 1.25, -1.3, 0, [0.08, 0.2, 0.08], "mail");
       for (let i = 0; i < 3; i++) b.light(-3.6 + i * 3.2, -1.35, FACE_NZ, `l${i}`);
       b.forest(town ? 7 : 9);
-      b.scatter(14, grassBits, 0.15, "gr");
-      b.scatter(5, bush, 0.3, "bu");
+      b.scatter(18, grassBits, 0.15, "gr");
+      b.scatter(7, bush, 0.3, "bu");
+      if (b.snow < 0.5) b.scatter(8, ["Flowers", "Plant_2", "BushBerries_2"], 0.2, "fl", 4.4);
       b.kits.add("suburban").add("street").add("cars");
       if (town) b.kits.add("commercial");
       break;
@@ -569,7 +570,7 @@ function roomFor(spec: SceneSpec, w: number, d: number): Vignette {
     kids: [sp(0.4, 0.55, 2.4, "walk", { path: loop(0.4, 0.45, 0.28), speed: 0.25 }), sp(-0.2, 0.6, 0, "idle")],
     others: [sp(0.55, -0.1, -2.4, "idle"), sp(-0.3, 0.4, 2.8, "idle"), sp(0.7, 0.5, -2.6, "idle")],
     pet: sp(0.55, 0.65, -0.5, "idle"),
-    rug: "#E8C27A",
+    rug: "#D9825B",
   };
   // every room gets a little life on its back walls
   base.procs.push(pp("wallArt", -w / 2 + 0.075, -0.45, 0, [0.02, 0.2, 0.28], "art1", { seed: hashString(spec.placeLabel) % 97 }));
@@ -601,7 +602,7 @@ function roomFor(spec: SceneSpec, w: number, d: number): Vignette {
       base.procs.push(pp("canvasStack", -hw + 0.08, 0.35, Math.PI / 2, [0.3, 0.28, 0.04], "canvases", { seed: 7 }));
       base.pieces.push(ip("Stool", 0.25, 0.2, 0, "stool"), plant, ip("Shelf_Small1", -hw + 0.05, -0.3, Math.PI / 2, "shelf", 0.3), ip("Light_Stand1", hw - 0.25, -hd + 0.15, 0, "standlamp"), ip("Table_RoundSmall", -0.6, -hd + 0.25, 0, "table"));
       base.self = sp(0.22, 0.12, -2.3, "idle");
-      base.rug = "#9ED3C6";
+      base.rug = "#5E9AA0";
       break;
     case "caregiving":
       base.pieces.push(ip("Couch_Small2", -hw + 0.25, -0.2, Math.PI / 2, "armchair"), ip("NightStand_1", -hw + 0.12, 0.25, Math.PI / 2, "side"), ip("Light_Floor3", -hw + 0.08, -hd + 0.1, 0, "lamp"), ip("Houseplant_5", hw - 0.12, -hd + 0.12, 0, "plant2"), ip("Bookshelf", -0.2, -hd + 0.05, 0, "books"));
@@ -923,7 +924,7 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
   const hero: HeroSpec = {
     ...heroBase,
     room: indoor
-      ? { pieces: room.pieces, procs: room.procs, floor: room.floor ?? "#D9B48C", wallIn: "#F4EBDD", rug: room.rug === undefined ? "#E8C27A" : room.rug }
+      ? { pieces: room.pieces, procs: room.procs, floor: room.floor ?? "#D9B48C", wallIn: "#F4EBDD", rug: room.rug === undefined ? "#D9825B" : room.rug }
       : { pieces: [], procs: [], floor: "#D9B48C", wallIn: "#F4EBDD", rug: null },
   };
 
@@ -975,7 +976,7 @@ export function compose(spec: SceneSpec, appearance: Appearance | null): Layout 
 
   const pieces = [...b.pieces, ...stage.pieces.filter(() => !indoor)];
   const procs = [...b.procs, ...(indoor ? [] : stage.procs)];
-  const focus: V3 = indoor ? [HERO_POS[0], 0.35, HERO_POS[2]] : spec.activity === "exercising" || spec.activity === "commuting" ? [0.9, 0.3, 0.9] : [STAGE[0] * 0.75, 0.3, STAGE[2] * 0.75];
+  const focus: V3 = indoor ? [HERO_POS[0], 0.35, HERO_POS[2]] : spec.activity === "exercising" || spec.activity === "commuting" ? [0.7, 0.3, 0.7] : [STAGE[0] * 0.62, 0.3, STAGE[2] * 0.62];
 
   return {
     placeKey,

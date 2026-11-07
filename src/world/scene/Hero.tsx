@@ -4,7 +4,7 @@
  */
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import { BoxGeometry, CylinderGeometry, ExtrudeGeometry, Shape, type Group, type Material, type PointLight } from "three";
+import { AdditiveBlending, BoxGeometry, CanvasTexture, CylinderGeometry, ExtrudeGeometry, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Shape, SRGBColorSpace, type Group, type Material, type PointLight } from "three";
 import type { SceneSpec } from "../../../shared/sim";
 import type { HeroSpec } from "../layout";
 import { MATS, solid } from "../materials";
@@ -33,6 +33,34 @@ const GABLE = (() => {
 })();
 
 const T = 0.06; // wall thickness
+
+const rugCache = new Map<string, MeshStandardMaterial>();
+/** A soft striped rug in the room colour (reads clearly against the wood floor). */
+function rugMaterial(hex: string) {
+  let m = rugCache.get(hex);
+  if (m) return m;
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 64;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = hex;
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillStyle = "#FBF8F1";
+  ctx.globalAlpha = 0.85;
+  ctx.fillRect(0, 6, 64, 4);
+  ctx.fillRect(0, 54, 64, 4);
+  ctx.globalAlpha = 0.35;
+  for (let i = 0; i < 5; i++) ctx.fillRect(0, 16 + i * 8, 64, 2);
+  ctx.globalAlpha = 1;
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  m = new MeshStandardMaterial({ map: t, roughness: 1 });
+  rugCache.set(hex, m);
+  return m;
+}
+const SUNPATCH = new MeshBasicMaterial({ color: "#FFE9C4", transparent: true, opacity: 0.0, blending: AdditiveBlending, depthWrite: false });
+const PLANE = new PlaneGeometry(1, 1);
+PLANE.rotateX(-Math.PI / 2);
 
 function Box({ p, s, m, cast = true }: { p: [number, number, number]; s: [number, number, number]; m: Material; cast?: boolean }) {
   return <mesh geometry={BOX} material={m} position={p} scale={s} castShadow={cast} receiveShadow />;
@@ -90,7 +118,7 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
       door: solid(hero.door),
       floor: solid(hero.room.floor, 0.7),
       wallIn: solid(hero.room.wallIn),
-      rug: hero.room.rug ? solid(hero.room.rug) : null,
+      rug: hero.room.rug ? rugMaterial(hero.room.rug) : null,
     }),
     [hero.wall, hero.wall2, hero.roofColor, hero.trim, hero.door, hero.room.floor, hero.room.wallIn, hero.room.rug],
   );
@@ -98,6 +126,7 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
   const frontZ = useRef<Group>(null);
   const upper = useRef<Group>(null);
   const room = useRef<Group>(null);
+  const extras = useRef<Group>(null);
   const light = useRef<PointLight>(null);
   const look = useLookRef();
   const { time } = useMotion();
@@ -121,7 +150,13 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
       upper.current.visible = c < 0.995;
     }
     if (room.current) room.current.visible = c > 0.02;
+    if (extras.current) {
+      const k = Math.max(0.0001, 1 - c * 1.4);
+      extras.current.scale.set(1, k, 1);
+      extras.current.visible = k > 0.01;
+    }
     if (light.current) light.current.intensity = c * (0.6 + look.current.windowGlow * 2.2);
+    SUNPATCH.opacity = c * Math.max(0, 0.22 - look.current.windowGlow * 0.22) * look.current.shadowStrength;
   });
 
   const isOffice = hero.kind === "office";
@@ -150,7 +185,9 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
         <group position={[w * 0.18, 0, -d / 2 + T + 0.01]}>
           <Windows len={w * 0.4} axis="z" side={1} y={0.05} h={fh} big={big} m={m} count={1} />
         </group>
-        {m.rug && <Box p={[0.15, 0.035, 0.15]} s={[w * 0.45, 0.008, d * 0.42]} m={m.rug} cast={false} />}
+        {m.rug && <Box p={[0.15, 0.035, 0.15]} s={[w * 0.46, 0.008, d * 0.44]} m={m.rug} cast={false} />}
+        {/* daylight from the back window, lying on the floor */}
+        <mesh geometry={PLANE} material={SUNPATCH} position={[w * 0.18 + 0.12, 0.045, -d / 2 + 0.55]} scale={[w * 0.32, 1, 0.55]} rotation-y={-0.25} renderOrder={2} />
         <group position={[0, 0.035, 0]}>
           {roomList.map((pr) => (
             <PieceItem key={pr.key} pr={pr} flavor={flavor} />
@@ -186,6 +223,7 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
       </group>
       <Box p={[w * 0.28, -0.02, d / 2 + 0.12]} s={[0.36, 0.05, 0.2]} m={m.trim} />
 
+      <group ref={extras}>
       {hero.porch && (
         <group position={[-w * 0.18, 0, d / 2 + 0.24]}>
           <Box p={[0, -0.01, 0]} s={[w * 0.5, 0.05, 0.46]} m={MATS.wood} />
@@ -203,6 +241,7 @@ function Building({ hero, cutRef, flavor }: { hero: HeroSpec; cutRef: React.Muta
           <Box p={[0, fh - 0.05, 0]} s={[w + 0.06, 0.06, 0.44]} m={m.trim} />
         </group>
       )}
+      </group>
 
       {/* upper floors + roof: float up for the cutaway */}
       <group ref={upper} position={[0, fh, 0]}>

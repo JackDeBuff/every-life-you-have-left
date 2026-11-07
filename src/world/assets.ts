@@ -89,7 +89,7 @@ const srgb = (hex: string): [number, number, number] => {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
 
-function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, mode: RecolorMode, snowy = false) {
+function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, mode: RecolorMode, snowy = false, variant = 0) {
   const img = src.image as CanvasImageSource & { width: number; height: number };
   const w = img.width;
   const h = img.height;
@@ -104,7 +104,8 @@ function recolor(src: Texture, style: FlavorStyle | null, wall: string | null, m
   em.height = h;
   const ectx = em.getContext("2d")!;
   const edata = ectx.createImageData(w, h);
-  const roof = srgb(snowy ? "#EEF3F6" : style?.roof ?? "#888888");
+  const roofHex = style?.roofs?.length ? style.roofs[variant % style.roofs.length]! : style?.roof ?? "#888888";
+  const roof = srgb(snowy ? "#EEF3F6" : roofHex);
   const wallC = srgb(wall ?? "#ffffff");
   const trim = srgb(style?.trim ?? "#ffffff");
   const dark = srgb(style?.dark ?? "#4E5560");
@@ -170,12 +171,12 @@ function kenneyMaterial(kit: StaticKit, original: MeshStandardMaterial, flavor: 
   const building = kit === "suburban" || kit === "commercial";
   const style = building ? FLAVOR[flavor] : null;
   const wall = style ? style.walls[variant % style.walls.length]! : null;
-  const key = `${kit}|${building ? flavor : "-"}|${building ? variant % (style?.walls.length ?? 1) : 0}|${building && snowy ? "snow" : ""}`;
+  const key = `${kit}|${building ? flavor : "-"}|${building ? variant : 0}|${building && snowy ? "snow" : ""}`;
   let m = recolorCache.get(key);
   if (m) return m;
   const src = original.map;
   if (!src?.image) return original;
-  const { map, emissiveMap } = recolor(src, style, wall, building ? "building" : "soft", building && snowy);
+  const { map, emissiveMap } = recolor(src, style, wall, building ? "building" : "soft", building && snowy, variant);
   m = new MeshStandardMaterial({ map, roughness: 0.85, metalness: 0 });
   if (building) {
     m.emissiveMap = emissiveMap;

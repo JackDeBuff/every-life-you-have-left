@@ -10,8 +10,8 @@ import { rng } from "../rng";
 
 const R = 0.9; // corner radius
 const TOP = 0.26; // land layer thickness
-const MID = 0.55;
-const DEEP = 0.75;
+const MID = 0.4;
+const DEEP = 0.5;
 
 function roundedRectPoints(half: number, r: number, seg = 6): Vector2[] {
   const pts: Vector2[] = [];

@@ -232,6 +232,8 @@ function Mover({ pr, rig, walkIn, self, frozen, scale, pet }: PersonProps & { ri
   const { time, reduced } = useMotion();
   const state = useRef({ phase: walkIn && !reduced ? "enter" : "place", s: Math.random() * 10, pose: "" as string, pos: new Vector3(), head: 0, born: time() });
   const tmp = useMemo(() => new Vector3(), []);
+  /** Procedural bone offsets applied last frame (undone before the mixer runs, since not every clip drives every bone). */
+  const applied = useRef<{ bone: Bone; axis: "x" | "z"; v: number }[]>([]);
 
   // choose the clip whenever the pose / phase changes
   const choose = (phase: string, pose: Pose) => {
@@ -311,20 +313,26 @@ function Mover({ pr, rig, walkIn, self, frozen, scale, pet }: PersonProps & { ri
     if (reduced) st.head = heading;
     g.rotation.y = st.head;
 
+    for (const a of applied.current) a.bone.rotation[a.axis] -= a.v;
+    applied.current.length = 0;
     rig.mixer.update(dt);
     if (!pet) {
       // ageing posture + procedural wave, applied on top of the clip
       const b = rig.bones;
+      const add = (bone: Bone | undefined, axis: "x" | "z", v: number) => {
+        if (!bone) return;
+        bone.rotation[axis] += v;
+        applied.current.push({ bone, axis, v });
+      };
       if (slot.stoop > 0 && phase !== "exit") {
-        if (b.Torso) b.Torso.rotation.x += 0.16 * slot.stoop;
-        if (b.Neck) b.Neck.rotation.x += 0.1 * slot.stoop;
+        add(b.Torso, "x", 0.16 * slot.stoop);
+        add(b.Neck, "x", 0.1 * slot.stoop);
       }
-      if (pose === "wave" && b["UpperArm.R"] && b["LowerArm.R"]) {
-        const w = Math.sin(time() * 9) * 0.35;
-        b["UpperArm.R"].rotation.z += 2.1;
-        b["LowerArm.R"].rotation.z += 0.6 + w;
+      if (pose === "wave") {
+        add(b["UpperArm.R"], "z", 2.1);
+        add(b["LowerArm.R"], "z", 0.6 + Math.sin(time() * 9) * 0.35);
       }
-      if (pose === "sad" && b.Neck) b.Neck.rotation.x += 0.35;
+      if (pose === "sad") add(b.Neck, "x", 0.35);
     }
     if (self && slot.role === "self") self.pos.copy(st.pos);
   });
