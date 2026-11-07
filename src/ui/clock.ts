@@ -63,6 +63,22 @@ class LifeClock {
     return this.scale;
   }
 
+  /**
+   * The engine can schedule 2-3 small decisions a year at 2x/4x, and the card shows one at a time.
+   * Small decisions from a year the playhead has left, that were never on screen (not the first
+   * pending one), slide quietly so a backlog can't hold the clock at 0.25x for the rest of the life.
+   */
+  private slid = new Set<string>();
+  private sweepSmall(s: ReturnType<typeof sim>) {
+    const pending = s.decisions.filter((d) => d.status === "pending");
+    const shown = pending[0]?.id;
+    for (const d of pending) {
+      if (d.kind !== "small" || d.id === shown || d.year >= s.playhead.year || this.slid.has(d.id)) continue;
+      this.slid.add(d.id);
+      void s.answer({ decisionId: d.id, optionId: null, text: null, via: "tap", slid: true }).catch(() => {});
+    }
+  }
+
   private setStarved(v: boolean) {
     if (useClockUi.getState().starved !== v) useClockUi.setState({ starved: v });
   }
@@ -88,6 +104,7 @@ class LifeClock {
     // The last year may always be "ticked past": that is the end-of-life signal.
     const buffered = next > endYear || s.bufferedTo === null || s.bufferedTo >= next;
     const smallPending = s.decisions.some((d) => d.kind === "small" && d.status === "pending");
+    this.sweepSmall(s);
     const playing = s.phase === "playing" && !s.playhead.paused && this.holds.size === 0 && !document.hidden;
     const target = playing ? (smallPending ? 0.25 : 1) : 0;
     const k = Math.min(1, dtMs / (target < this.scale ? 260 : 600));

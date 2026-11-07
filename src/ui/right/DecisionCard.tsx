@@ -46,11 +46,17 @@ export function DecisionCard({ d }: { d: Decision }) {
   }, [big]);
 
   // "Let it slide": a hairline drains over the timeout at 2×/4×. Engaging stops it.
+  const drainTw = useRef<gsap.core.Tween | null>(null);
+  // The countdown only runs while life is playing (not during an interlude or a fork).
+  const running = useSim((s) => s.phase === "playing" && !s.playhead.paused);
+  useEffect(() => {
+    drainTw.current?.paused(!running);
+  }, [running]);
   useEffect(() => {
     if (!timeout || engaged || busy) return;
     const p = { v: 1 };
     setLeft(timeout);
-    const tw = gsap.to(p, {
+    const tw = (drainTw.current = gsap.to(p, {
       v: 0,
       duration: timeout,
       ease: "none",
@@ -59,9 +65,11 @@ export function DecisionCard({ d }: { d: Decision }) {
         setLeft(Math.ceil(p.v * timeout));
       },
       onComplete: () => void slide(),
-    });
+      paused: sim().phase !== "playing" || sim().playhead.paused,
+    }));
     return () => {
       tw.kill();
+      drainTw.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeout, engaged, busy]);

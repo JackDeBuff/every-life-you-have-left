@@ -278,7 +278,7 @@
 }
 
 /* ---------------------------------------------------------------- right */
-.right { display: flex; flex-direction: column; min-height: 0; position: relative; }
+.right { display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
 .settings { border-bottom: 1px solid var(--hair); flex: none; }
 .settings-head {
   width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: var(--s3); align-items: center;
