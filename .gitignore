@@ -9,3 +9,6 @@ dist/
 .DS_Store
 coverage/
 .vite/
+
+# 3D asset downloads (raw packs, never committed)
+scripts/assets/raw/
