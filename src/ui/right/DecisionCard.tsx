@@ -136,7 +136,9 @@ export function DecisionCard({ d }: { d: Decision }) {
         </span>
       </header>
 
-      <h2 className="dq">{d.prompt}</h2>
+      <h2 className="dq" data-len={d.prompt.length > 170 ? "xl" : d.prompt.length > 110 ? "l" : undefined}>
+        {d.prompt}
+      </h2>
       <p className="dwhy">
         <span className="label">Why I'm asking</span>{" "}
         {quote ? <WhyWithQuote text={d.whyAsking} quote={quote.shortForm ?? quote.text} /> : d.whyAsking}

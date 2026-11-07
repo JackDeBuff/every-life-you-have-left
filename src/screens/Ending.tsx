@@ -13,7 +13,7 @@ import { money, ROMAN } from "../ui/format";
 import { Icon } from "../ui/icons";
 import { MiniRose } from "../ui/left/LifeRose";
 import { Portrait } from "../ui/left/Portrait";
-import { readAloud, type Reading } from "../ui/media";
+import { readAloud, warmVoice, type Reading } from "../ui/media";
 import { gsap, reducedMotion, setSun } from "../ui/motion";
 import { sim, useSim } from "../ui/session";
 
@@ -205,9 +205,14 @@ function FiveYear({ lives }: { lives: LifeCol[] }) {
   const [tab, setTab] = useState("chosen");
   const [copied, setCopied] = useState(false);
   const sessionId = useSim((s) => s.sessionId);
-  const { speaking, toggle, stop } = useReadAloud(sessionId);
+  const { speaking, loading, toggle, stop } = useReadAloud(sessionId);
   const text = five[tab] ?? "";
   const speak = () => toggle(text);
+  // Gemini TTS takes ~9 s cold; warm the server's cache for your life's answer on arrival.
+  const chosen = five.chosen ?? "";
+  useEffect(() => {
+    if (chosen) warmVoice(chosen, sessionId);
+  }, [chosen, sessionId]);
 
   return (
     <Tabs.Root className="five" value={tab} onValueChange={(v) => (stop(), setTab(v))}>
@@ -236,7 +241,7 @@ function FiveYear({ lives }: { lives: LifeCol[] }) {
           <Icon name={copied ? "check" : "copy"} size={14} /> {copied ? "Copied" : "Copy"}
         </button>
         <button className="btn ghost sm" onClick={() => void speak()}>
-          <Icon name={speaking === text && text ? "stop" : "speaker"} size={14} /> {speaking === text && text ? "Stop" : "Read it aloud"}
+          <Icon name={speaking === text && text ? "stop" : "speaker"} size={14} /> {speaking === text && text ? (loading ? "Getting the voice…" : "Stop") : "Read it aloud"}
         </button>
         <span className="small faint">About 30 seconds out loud. Practise it once.</span>
       </div>
@@ -315,7 +320,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
               </p>
               {!c.streaming && c.text.length > 1 && (
                 <button className="btn quiet sm t-read" onClick={() => void reader.toggle(c.text)}>
-                  <Icon name={reader.speaking === c.text ? "stop" : "speaker"} size={13} /> {reader.speaking === c.text ? "Stop" : c.form === "letter" ? "Read the letter aloud" : "Hear it"}
+                  <Icon name={reader.speaking === c.text ? "stop" : "speaker"} size={13} /> {reader.speaking === c.text ? (reader.loading ? "Getting the voice…" : "Stop") : c.form === "letter" ? "Read the letter aloud" : "Hear it"}
                 </button>
               )}
             </div>
@@ -356,6 +361,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
 /** One reading at a time: Gemini TTS in the "future" voice (browser speech as the fallback). */
 function useReadAloud(sessionId: string) {
   const [speaking, setSpeaking] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const cur = useRef<Reading | null>(null);
   const token = useRef(0);
   const stop = useCallback(() => {
@@ -372,7 +378,9 @@ function useReadAloud(sessionId: string) {
       if (same) return;
       const t = ++token.current;
       setSpeaking(text);
+      setLoading(true);
       const r = await readAloud(text, sessionId);
+      setLoading(false);
       if (t !== token.current) return r.stop();
       cur.current = r;
       void r.done.then(() => {
@@ -385,5 +393,5 @@ function useReadAloud(sessionId: string) {
     [sessionId, speaking, stop],
   );
   useEffect(() => () => cur.current?.stop(), []);
-  return { speaking, toggle, stop };
+  return { speaking, loading, toggle, stop };
 }

@@ -52,6 +52,16 @@ export function startPortraits(p: { sessionId: string; age: number; endAge: numb
   })();
 }
 
+const warmed = new Set<string>();
+/** Ask the server to render (and cache in R2) a reading ahead of the click. Fire and forget. */
+export function warmVoice(text: string, sessionId?: string) {
+  if (!text || warmed.has(text)) return;
+  warmed.add(text);
+  void fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, voice: "future", sessionId }) })
+    .then((r) => r.arrayBuffer())
+    .catch(() => {});
+}
+
 export interface Reading {
   stop(): void;
   done: Promise<void>;

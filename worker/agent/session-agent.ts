@@ -53,7 +53,7 @@ const BRANCH_STEP = 5; // hidden branches advance coarsely in 5-year steps
 // finish (and after the fork moment); this only resumes a session whose client went away.
 const INTERLUDE_S = 30;
 const FLUSH_MS = 50; // patch coalescing
-const HEDGE_MS = 9000; // no year streamed after this long → the fast writer races the stretch
+const HEDGE_MS = 6500; // no year streamed after this long → the fast writer races the stretch
 const PERSIST_MS = 1000; // setState debounce
 const AGENT_LOG_KINDS = new Set(["decision", "nudge", "fork", "interlude", "slid"]);
 
@@ -672,7 +672,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.genRunning === this.epoch) return;
     const lastGen = s.years.at(-1)?.year ?? this.startYear - 1;
     if (lastGen >= this.endYear) return;
-    if (lastGen - s.playhead.year >= BUFFER_AHEAD) return;
+    // Fast speeds keep a deeper buffer: it absorbs a stalled stretch, and the whole life is written
+    // a few years before the end so the ending can be prepared while the last years play.
+    const ahead = SPEED_CONFIG[s.speed].secondsPerYear <= 2 ? BUFFER_AHEAD + 2 : BUFFER_AHEAD;
+    if (lastGen - s.playhead.year >= ahead) return;
     const from = lastGen + 1;
     const count = Math.min(CHUNK, this.endYear - lastGen);
     const epoch = this.epoch;
