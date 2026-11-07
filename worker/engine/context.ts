@@ -147,10 +147,19 @@ export function decisionLine(state: SessionState, d: Decision): string {
   return `${head} -> chose "${opt?.label ?? "their own answer"}"${opt?.branchTitle ? ` (${opt.branchTitle})` : ""}${said}`;
 }
 
-export function decisionsBlock(state: SessionState, uptoYear: number): string {
+/** Every big decision, and the most recent small ones (1x answers ~150 small cards: what the
+ * older ones taught is in the profile; the full list would cost ~9k tokens in every call). */
+export function decisionsBlock(state: SessionState, uptoYear: number, maxSmall = 8): string {
   const ds = state.decisions.filter((d) => d.year <= uptoYear && d.status !== "pending").sort((a, b) => a.year - b.year);
   if (!ds.length) return "(none)";
-  return ds.map((d) => decisionLine(state, d)).join("\n");
+  // shelved by a fork (slid with no answer record): never seen, not a decision
+  const smalls = ds.filter((d) => d.kind === "small" && (d.status === "answered" || state.answers.some((a) => a.decisionId === d.id)));
+  const keep = new Set(smalls.slice(-maxSmall));
+  const shown = ds.filter((d) => d.kind === "big" || keep.has(d));
+  const older = smalls.length - keep.size;
+  const lines = shown.map((d) => decisionLine(state, d));
+  if (older > 0) lines.unshift(`(${older} earlier small answers: what they taught is in PERSON and THEIR WORDS)`);
+  return lines.join("\n");
 }
 
 export function settingValueLabel(s: LiveSetting, v: string): string {

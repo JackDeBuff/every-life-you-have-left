@@ -52,7 +52,21 @@ export interface SessionExtras {
   /** Last non-fatal engine error code, for debugging. */
   error: string | null;
   /** Model spend so far in this session (USD, list prices; hedge losers that were aborted aren't counted). */
-  usage?: { usd: number; calls: number; byPurpose: Record<string, number> } | null;
+  usage?: SessionUsage | null;
+}
+
+/** Session cost tally (admin + timing runs). The optional fields are for scripts/judge-run.ts. */
+export interface SessionUsage {
+  /** With implicit-cache hits billed at the cache discount (worker/engine/pricing.ts). */
+  usd: number;
+  calls: number;
+  byPurpose: Record<string, number>;
+  /** Same calls at list price (no cache discount). */
+  listUsd?: number;
+  /** Per full purpose ("decision.small", "decision.smallBatch", "answer.fold", "years", ...). */
+  detail?: Record<string, { calls: number; usd: number; inTok: number; cachedTok: number; outTok: number }>;
+  /** D-089 small-card serving: cards served, how many came straight from the written-ahead queue, the wait for the rest. */
+  smalls?: { served: number; fromQueue: number; waitMs: number; maxWaitMs: number; batches: number; discarded: number; followUps: number; folds: number; folded: number };
 }
 
 export type AgentState = SessionState & SessionExtras;

@@ -15,6 +15,7 @@ import type { Engine } from "../shared/engine";
 import type { Profile } from "../shared/schema";
 import type { StartInput } from "../shared/sim";
 import { createMockEngine } from "./engine-mock";
+import type { SmallDecisionKit } from "./engine/smalls";
 import { bindLlm, generationEnabled, type LlmEnv } from "./llm";
 
 export type EngineKind = "mock" | "real";
@@ -35,6 +36,8 @@ export interface LoadedEngine {
   provisional?: (input: StartInput) => Profile;
   /** Real engine only: the same engine with the fast model writing every year, to race stalls. */
   backup?: Engine;
+  /** Real engine only (D-089): batched small cards, code-side quotes and batched answer folding. */
+  small?: SmallDecisionKit;
 }
 
 const REAL = import.meta.glob<EngineModule>("./engine/index.ts");
@@ -47,7 +50,7 @@ export function wantsReal(env: Env): boolean {
 const isEngine = (x: unknown): x is Engine => !!x && typeof x === "object" && typeof (x as Engine).generateYears === "function";
 
 /** Every real model call's usage (the session agent tallies the session's cost from it). */
-export type UsageSink = (u: { purpose: string; model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; hedged: boolean; ms: number; firstTokenMs?: number }) => void;
+export type UsageSink = (u: { purpose: string; model: string; inputTokens: number; outputTokens: number; thoughtTokens: number; cachedTokens?: number; hedged: boolean; ms: number; firstTokenMs?: number }) => void;
 
 export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedEngine> {
   bindLlm(env as unknown as LlmEnv);
@@ -75,7 +78,9 @@ export async function loadEngine(env: Env, onUsage?: UsageSink): Promise<LoadedE
       typeof mod.createEngine === "function" && llm
         ? (mod.createEngine as Create)({ llm, onUsage, models: { forkLeadYears: 0, yearsBySpeed: { "1x": FAST, "2x": FAST, "4x": FAST, auto: FAST } } })
         : undefined;
-    if (isEngine(made)) return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile, backup: isEngine(backup) ? backup : undefined };
+    const kit = (made as { small?: SmallDecisionKit } | undefined)?.small;
+    if (isEngine(made))
+      return { engine: resilient(made, createMockEngine()), kind: "real", reason: "ok", provisional: mod.provisionalProfile, backup: isEngine(backup) ? backup : undefined, small: kit ? resilientKit(kit) : undefined };
     return { engine: createMockEngine(), kind: "mock", reason: "engine_bad_export" };
   } catch (e) {
     console.error("engine load failed", e instanceof Error ? e.name : "error");
@@ -88,6 +93,18 @@ const BUDGET: Partial<Record<keyof Engine, number>> = {
   startProfile: 30_000, enrichProfile: 30_000, makeDecision: 25_000, applyAnswer: 25_000, generateYears: 60_000,
   spawnBranches: 30_000, prepareFork: 45_000, stepBranch: 30_000, interlude: 25_000, settingsFor: 25_000, ending: 40_000, safety: 8_000,
 };
+
+/**
+ * The small-decision kit under the same rule: a batch that fails or runs long gives no cards (the
+ * agent writes single cards instead), a fold that fails changes nothing (the quotes are already in).
+ */
+function resilientKit(kit: SmallDecisionKit): SmallDecisionKit {
+  return {
+    ...kit,
+    smallBatch: (state, slots) => within(kit.smallBatch(state, slots), 25_000, "smallBatch").catch((e: unknown) => (console.error("smallBatch failed", e instanceof Error ? e.name : "error"), [])),
+    foldAnswers: (state, items) => within(kit.foldAnswers(state, items), 25_000, "foldAnswers").catch((e: unknown) => (console.error("foldAnswers failed", e instanceof Error ? e.name : "error"), { apply: (p) => p, thread: null })),
+  };
+}
 
 class Timeout extends Error {
   constructor(what: string) {

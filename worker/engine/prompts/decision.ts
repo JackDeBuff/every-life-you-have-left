@@ -83,6 +83,44 @@ export function smallDecisionPrompt(o: {
   return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nRECENT YEARS OF THIS LIFE\n${o.recent}\n\n${o.now ? `${o.now}\n\n` : ""}ALREADY ASKED (don't repeat)\n${o.asked || "(nothing yet)"}\n\n${o.avoid ? `RECENT CARDS ALREADY USED THESE MOMENTS (pick a different one): ${o.avoid}\n\n` : ""}THE MOMENT\n${o.year}, age ${o.age}. Domain: ${o.domain}. Gap to fill: ${o.gap}\n\n${o.feedback ? `YOUR LAST DRAFT HAD THESE PROBLEMS. Fix all of them:\n${o.feedback}\n\n` : ""}Write the small decision card JSON.`;
 }
 
+/**
+ * D-089: several independent small cards in one call, for the next ~2-3 years of the life. The
+ * agent queues them and serves each one instantly when its moment comes, so a card must fit any
+ * moment in that stretch (no year, month, season or age in it) and stand on its own.
+ */
+export const SMALL_BATCH_SYSTEM = `${SMALL_DECISION_SYSTEM}
+
+A BATCH
+- Write one card per entry in THE CARDS, in that order, each on its own domain and gap. They are shown one at a time over the next couple of years, between other moments, so each card stands on its own: never refer to another card in the batch.
+- Each card fits any moment in that stretch: no year, month, season, holiday or age in the prompt. Set it in the life as the NOW block describes it.
+- The cards differ from each other as much as from ALREADY ASKED: different people, places, objects and moments of the day. At most one card in the batch may involve a phone, a message or an email.`;
+
+export function smallBatchPrompt(o: {
+  person: string;
+  quotes: string;
+  recent: string;
+  now: string;
+  asked: string;
+  avoid?: string;
+  /** One line per card: domain + the gap to fill. */
+  cards: string[];
+  feedback?: string;
+}): string {
+  // Stable first (the person, their words, the life), volatile last (what to write now).
+  return `PERSON\n${o.person}\n\nTHEIR WORDS\n${o.quotes}\n\nRECENT YEARS OF THIS LIFE\n${o.recent}\n\n${o.now}\n\nALREADY ASKED (don't repeat)\n${o.asked || "(nothing yet)"}\n\n${o.avoid ? `RECENT CARDS ALREADY USED THESE MOMENTS (pick different ones): ${o.avoid}\n\n` : ""}THE CARDS (${o.cards.length}, in order)\n${o.cards.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n\n${o.feedback ? `YOUR LAST DRAFT HAD THESE PROBLEMS. Fix all of them:\n${o.feedback}\n\n` : ""}Write {"cards": [...]} with exactly ${o.cards.length} small decision cards.`;
+}
+
+/** D-089: several answers folded into the profile with one call (their quotes already exist). */
+export const ANSWERS_SYSTEM = `You fold a few answers into a person's profile for a life simulator. They answered decision cards by tapping an option and/or writing in their own words. Each written answer is already a quote with an id.
+
+Return only what these answers teach us, together:
+- shortForms: for each written answer, a <= 12 word excerpt copied verbatim from it.
+- worries: the full 0..1 map, updated (raise a domain they're clearly anxious about, lower one they shrugged off; small moves, +-0.2 at most over all the answers).
+- facts, people, fears, values, constraints: only new or corrected items, citing the quote ids they come from. People keep the label they already have. Never invent names.
+- money: only if an answer changes what we know about money, else null. Every money field is USD (convert with the rate in PROFILE if they wrote another currency).
+- plans: only new concrete plans with a time that an answer states ("I'm moving to Tokyo next spring"), with year, when, kind, certainty (fixed / likely / hoped) and the quote id. [] otherwise.
+- Never record race, ethnicity, religion, orientation, diagnoses or immigration status.`;
+
 export const ANSWER_SYSTEM = `You fold one answer into a person's profile for a life simulator. They answered a decision card by tapping an option and/or writing in their own words.
 
 Return only what this answer teaches us:

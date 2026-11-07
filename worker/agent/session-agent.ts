@@ -41,7 +41,7 @@ import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select"
 import { costOf } from "../engine/pricing";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
-import { diffState, type AgentState, type AnswerInput, type ChatMessage, type SnapshotMsg } from "./protocol";
+import { diffState, type AgentState, type AnswerInput, type ChatMessage, type SessionUsage, type SnapshotMsg } from "./protocol";
 
 const BUFFER_AHEAD = 4; // keep at least this many years generated past the playhead (target ≥2)
 const CHUNK = 4; // generateYears chunk size (3–5)
@@ -145,7 +145,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     bindLlm(this.env as unknown as LlmEnv);
     const st = this.state;
     this.cur = st && st.sessionId ? { ...initialAgentState(this.name), ...st } : initialAgentState(this.name);
-    if (this.cur.usage) this.spend = { usd: this.cur.usage.usd, calls: this.cur.usage.calls, byPurpose: { ...this.cur.usage.byPurpose } };
+    if (this.cur.usage) {
+      const u = this.cur.usage;
+      this.spend = { ...freshSpend(), usd: u.usd, listUsd: u.listUsd ?? u.usd, calls: u.calls, byPurpose: { ...u.byPurpose }, detail: { ...(u.detail ?? {}) }, smalls: { ...freshSpend().smalls, ...(u.smalls ?? {}) } };
+    }
     if (this.cur.phase !== "start" && this.cur.profile) {
       const ph = this.cur.playhead.year;
       this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => sl.year > ph);
@@ -168,23 +171,43 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
   /** Session cost tally (admin + timing runs). Published at most every few seconds. */
-  private spend = { usd: 0, calls: 0, byPurpose: {} as Record<string, number> };
+  private spend = freshSpend();
   private spendTimer: ReturnType<typeof setTimeout> | null = null;
   private onUsage: UsageSink = (u) => {
     const c = costOf(u);
-    // Latency trail for timing runs (no personal data): purpose, model, first token, total.
-    console.log(`[llm] ${u.purpose} ${u.model.replace("gemini-", "")} ft=${u.firstTokenMs ?? "-"} ms=${u.ms}${u.hedged ? " hedged" : ""}`);
+    // Latency trail for timing runs (no personal data): purpose, model, first token, total, cache hits.
+    console.log(`[llm] ${u.purpose} ${u.model.replace("gemini-", "")} ft=${u.firstTokenMs ?? "-"} ms=${u.ms} in=${u.inputTokens} cached=${u.cachedTokens ?? 0}${u.hedged ? " hedged" : ""}`);
     this.spend.usd += c;
+    this.spend.listUsd += costOf(u, { cache: false });
     this.spend.calls++;
     const k = u.purpose.split(".")[0] ?? u.purpose;
     this.spend.byPurpose[k] = (this.spend.byPurpose[k] ?? 0) + c;
-    if (!this.spendTimer)
-      this.spendTimer = setTimeout(() => {
-        this.spendTimer = null;
-        const r = (x: number) => Math.round(x * 10000) / 10000;
-        this.update({ usage: { usd: r(this.spend.usd), calls: this.spend.calls, byPurpose: Object.fromEntries(Object.entries(this.spend.byPurpose).map(([a, b]) => [a, r(b)])) } });
-      }, 2000);
+    const d = (this.spend.detail[u.purpose] ??= { calls: 0, usd: 0, inTok: 0, cachedTok: 0, outTok: 0 });
+    d.calls++;
+    d.usd += c;
+    d.inTok += u.inputTokens;
+    d.cachedTok += u.cachedTokens ?? 0;
+    d.outTok += u.outputTokens + u.thoughtTokens;
+    this.publishSpend();
   };
+  private publishSpend(): void {
+    if (this.spendTimer) return;
+    this.spendTimer = setTimeout(() => {
+      this.spendTimer = null;
+      const r = (x: number) => Math.round(x * 10000) / 10000;
+      const sp = this.spend;
+      this.update({
+        usage: {
+          usd: r(sp.usd),
+          listUsd: r(sp.listUsd),
+          calls: sp.calls,
+          byPurpose: Object.fromEntries(Object.entries(sp.byPurpose).map(([a, b]) => [a, r(b)])),
+          detail: Object.fromEntries(Object.entries(sp.detail).map(([a, b]) => [a, { ...b, usd: r(b.usd) }])),
+          smalls: { ...sp.smalls },
+        },
+      });
+    }, 2000);
+  }
 
   private engInfo(): Promise<LoadedEngine> {
     if (!this.enginePromise) {
@@ -556,7 +579,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   /** Dev only: wipe the session back to the start screen. */
   async reset(): Promise<void> {
     this.epoch++;
-    this.spend = { usd: 0, calls: 0, byPurpose: {} };
+    this.spend = freshSpend();
     this.prepared.clear();
     this.holdGen = false;
     this.endingPre = null;
@@ -1046,6 +1069,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       void this.mirror.session(this.s);
     });
   }
+}
+
+function freshSpend() {
+  return {
+    usd: 0,
+    listUsd: 0,
+    calls: 0,
+    byPurpose: {} as Record<string, number>,
+    detail: {} as NonNullable<SessionUsage["detail"]>,
+    smalls: { served: 0, fromQueue: 0, waitMs: 0, maxWaitMs: 0, batches: 0, discarded: 0, followUps: 0, folds: 0, folded: 0 },
+  };
 }
 
 function short(s: string, n: number): string {
