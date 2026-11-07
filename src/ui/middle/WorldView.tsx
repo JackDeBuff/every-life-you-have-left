@@ -12,14 +12,18 @@
  * The World only re-renders when one of these props changes (a year turns, a phase changes); the
  * per-frame playhead never touches React.
  */
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SceneSpec, SimYear } from "../../../shared/sim";
+import { flavorFor, selfAgeBand } from "../../../worker/engine/world";
 import { clock, useClockUi } from "../clock";
 import { sim, useSim } from "../session";
 import { useUi } from "../uiStore";
 import { WorldSlot } from "./WorldSlot";
 
 const World3D = lazy(() => import("../../world/World"));
+
+/** Seconds per interlude cut: shorter in Auto to keep the judge run near 3 minutes. */
+export const cutSecondsFor = (speed: string) => (speed === "auto" ? 2.1 : 2.6);
 
 function webglOk(): boolean {
   try {
@@ -48,8 +52,41 @@ function Mounted() {
   return null;
 }
 
+/**
+ * Before the first year is written (the first card comes from a provisional profile), a calm
+ * "today" scene of where they live, so the world is never empty.
+ */
+function todayScene(city: string, region: string | null, country: string, age: number): SceneSpec {
+  const m = new Date().getMonth();
+  const place = [city, region ?? (country !== "US" ? country : null)].filter(Boolean).join(", ");
+  return {
+    setting: "city_midrise",
+    flavor: flavorFor(place, country, region) ?? "us_south",
+    placeLabel: place,
+    home: "apartment",
+    activity: "resting",
+    people: [{ role: "self", ageBand: selfAgeBand(age) }],
+    season: m < 2 || m === 11 ? "winter" : m < 5 ? "spring" : m < 8 ? "summer" : "autumn",
+    timeOfDay: "golden",
+    weather: "clear",
+    mood: "calm",
+    moment: null,
+    caption: "Today",
+  };
+}
+
 export function CurrentWorld() {
-  const spec = useSim((s) => sceneAt(s.years, s.playhead.year));
+  const raw = useSim((s) => sceneAt(s.years, s.playhead.year));
+  const city = useSim((s) => s.profile?.city ?? null);
+  const region = useSim((s) => s.profile?.region ?? null);
+  const country = useSim((s) => s.profile?.country ?? "US");
+  const startAge = useSim((s) => s.profile?.age ?? 25);
+  const today = useMemo(() => (city ? todayScene(city, region, country, startAge) : null), [city, region, country, startAge]);
+  // A fork rewrites its own year: keep showing the last scene while the new one is written,
+  // so the World never unmounts mid-interlude.
+  const last = useRef<SceneSpec | null>(null);
+  if (raw) last.current = raw;
+  const spec = raw ?? last.current ?? today;
   const year = useSim((s) => s.playhead.year);
   const appearance = useSim((s) => s.appearance);
   const phase = useSim((s) => s.phase);
@@ -84,7 +121,7 @@ export function CurrentWorld() {
     if (sim().phase === "interlude") void sim().pause(false).catch(() => {});
   }, []);
 
-  const thinking = (starved && phase === "playing") || (!spec && phase !== "ended") || (phase === "interlude" && !cuts?.length);
+  const thinking = (starved && phase === "playing") || (!raw && phase === "playing") || (phase === "interlude" && !cuts?.length);
 
   return (
     <>
@@ -100,7 +137,7 @@ export function CurrentWorld() {
             onCut={onCut}
             onInterludeDone={onInterludeDone}
             paused={pendingBig && !forking}
-            cutSeconds={speed === "auto" ? 2.1 : 2.6}
+            cutSeconds={cutSecondsFor(speed)}
           />
           {!showInterlude && <Caption spec={spec} />}
         </Suspense>

@@ -17,13 +17,15 @@ import { gsap, reducedMotion } from "../motion";
 import { sim, useSim } from "../session";
 import type { InterludeCut } from "../types";
 import { useUi } from "../uiStore";
+import { cutSecondsFor } from "./WorldView";
 import { WorldSlot } from "./WorldSlot";
 
 export function Interlude({ cuts }: { cuts: InterludeCut[] }) {
   const world3d = useUi((s) => s.world3d);
-  // Decide once, at mount: a world that loads mid-interlude doesn't take over half way.
-  const [driven] = useState(world3d);
-  return driven ? <DrivenInterlude cuts={cuts} /> : <TimedInterlude cuts={cuts} />;
+  // Decide at mount (a world that loads mid-interlude doesn't take over half way). If the world
+  // doesn't start its cuts (not rendering: hidden, context lost), the overlay times itself.
+  const [driven, setDriven] = useState(world3d);
+  return driven ? <DrivenInterlude cuts={cuts} onStall={() => setDriven(false)} /> : <TimedInterlude cuts={cuts} />;
 }
 
 const finish = () => {
@@ -41,10 +43,19 @@ function useSkipKey(onSkip: () => void) {
 }
 
 /** Captions over the 3D world's own cuts. */
-function DrivenInterlude({ cuts }: { cuts: InterludeCut[] }) {
+function DrivenInterlude({ cuts, onStall }: { cuts: InterludeCut[]; onStall: () => void }) {
   const root = useRef<HTMLDivElement>(null);
   const i = useUi((s) => s.worldCut);
+  const speed = useSim((s) => s.speed);
   useSkipKey(finish);
+
+  // Watchdogs: no first cut within 2.5 s -> self-timed overlay; a cut that never ends -> move on.
+  useEffect(() => {
+    const per = cutSecondsFor(speed);
+    const id = window.setTimeout(i < 0 ? onStall : finish, i < 0 ? 2500 : (per + 2.5) * 1000);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i]);
 
   useEffect(() => {
     const el = root.current;

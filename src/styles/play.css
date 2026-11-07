@@ -413,3 +413,5 @@
   .so-far { margin-top: var(--s2); padding-top: var(--s2); }
 }
 .dl-you[data-cont="true"] { margin-top: -12px; padding-top: 2px; }
+
+.us-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px solid var(--hair-2); border-radius: var(--r1); font-size: 10.5px; vertical-align: 1px; color: var(--ink-2); }

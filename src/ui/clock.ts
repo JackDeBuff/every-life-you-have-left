@@ -39,6 +39,7 @@ class LifeClock {
   }
   stop() {
     this.running = false;
+    this.last = 0;
     gsap.ticker.remove(this.frame);
     this.setStarved(false);
   }
@@ -66,7 +67,14 @@ class LifeClock {
     if (useClockUi.getState().starved !== v) useClockUi.setState({ starved: v });
   }
 
-  private frame = (_t: number, dtMs: number) => {
+  private last = 0;
+
+  private frame = () => {
+    // Real elapsed time, not gsap's lag-smoothed delta: a slow frame (a busy laptop, a throttled
+    // pane) must not slow the life down. Capped so a stall can't skip more than a second.
+    const now = performance.now();
+    const dtMs = this.last ? Math.min(1000, now - this.last) : 16;
+    this.last = now;
     const s = sim();
     if (s.phase === "start" || !s.profile) return;
     const year = s.playhead.year;
@@ -88,7 +96,7 @@ class LifeClock {
     // Leaving a decision or an interlude starts a fresh year (no carried-over time).
     if (s.phase !== "playing" && this.awaiting === null) this.progress = 0;
     const spy = SPEED_CONFIG[s.speed].secondsPerYear;
-    if (playing || this.scale > 0) this.progress += ((Math.min(dtMs, 250) / 1000) * this.scale) / spy;
+    if (playing || this.scale > 0) this.progress += ((dtMs / 1000) * this.scale) / spy;
 
     let starved = false;
     if (this.progress >= 1) {

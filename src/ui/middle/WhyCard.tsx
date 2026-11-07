@@ -31,12 +31,15 @@ export function WhyBody({ line, onClose }: { line: LogLine; onClose?: () => void
       {line.why && <p className="small">{reasonWithoutQuote(line.why.reason, !!quote)}</p>}
       {rate && (
         <div className="why-rate">
-          <p className="small">{rate.display}</p>
+          <p className="small">
+            {country !== "US" && <span className="us-tag label">US figure</span>}
+            {rate.display}
+          </p>
           <p className="meta faint">
             <a href={rate.url} target="_blank" rel="noreferrer">
               {rate.source}
             </a>
-            {country !== "US" ? " · US data, applied as approximate" : ""}
+            {country !== "US" ? " · US data, applied here as an approximation" : ""}
           </p>
         </div>
       )}

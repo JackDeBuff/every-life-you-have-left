@@ -107,7 +107,8 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
     });
 
   // The start line, in the user's own words (one or more quotes), then the guide's welcome.
-  for (const q of p.quotes.filter((x) => x.questionId === "start.line")) push({ id: `start-${q.id}`, role: "you", text: q.text, quoteId: q.id }, p.age, -3);
+  // Start-line quotes: "start" (engine) / "start.line" (offline mock).
+  for (const q of p.quotes.filter((x) => x.questionId === "start" || x.questionId === "start.line")) push({ id: `start-${q.id}`, role: "you", text: q.text, quoteId: q.id }, p.age, -3);
   push({ id: "intro-1", role: "guide", text: `Hi ${p.firstName}. I'm going to play your life forward from ${p.age} to ${st.endAge}, one year at a time. Your answers steer it.` }, p.age, -2);
   push({ id: "intro-2", role: "guide", text: "Every big choice splits it. The lives you don't pick keep running in the background. The first fork is today." }, p.age, -1);
 
@@ -133,7 +134,8 @@ function buildDialogue(st: AgentState, decisions: Decision[]): ChatEntry[] {
   for (const m of st.chat) {
     const t = Date.parse(m.at) || Date.now();
     if (m.life === "interviewer") {
-      const q = m.role === "user" ? [...p.quotes].reverse().find((x) => x.text === m.text) : undefined;
+      // Free text becomes one or more sentence quotes; link the entry to the first one.
+      const q = m.role === "user" ? p.quotes.find((x) => x.text.length > 3 && m.text.includes(x.text) && x.source === "answer" && x.questionId !== "start") : undefined;
       push({ id: m.id, role: m.role === "user" ? "you" : "guide", text: m.text, quoteId: q?.id ?? null, streaming: !m.done }, m.age, t);
     } else {
       push(
