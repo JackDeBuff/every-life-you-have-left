@@ -24,7 +24,7 @@ import { pastTimeIssues } from "./calendar";
 import { fixPeopleNumbers, framingIssues, framingsOf, peopleIssues, recentFramings, similarity, stateIssues, type Issue } from "./consistency";
 import { lifeSoFarBlock, nowContext, personBlock, quotesBlock } from "./context";
 import { coerceDecision, decisionId, finalize } from "./decisions";
-import { cityOf, forksTaken, here, lifeAt, type LifeNow } from "./ledger";
+import { cityOf, driftedIssues, forksTaken, here, lifeAt, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
 import { bornFrom, guardMoney, knowMeScore, nextQuoteIndex } from "./profile";
 import { ANSWERS_SYSTEM, SMALL_BATCH_SYSTEM, smallBatchPrompt } from "./prompts/decision";
@@ -80,6 +80,7 @@ function smallIssues(d: Decision, now: LifeNow, today: Date, country: string, ye
   return [
     ...stateIssues(head, now),
     ...peopleIssues(all, now).filter((i) => i.kind !== "age"),
+    ...driftedIssues(all, now).map((x) => ({ kind: "drifted" as const, msg: x.msg })),
     ...pastTimeIssues(head, today, country, year).map((msg) => ({ kind: "past_time" as const, msg })),
     ...framingIssues(d.prompt, recent),
   ];

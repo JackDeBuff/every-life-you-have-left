@@ -21,7 +21,9 @@ export type IssueKind =
   // big decisions against the forks already taken (forkIssues)
   | "work_stage" | "repeat_chosen" | "left_behind" | "repeat_option" | "ignores_now" | "same_options"
   // content feedback (Sat Nov 7): a catastrophe twice in one life; three work forks in a row
-  | "catastrophe" | "work_streak";
+  | "catastrophe" | "work_streak"
+  // a friend who drifted out of this life offered again without reunion framing (ledger.ts driftedIssues)
+  | "drifted";
 export interface Issue {
   kind: IssueKind;
   msg: string;

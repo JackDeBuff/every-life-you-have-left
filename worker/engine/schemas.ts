@@ -238,7 +238,7 @@ export const YearC = z.object({
   ch: z
     .array(z.string())
     .max(4)
-    .describe('people changes THIS year only: "+partner:Name", "-partner:Name", "+child:Name", "+pet:dog:Name", "-pet:Name", "-parent:Name"; [] most years'),
+    .describe('people changes THIS year only: "+partner:Name", "-partner:Name", "+child:Name", "+pet:dog:Name", "-pet:Name", "-parent:Name", "+friend:Name:relation", "-friend:Name"; [] most years'),
   s: z.string().describe("summary, <= 18 words"),
   inc: int().describe("income USD"),
   nw: int().describe("net worth USD"),

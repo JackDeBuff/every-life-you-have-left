@@ -6,7 +6,7 @@ import { pastTimeIssues } from "./calendar";
 import { fixPeopleNumbers, forkIssues, forksFrom, framingIssues, peopleIssues, recentFramings, stateIssues, type Issue } from "./consistency";
 import { decisionLine, decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, worldBlock } from "./context";
 import { cardFocus } from "./focus";
-import { forksTaken, lifeAt } from "./ledger";
+import { driftedIssues, forksTaken, lifeAt } from "./ledger";
 import type { Caller, Tier } from "./models";
 import { BIG_DECISION_SYSTEM, bigDecisionPrompt, SMALL_DECISION_SYSTEM, smallDecisionPrompt } from "./prompts/decision";
 import { DecisionLLM, LEANS, type DecisionLLM as DecisionDraft } from "./schemas";
@@ -130,6 +130,7 @@ export function bigCardIssues(state: SessionState, d: Pick<Decision, "id" | "yea
   return [
     ...forkIssues(d, now, forks, { firstName: profile.firstName ?? "", earlier }),
     ...peopleIssues(all, now).filter((i) => i.kind !== "age"),
+    ...driftedIssues(all, now).map((x) => ({ kind: "drifted" as const, msg: x.msg })),
     ...pastTimeIssues(`${d.prompt} ${d.whyAsking}`, today, profile.country, d.year).map((msg) => ({ kind: "past_time" as const, msg })),
   ];
 }
