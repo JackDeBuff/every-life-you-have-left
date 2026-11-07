@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import Admin from "./screens/Admin";
 import Ending from "./screens/Ending";
 import Play from "./screens/Play";
 import Start from "./screens/Start";
@@ -9,7 +8,8 @@ import { setSun } from "./ui/motion";
 import { useBackend, useSim } from "./ui/session";
 
 /**
- * Screens follow the session phase: start → playing/deciding/interlude → ended. /admin is separate.
+ * Screens follow the session phase: start → playing/deciding/interlude → ended. /admin is separate
+ * (src/main.tsx loads src/screens/Admin.tsx on its own; it never gets here).
  * The tree is keyed on the backend (live agent / offline mock) so switching remounts everything.
  */
 export default function App() {
@@ -22,7 +22,6 @@ export default function App() {
     // ?still=1: finish every CSS animation instantly (headless screenshots).
     if (q.get("still")) document.documentElement.classList.add("still");
   }, []);
-  if (location.pathname.startsWith("/admin")) return <Admin />;
   return <Screens key={mode} />;
 }
 

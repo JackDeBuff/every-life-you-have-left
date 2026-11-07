@@ -24,7 +24,8 @@ export const useBackend = create<{ mode: Backend }>(() => ({ mode: initial() }))
 
 const storeFor = (m: Backend) => (m === "mock" ? useMockSim : useLiveSim);
 
-if (useBackend.getState().mode === "live") startLive();
+// (/admin never opens a session socket: connecting would create an empty session)
+if (useBackend.getState().mode === "live" && !location.pathname.startsWith("/admin")) startLive();
 
 /** React hook: `useSim((s) => s.phase)`. */
 export function useSim<T>(selector: (s: Sim) => T): T {
