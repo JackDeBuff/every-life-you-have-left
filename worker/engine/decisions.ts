@@ -225,6 +225,8 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
   // A card that contradicts the life as it stands gets ONE repair on the same tier, with the
   // problems listed. A big card still wrong after it is regenerated once from scratch (a fresh
   // draft, still told what to avoid). The card with the fewest problems wins.
+  // (once the heavy/fast race has a card, the loser stops: no repair or regeneration nobody will use)
+  let settled = false;
   const card = async (tier: Tier): Promise<Decision> => {
     const res = await attempt(tier);
     const draft = res.data ?? coerceDecision(res.raw);
@@ -232,6 +234,7 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     let c = fixNumbers(finalize(state, slot, draft, kind, r.domain));
     let issues = issuesOf(c);
     const tryAgain = async (t: Tier, feedback: string, seed: string) => {
+      if (settled) return;
       try {
         const again = await attempt(t, feedback);
         const d2 = again.data ?? coerceDecision(again.raw);
@@ -243,7 +246,9 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
         /* keep the best card so far */
       }
     };
+    if (issues.length && !settled) console.log(`[card] ${kind} ${slot.year} (${tier}): ${issues.map((x) => x.kind).join(", ")}: repairing`);
     if (issues.length) await tryAgain(tier, issues.map((x) => `- ${x.msg}`).join("\n"), "");
+    if (issues.length && kind === "big" && !settled) console.log(`[card] big ${slot.year} (${tier}): still ${issues.map((x) => x.kind).join(", ")}: regenerating`);
     if (issues.length && kind === "big") {
       const all = [...new Set(issues.map((x) => `- ${x.msg}`))].join("\n");
       await tryAgain(tier, `${all}\nWrite a NEW card from scratch about a different moment of this life as it stands now.`, ":regen");
@@ -256,7 +261,9 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
   // written ahead of the playhead, but a late one holds it). First usable card wins.
   if (kind === "big") {
     const raced = await raceAfter(() => card("heavy"), () => card("fast"), isFirst ? FIRST_CARD_RACE_MS : BIG_CARD_RACE_MS).catch(() => null);
+    settled = true;
     if (raced) return raced;
+    settled = false;
   }
 
   // Two tries on the slot's model, then one on the other tier; a strict-schema miss is coerced

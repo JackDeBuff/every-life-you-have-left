@@ -19,6 +19,7 @@
 import { applyServerMsg, agentPath, isServerMsg, type AgentState, type AnswerInput } from "../worker/agent/protocol";
 import { SPEED_CONFIG, type SimYear, type StartInput } from "../shared/sim";
 import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, cutSecondsFor, FORK_MOMENT_S, MOMENT_RULES, playableMoments, SMALL_DECISION_SCALE } from "../src/ui/pacing";
+import { bestGuessLegacy, QA_DOCS, QA_PERSONAS, QA_SCRIPTS } from "./qa/personas";
 
 const args = process.argv.slice(2);
 const flag = (name: string, dflt: string) => {
@@ -55,7 +56,19 @@ const PERSONAS: Record<string, StartInput> = {
     line: "I'm a software engineer up for a manager role. Part of me wants to quit and build furniture. My dad is getting older back in Ohio.",
   },
 };
-const input = { ...(PERSONAS[flag("persona", "alex")] ?? PERSONAS.alex!), speed: SPEED };
+// The final QA's personas (scripts/qa): Sam (minimal), Chidi (naira, typed fork answers), Margo (an AI export).
+Object.assign(PERSONAS, QA_PERSONAS);
+const persona = flag("persona", "alex");
+const input = { ...(PERSONAS[persona] ?? PERSONAS.alex!), speed: SPEED };
+const qa = QA_SCRIPTS[persona] ?? null;
+/** --legacy-answer: answer typed forks the way the old card did (guess an option from shared words). */
+const legacyAnswer = args.includes("--legacy-answer");
+const dump = flag("dump", "");
+/** What the client saw: each year as first played, each fork card as first shown, the profile when the warm-up ended. */
+const seenYears = new Map<number, { summary: string; ch: string[]; people: string[]; events: string[] }>();
+const shownCards = new Map<string, { year: number; age: number; prompt: string; options: string[] }>();
+let warmEnd: { at: number; questions: { key: string; status: string }[]; facts: number; people: string[]; quotes: number; fears: number; plans: number; money: string } | null = null;
+let warmQ1: { prompt: string; options: string[] } | null = null;
 
 // Small-card answers (1x/2x/4x): a tap, often a sentence. Every 9th opens a new thread (a person
 // they never mentioned, a move, quitting), which drops the queue and asks for a follow-up.
@@ -178,15 +191,40 @@ function frame() {
       lastWarm = cur;
       if (firstWarm === null) firstWarm = T();
       const q = s.warmup!.questions.find((x) => x.id === cur)!;
+      warmQ1 ??= { prompt: q.prompt, options: q.options.map((o) => o.label) };
       const opt = q.options[warmAsked++ % 4]!;
-      log(`warm-up ${warmAsked}: ${q.key} → "${opt.label}"`);
+      // QA personas answer in their own words (so the profile learns what the persona says)
+      const text = qa?.warm[q.key] ?? null;
+      log(`warm-up ${warmAsked}: ${q.key} → ${text ? `"${text.slice(0, 60)}"` : `"${opt.label}"`}`);
       setTimeout(() => {
         lastWarmAnswer = T();
-        void call("answerWarmup", { questionId: cur, optionId: opt.id, text: null, via: "tap" }).catch((e) => log("answerWarmup failed", e));
+        void call("answerWarmup", text ? { questionId: cur, optionId: null, text, via: "text" } : { questionId: cur, optionId: opt.id, text: null, via: "tap" }).catch((e) => log("answerWarmup failed", e));
       }, READ_S * 1000);
     }
     return;
   }
+  if (!warmEnd && s.profile) {
+    const p = s.profile;
+    warmEnd = {
+      at: T(),
+      questions: (s.warmup?.questions ?? []).map((q) => ({ key: q.key, status: q.status })),
+      facts: p.facts.filter((f) => !f.id.startsWith("fw") && !(f.key === "location" && f.source !== "upload")).length,
+      people: p.people.map((x) => `${x.label} (${x.relation}${x.born ? `, b. ${x.born}` : ""})`),
+      quotes: p.quotes.length,
+      fears: p.fears.length,
+      plans: (p.plans ?? []).length,
+      money: `${p.money.feel}, income ${p.money.incomeUsd ?? "?"} USD${p.money.assumed ? " (assumed)" : ""}`,
+    };
+  }
+  // What the client saw, for the QA analysis: years as first played, fork cards as first shown.
+  for (const y of s.years) {
+    if (y.year > s.playhead.year || seenYears.has(y.year)) continue;
+    const life = (y as SimYear & { life?: { ch: string[]; people: { name: string }[] } }).life;
+    seenYears.set(y.year, { summary: y.summary, ch: life?.ch ?? [], people: life?.people.map((p) => p.name) ?? [], events: y.events.map((e) => e.title) });
+  }
+  for (const d of s.decisions)
+    if (d.kind === "big" && d.status === "pending" && s.phase === "deciding" && d.year <= s.playhead.year && !shownCards.has(d.id))
+      shownCards.set(d.id, { year: d.year, age: d.age, prompt: d.prompt, options: d.options.map((o) => `${o.label} [${o.branchTitle ?? ""}]`) });
   const year = s.playhead.year;
   const visibleDecisions = s.decisions.filter((d) => d.status !== "pending" || d.year <= year);
 
@@ -196,15 +234,20 @@ function frame() {
     if (firstCard === null) firstCard = T();
     const k = forks.length;
     const idx = pick === "random" ? Math.floor(Math.random() * 4) : pick === "cycle" ? k % 4 : Number(pick) % 4;
-    const opt = big.options[idx]!;
-    const f: Fork = { id: big.id, year: big.year, age: big.age, shown: T(), answered: null, cuts: null, ilStart: null, ilEnd: null, resumed: null, skipped: false, firstYear: null, choice: `${opt.branchTitle ?? opt.label}` };
+    // QA personas: a scripted answer per fork (an option matching a pattern, and/or their own words)
+    const step = qa?.big[k] ?? null;
+    const matched = step?.match ? big.options.find((o) => step.match!.test(`${o.label} ${o.branchTitle ?? ""}`)) : undefined;
+    const typedOnly = !!step?.text && step.tap === false;
+    const opt = typedOnly ? (legacyAnswer ? big.options.find((o) => o.id === bestGuessLegacy(big, step!.text!))! : null) : (matched ?? big.options[idx]!);
+    const text = step?.text ?? null;
+    const f: Fork = { id: big.id, year: big.year, age: big.age, shown: T(), answered: null, cuts: null, ilStart: null, ilEnd: null, resumed: null, skipped: false, firstYear: null, choice: opt ? `${opt.branchTitle ?? opt.label}` : `typed: ${text}` };
     forks.push(f);
-    log(`card ${k + 1} @${big.age}: "${big.prompt.slice(0, 90)}" → ${opt.id} ${f.choice}`);
+    log(`card ${k + 1} @${big.age}: "${big.prompt.slice(0, 90)}" → ${opt ? `${opt.id} ${f.choice}` : f.choice}${text && opt ? ` + "${text}"` : ""}`);
     setTimeout(() => {
       f.answered = T();
       forkUntil = performance.now() + FORK_MOMENT_S * 1000;
       ilEndCalled = false;
-      const a: AnswerInput = { decisionId: big.id, optionId: opt.id, text: null, via: "tap" };
+      const a: AnswerInput = { decisionId: big.id, optionId: opt?.id ?? null, text, via: text ? "text" : "tap" };
       void call("answer", a).catch((e) => log("answer failed", e));
     }, READ_S * 1000);
   }
@@ -320,7 +363,7 @@ async function main() {
   };
   await until(() => state?.phase === "start", 10_000);
   t0 = performance.now();
-  void call("start", input);
+  void call("start", input, ...(QA_DOCS[persona] ? [QA_DOCS[persona]] : []));
   log(`start (${input.firstName}, ${input.age}, ${legacy ? "legacy client" : "current client"}, read ${READ_S}s) session ${sessionId}`);
   let lastYear = 0;
   let lastPhase = "";
@@ -390,6 +433,14 @@ async function main() {
   if (out) {
     const fs = await import("node:fs");
     fs.writeFileSync(out, JSON.stringify({ sessionId, speed: SPEED, legacy, readS: READ_S, smallReadS: SMALL_READ_S, total: ended, wall: T(), firstCard, warmup: { asked: warmAsked, first: firstWarm, lastAnswer: lastWarmAnswer }, starvedS, momentsPlayed, forks, smallAnswered, smallWithText, smallGaps, lives: lives.map((l) => ({ title: l.title, netWorth: l.y?.money.netWorth, income: l.y?.money.income, year: l.y?.year })), usage: s.usage, snap, decisions: s.decisions.map((d) => ({ id: d.id, kind: d.kind, year: d.year, status: d.status, prompt: d.prompt })), answers: s.answers }, null, 2));
+  }
+  if (dump) {
+    const fs = await import("node:fs");
+    fs.writeFileSync(
+      dump,
+      JSON.stringify({ persona, legacyAnswer, sessionId, ended, wall: T(), input, warmQ1, warmEnd, seenYears: Object.fromEntries(seenYears), shownCards: Object.fromEntries(shownCards), forks, state: s }, null, 1),
+    );
+    console.log(`state dumped to ${dump}`);
   }
   ws.close();
   process.exit(ended !== null || STOP_YEARS > 0 ? 0 : 1);

@@ -12,6 +12,7 @@
     "cf-typegen": "wrangler types --strict-vars=false",
     "check:demo": "tsx scripts/check-demo.ts",
     "check:currency": "tsx scripts/eval/currency-check.ts",
+    "check:qa": "tsx scripts/check-qa.ts",
     "db:migrate:local": "wrangler d1 migrations apply elyl-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply elyl-db --remote",
     "eval": "tsx scripts/eval/index.ts",
