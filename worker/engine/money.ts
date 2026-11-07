@@ -123,3 +123,118 @@ export function laneLine(path: MoneyPath | undefined): string {
   if (!path || path.lane === "steady") return path?.saver ? "This life saves hard: about 1.3x the typical net worth over time." : "";
   return `This life's money lane since ${path.since}: ${LANES[path.lane].note}.${path.saver ? " It also saves hard." : ""} The anchors below already include it: stay near them (a lucky or unlucky year is fine, with an event).`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Money continuity (owner's playtest, Sat Nov 7). The profile said ~$85k saved; year 1's net worth
+// came out $17k (the writer copied the age-median anchor), and income then swung 35k -> 30k -> 26k
+// -> 8k -> 18k -> 24k -> 11k with nothing in the years to explain it. Code owns the money's shape:
+//   - the first year starts from what they have: savings minus (non-mortgage) debt
+//   - net worth moves by what the year earns and saves, plus or minus returns; a money event
+//     (a windfall, a loss, a home, a divorce, a business) widens the band
+//   - an income drop of more than ~10% needs a stated cause in that year (a layoff, a sabbatical,
+//     study, part-time work, a business, caregiving, retirement...); otherwise it is a dip, not a cliff
+//   - an unexplained jump is held to a raise-sized step
+// Applied after the model and the validator (years.ts), to every year the writer emits.
+// ---------------------------------------------------------------------------------------------
+
+export interface MoneyYear {
+  year: number;
+  age: number;
+  summary: string;
+  money: { income: number; netWorth: number };
+  events: { category: string; title: string; narrative: string }[];
+}
+
+/** What they have now: savings minus debt (a mortgage is offset by the home it bought). null = unknown. */
+export function startNetWorth(m: { savingsUsd: number | null; debtUsd: number | null; debtKind: string | null }): number | null {
+  if (m.savingsUsd === null && m.debtUsd === null) return null;
+  const debt = m.debtKind && /mortgage/i.test(m.debtKind) ? 0 : (m.debtUsd ?? 0);
+  return (m.savingsUsd ?? 0) - debt;
+}
+
+const DROP_CAUSE =
+  /\b(laid off|layoffs?|lay-?off|lost (?:the|my|your|his|her|their|a) (?:job|role|contract|position)|los(?:e|es|ing) (?:the|your|their) (?:job|role)|fired|let go|redundan\w*|out of work|unemploy\w*|between jobs|job (?:hunt|search)\w*|sabbatical|career break|gap year|year off|time off|leave of absence|(?:parental|maternity|paternity|medical|unpaid) leave|stud(?:y|ies|ying)|back to school|grad(?:uate)? school|enrol\w*|master'?s|mba|phd|degree|bootcamp|retrain\w*|apprentice\w*|part[- ]time|fewer hours|cut(?:s|ting)? (?:back|hours|your hours)|reduced hours|four-day|step(?:s|ped)? back|downshift\w*|quit(?:s|ting)?|resign\w*|walk(?:s|ed)? away|start(?:s|ed|ing)? (?:a|an|your|their|my) (?:own )?(?:business|company|startup|studio|practice|shop)|startup|launch(?:es|ed|ing)? (?:a|your|their)|freelanc\w*|self-employ\w*|commissions?|gig work|pay cut|salary cut|cut (?:in|to) (?:pay|salary)|demot\w*|contract (?:ends|ended|runs out)|furlough\w*|caregiv\w*|caring for|stay(?:s|ed)? home|stay-at-home|burn ?out|burned out|burnt out|retir\w*|travel(?:s|ing|ling)?|backpack\w*|moved? (?:to|abroad|back)|relocat\w*|new country|emigrat\w*|residency|fellowship|unpaid|volunteer\w*|bankrupt\w*|business (?:fails|failed|folds|closed|struggles))\b/i;
+const RISE_CAUSE =
+  /\b(promot\w*|raise|new (?:job|role|position|employer)|job offer|offer|hired|bonus|commission|equity|exit|acqui\w*|sold|contract|consult\w*|senior|director|lead|manager|head of|partner|tenure|back to work|returns? to work|full[- ]time|graduat\w*|qualif\w*|licen[cs]\w*|certif\w*|business (?:takes off|grows|booms)|clients?|customers?|revenue|book deal|record deal|switch(?:es|ed)?|moved? (?:to|abroad)|relocat\w*)\b/i;
+const MONEY_EVENT = /\b(windfall|inherit\w*|lottery|bonus|equity|stock|shares|crash|recession|market|debt|loan|mortgage|down payment|deposit|bought|buys|buying|house|renovat\w*|wedding|divorce\w*|settlement|medical bills?|lawsuit|sold|sale|exit|business|startup|invest\w*|savings?|tuition|fees|emergency|fraud|scam|bankrupt\w*)\b/i;
+const MONEY_CATS = new Set(["money_up", "money_down", "home", "divorce", "marriage", "job_loss", "career_change", "child", "caregiving", "move"]);
+const DROP_CATS = new Set(["job_loss", "burnout", "career_change", "caregiving"]);
+const RISE_CATS = new Set(["career_move", "career_change", "money_up", "achievement"]);
+
+/**
+ * The year's money made continuous with `prev` (or anchored to what they have when it's the first
+ * year). The span is the years since prev (5 for a coarse branch snapshot). Returns the fixed money
+ * and what was changed (soft fixes, for the log).
+ */
+export function steadyMoney(
+  y: MoneyYear,
+  prev: { year: number; money: { income: number; netWorth: number } } | null,
+  start: { netWorth: number | null; income: number | null },
+): { income: number; netWorth: number; notes: string[] } {
+  const notes: string[] = [];
+  let income = Math.max(0, Math.round(y.money.income));
+  let netWorth = Math.round(y.money.netWorth);
+  const text = [y.summary, ...y.events.map((e) => `${e.title}. ${e.narrative}`)].join(" ");
+  const cats = new Set(y.events.map((e) => e.category));
+  const moneyEvent = [...cats].some((c) => MONEY_CATS.has(c)) || MONEY_EVENT.test(text);
+  const round = (n: number, to = 500) => Math.round(n / to) * to;
+
+  if (!prev) {
+    // Year 1: what they have today, within a few months of saving.
+    if (start.netWorth !== null) {
+      const slack = Math.max(0.1 * Math.abs(start.netWorth), 0.15 * (start.income ?? income), 2000);
+      if (Math.abs(netWorth - start.netWorth) > slack) {
+        notes.push(`first-year net worth ${netWorth} anchored to what they have (${start.netWorth})`);
+        netWorth = round(start.netWorth + Math.sign(netWorth - start.netWorth) * slack * 0.5, 1000);
+      }
+    }
+    return { income, netWorth, notes };
+  }
+
+  const span = Math.max(1, y.year - prev.year);
+  const p = prev.money;
+  // --- income: a cliff needs a cause; a jump needs a reason
+  const dropCause = [...cats].some((c) => DROP_CATS.has(c)) || DROP_CAUSE.test(text);
+  if (p.income > 0) {
+    const late = y.age >= 60; // income tapers toward and into retirement
+    if (income / p.income < Math.pow(late ? 0.6 : 0.9, span) && !dropCause) {
+      notes.push(`income drop ${p.income} -> ${income} with no cause in the year, held to a dip`);
+      income = round(p.income * Math.pow(late ? 0.9 : 0.97, span));
+    }
+    // (coming back from a dip needs no new reason: the dip's cause is behind it)
+    const riseCause = [...cats].some((c) => RISE_CATS.has(c)) || RISE_CAUSE.test(text) || dropCause;
+    if (income > p.income * Math.pow(1.3, span) + 3000 * span && !riseCause) {
+      notes.push(`income jump ${p.income} -> ${income} with no reason in the year, held to a raise`);
+      income = round(p.income * Math.pow(1.08, span) + 1000 * span);
+    }
+  }
+  // --- net worth: last year's, plus what this year saves, plus or minus returns
+  const avgIncome = (income + p.income) / 2;
+  const invested = Math.max(0, p.netWorth);
+  const lo = moneyEvent || dropCause
+    ? p.netWorth - span * (0.6 * avgIncome + 15_000) - 0.4 * invested
+    : p.netWorth - span * (0.08 * avgIncome + 3000) - (1 - Math.pow(0.95, span)) * invested;
+  // (windfalls stay bounded by validate.ts)
+  const hi = moneyEvent ? Infinity : p.netWorth + span * (0.4 * avgIncome + 5000) + (Math.pow(1.08, span) - 1) * invested;
+  if (netWorth < lo) {
+    notes.push(`net worth fell ${p.netWorth} -> ${netWorth} with no money event, held to a bad year`);
+    netWorth = round(lo, 1000);
+  } else if (netWorth > hi) {
+    notes.push(`net worth rose ${p.netWorth} -> ${netWorth} faster than saving + returns, held`);
+    netWorth = round(hi, 1000);
+  }
+  return { income, netWorth, notes };
+}
+
+/**
+ * The writer's net-worth anchor for a year, moved by what they started with: the age median (and
+ * lane) plus their head start (or debt), the head start growing ~3%/yr real and a debt paid down
+ * over ~10 years. Without it a 25-year-old with $85k saved was told "net worth ~$17k".
+ */
+export function anchorNetWorth(medianNw: number, startNw: number | null, medianNwAtStart: number, yearsIn: number): number {
+  if (startNw === null) return medianNw;
+  const gap = startNw - medianNwAtStart;
+  const t = Math.max(0, yearsIn);
+  const carried = gap >= 0 ? gap * Math.pow(1.03, t) : gap * Math.max(0, 1 - t / 10);
+  return Math.round((medianNw + carried) / 1000) * 1000;
+}

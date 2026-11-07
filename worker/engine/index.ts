@@ -54,6 +54,7 @@ import { planSlotsFor } from "./slots";
 import { nowIso } from "./util";
 import { worldTimeline } from "./world";
 import { chosenPath } from "./money";
+import { kidsDoorFor } from "./kids";
 import { decisionIdsIn, writeYears, type WriterEnv, type YearMetric } from "./years";
 import { createSmallKit, type SmallDecisionKit } from "./smalls";
 import { warmupWith, type WarmupPort } from "./warmup";
@@ -240,6 +241,8 @@ export function createEngine(deps: EngineDeps): EngineWithSmalls {
         decisionIdsFor: decisionIdsIn(state.decisions),
         money: chosenPath(state.decisions, state.answers, p.sessionId),
         path: forksTaken(state, last),
+        // kids only through a door they opened: a fact, their words, a tapped answer, a fork (kids.ts)
+        kids: kidsDoorFor(state, last),
       };
       return writeYears(writerEnv(state), spec, years, onYear);
     },

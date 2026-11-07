@@ -26,7 +26,8 @@ import { OneYearLLM, YearsLLM, type YearDraft } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
 import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, PARENT_DEATH_RE, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
-import { laneFactors, laneLine, type MoneyPath } from "./money";
+import { anchorNetWorth, laneFactors, laneLine, startNetWorth, steadyMoney, type MoneyPath } from "./money";
+import { BIRTH_RE, kidsDoor, type KidsDoor } from "./kids";
 import { rng, shuffled, usd } from "./util";
 
 export interface YearMetric {
@@ -82,6 +83,18 @@ export interface LifeSpec {
   money?: MoneyPath;
   /** Forks taken in this life (for the NOW block). */
   path?: LifeNow["path"];
+  /** Whether this life may have children (kids.ts); default: from the profile and the forks in `path`. */
+  kids?: KidsDoor;
+}
+
+/** A closed life's child births (kids.ts): an event that adds a child it never chose. */
+const birthEvent = (e: Pick<LifeEvent, "category" | "title" | "narrative">) =>
+  BIRTH_RE.test(`${e.title}. ${e.narrative}`) && (e.category === "child" || /\b(baby|son|daughter|child|newborn|pregnan\w*)\b/i.test(`${e.title}. ${e.narrative}`));
+
+/** The year's money, continuous with the year before it (money.ts steadyMoney). */
+function steadied<T extends SimYear>(y: T, prev: SimYear | null, profile: Profile): T {
+  const m = steadyMoney(y, prev, { netWorth: startNetWorth(profile.money), income: profile.money.incomeUsd });
+  return m.income === y.money.income && m.netWorth === y.money.netWorth ? y : { ...y, money: { income: m.income, netWorth: m.netWorth } };
 }
 
 const BASE_RATES_TEXT = baseRatesBlock();
@@ -207,7 +220,8 @@ export async function writeYears(env: WriterEnv, spec: LifeSpec, targetYears: nu
       todo = todo.slice(got);
     }
     for (const year of todo) {
-      const y: SimYearL = fillerYear(written[written.length - 1] ?? spec.past[spec.past.length - 1] ?? null, year, profile, spec.decisionIdsFor(year));
+      const before = written[written.length - 1] ?? spec.past[spec.past.length - 1] ?? null;
+      const y: SimYearL = steadied(fillerYear(before, year, profile, spec.decisionIdsFor(year)), before, profile);
       const now = lifeAt(profile, [...spec.past, ...written], year, spec.path);
       y.scene = { ...y.scene, people: scenePeopleFrom(now, y.scene.people) };
       y.life = yearLife(now, now.work, []);
@@ -229,7 +243,9 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const last = years[years.length - 1]!;
   const ledger = ledgerFrom(past, env.world);
   const step = spec.coarse ? 5 : 1;
-  const cands = sampleCandidates(env.seed + spec.idPrefix, profile, past, years, env.world, ledger, env.span, step);
+  // Kids only through a door they opened (kids.ts): a closed life never rolls "a first child".
+  const door: KidsDoor = spec.kids ?? kidsDoor(profile, (spec.path ?? []).map((p) => p.title));
+  const cands = sampleCandidates(env.seed + spec.idPrefix, profile, past, years, env.world, ledger, env.span, step).filter((c) => door !== "closed" || c.category !== "child");
   // quiet years never collide with a decision (and its aftermath) or a rolled setback
   const busy = new Set<number>([
     ...years.filter((y) => spec.decisionIdsFor(y).length > 0).flatMap((y) => [y, y + 1]),
@@ -237,18 +253,24 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   ]);
   const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const worldInSpan = env.world.filter((w) => w.year <= last + 1);
-  // Money re-anchors to where the life is now (the latest written year's place).
+  // Money re-anchors to where the life is now (the latest written year's place), and starts from
+  // what they have (savings minus debt), not from the age median.
   const here = countryOf(past.at(-1)?.place ?? "") ?? profile.country;
+  const startNw = startNetWorth(profile.money);
+  const medianAtStart = moneyAnchor(profile, profile.age).netWorthMedian;
   const anchors = (spec.coarse ? years : years.filter((_, i) => i % 2 === 0 || i === years.length - 1))
     .map((y) => {
       const a = moneyAnchor(profile, y - profile.birthYear, here);
       const f = laneFactors(spec.money, y);
-      const nw = Math.round((a.netWorthMedian * f.wealth) / 1000) * 1000;
+      const nw = anchorNetWorth(Math.round((a.netWorthMedian * f.wealth) / 1000) * 1000, startNw, medianAtStart, y - profile.startYear);
       return `${y} (${y - profile.birthYear}): income ~${usd(Math.round((a.income * f.income) / 500) * 500)}, net worth ~${usd(nw)}`;
     })
     .join("\n");
   const k = moneyAnchor(profile, first - profile.birthYear, here).placeScale;
   const lane = [
+    startNw !== null && first <= profile.startYear + 1
+      ? `Money today (${profile.startYear}): about ${usd(Math.round(startNw / 1000) * 1000)} net (their savings minus debt). The first year starts there; after that it moves only by what they earn and save, plus or minus returns.`
+      : "",
     laneLine(spec.money),
     k !== 1
       ? `They live in ${past.at(-1)?.place ?? here} now: the same work pays about ${Math.round(k * 100)}% of what it paid at home (in USD), and costs follow. The anchors below are local; savings grow only from what they earn and save here.`
@@ -259,7 +281,11 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   // Biology: parents are ~30 years older unless known; past ~88 a parent is frail or gone (the
   // judge caught a mother "still on the veranda" at 98 in a branch).
   const pa = (y: number) => y - profile.birthYear + 30;
-  const anchorsWithAges = `${lane ? `${lane}\n` : ""}${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.`;
+  const kidsLine =
+    door === "closed"
+      ? "\nChildren: none, and they have never said they want any. No pregnancy, birth or adoption in these years: whether to have kids is their decision (a question will come to them), never the story's. An income drop needs its cause in that year's events (a layoff, study, part-time work, a sabbatical...)."
+      : "\nAn income drop needs its cause in that year's events (a layoff, study, part-time work, a sabbatical...).";
+  const anchorsWithAges = `${lane ? `${lane}\n` : ""}${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.${kidsLine}`;
   const focus = spec.focusQuoteIds
     .map((id) => profile.quotes.find((q) => q.id === id))
     .filter(Boolean)
@@ -342,6 +368,16 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
         bad.add(i);
       }
     });
+    if (door === "closed") {
+      // A child they never chose: the repair rewrites the year without it (finishYear strips what's left).
+      const newKid = ch.some((c) => c.startsWith("+child"));
+      y.events.forEach((e, i) => {
+        if (!birthEvent(e) && !(newKid && e.category === "child")) return;
+        hard.push(`event ${i + 1} "${e.title}": a child arrives, but they never said they want kids; write ${y.year} without a pregnancy, birth or adoption`);
+        bad.add(i);
+      });
+      if (newKid && !y.events.some((e, i) => bad.has(i) && e.category === "child")) hard.push(`a child is added (${ch.filter((c) => c.startsWith("+child")).join(", ")}), but they never said they want kids; no new child in ${y.year}`);
+    }
     const sIss = peopleIssues(`${y.summary} ${y.scene.caption}`, now, allow).filter((x) => x.kind !== "age");
     if (sIss.length) {
       hard.push(...sIss.map((x) => `summary/caption: ${x.msg}`));
@@ -374,8 +410,10 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const finishYear = (y00: SimYear, life0: { ch: string[]; work: string }): SimYear => {
     // the planned parent death (and only one) reaches the ledger AND the log
     const pd = withParentDeath(y00, life0.ch, curLife, deathYear !== null && y00.year >= deathYear ? deathWho : null, ledger.parentDeaths, spec.idPrefix);
-    const y0 = { ...y00, events: pd.events };
-    const life = { ...life0, ch: pd.ch };
+    // A closed life (kids.ts) never gains a child, whatever the repair or the fallback left in.
+    const closed = door === "closed";
+    const y0 = { ...y00, events: closed ? pd.events.filter((e) => !birthEvent(e)) : pd.events };
+    const life = { ...life0, ch: closed ? pd.ch.filter((c) => !c.startsWith("+child")) : pd.ch };
     const probe: SimYearL = { ...y0, life: { work: life.work, ch: life.ch, people: [] } };
     const { now, changes } = advance(curLife, probe);
     const fix = (s: string) => fixPeopleNumbers(s, now).text;
@@ -453,7 +491,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
         check = { ...check, year: fallbackYear(check) };
       }
     }
-    const y = finishYear(check.year, life);
+    const y = finishYear(steadied(check.year, prev, profile), life);
     for (const e of y.events) recordEvent(ledger, y.year, e, worldIdFor(env.world, y.year));
     lastEmitted.push(y);
     emitted++;

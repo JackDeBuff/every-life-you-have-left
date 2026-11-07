@@ -13,6 +13,7 @@ import type { DecisionSlot } from "../../shared/engine";
 import { DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Profile } from "../../shared/schema";
 import { SPEED_CONFIG, type SessionState } from "../../shared/sim";
+import { kidsQuestionOpen } from "./kids";
 import { lifeFacts } from "./world";
 
 const REFERENCE_SPAN = 45;
@@ -278,6 +279,16 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
       const why = `${worry >= 0.5 ? `they worry about ${best} (${worry.toFixed(1)}); ` : ""}we don't know ${GAP_TEXT[best]}`;
       slots.push({ year, age, kind: "small", reason: `small:${best}: ${why}` });
     }
+    // 22-45 with no kids and never asked: the kids question is asked early (owner's playtest:
+    // one tester was never asked). The third small card (the first at 2x/4x when that would be
+    // past ~35), pinned as "small:children:kids" so the batch writer keeps it on children.
+    if (kidsQuestionOpen(profile, state)) {
+      const smalls = slots.filter((x) => x.kind === "small");
+      const latest = Math.max(35, nowAge + 3);
+      const pick = smalls[2] && smalls[2].age < latest ? smalls[2] : smalls[0];
+      if (pick && pick.age < latest)
+        pick.reason = `small:children:kids: ${worriesLine(profile.worries.children)}we don't know ${GAP_TEXT.children} (they're ${pick.age}, no kids yet; every life depends on it, and no life gets a child they never chose)`;
+    }
   }
   return slots.sort((a, b) => a.year - b.year || (a.kind === "big" ? -1 : 1));
 }
@@ -299,6 +310,8 @@ function spreadYears(from: number, to: number, n: number): number[] {
   }
   return out;
 }
+
+const worriesLine = (w: number) => (w >= 0.5 ? `they worry about children (${w.toFixed(1)}); ` : "");
 
 function topDomain(p: Profile, k = 0): DomainKey {
   const sorted = DOMAIN_KEYS.slice().sort((a, b) => p.worries[b] - p.worries[a]);

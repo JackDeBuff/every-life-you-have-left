@@ -15,6 +15,7 @@ import { bigCardIssues } from "../worker/engine/decisions";
 import { ANSWER_CASES, CLEAN_CASES, FORK_CASES, TODAY } from "./qa/fixtures";
 import { PEOPLE_CASES, HISTORY_CASES, MONEY_CASES, COPY_CASES } from "./qa/code-cases";
 import { PEOPLE_MODEL_CASES } from "./qa/people-cases";
+import { KIDS_CASES, MONEY_GUARD_CASES, PACE_CASES, STALE_CASES } from "./qa/engine-cases";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -51,6 +52,10 @@ for (const [title, cases] of [
   ["4. History and people over time", HISTORY_CASES],
   ["5. Money anchors and copy", [...MONEY_CASES, ...COPY_CASES]],
   ["6. People join, drift and get new names (Ploy, made up)", PEOPLE_MODEL_CASES],
+  ["7. 1x small-card cadence (owner's playtest, Nov 7)", PACE_CASES],
+  ["8. Small cards against the year they're served in", STALE_CASES],
+  ["9. Money continuity", MONEY_GUARD_CASES],
+  ["10. Kids only through a door they opened", KIDS_CASES],
 ] as const) {
   console.log(`\n${title}`);
   for (const c of cases) {
