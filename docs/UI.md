@@ -186,7 +186,7 @@ Location: `src/ui/` (components), `src/screens/` (screens), `src/styles/` (token
 | World slot | `ui/middle/WorldSlot.tsx` | `<WorldSlot spec>`; placeholder sky until `<World>` is plugged in |
 | Life log | `ui/middle/LifeLog.tsx` | Auto-scroll, domain ticks, fork rows, why popover |
 | Why card | `ui/middle/WhyCard.tsx` | Quote (serif italic) + base rate + source + "show in chat" |
-| Live settings | `ui/right/LiveSettings.tsx` | Radix select / slider / chips / switch, "applies from next year" tag |
+| Live settings | `ui/right/LiveSettings.tsx` | Radix select / slider / chips / switch, "applies from next year" tag; folds to a summary bar while a card is open |
 | Dialogue | `ui/right/Dialogue.tsx` | DE-style column, not bubbles; your words in serif italic |
 | Decision card | `ui/right/DecisionCard.tsx` | Question, why, 4 tiles with keycaps, say-more, submit, countdown |
 | Hold to talk | `ui/right/HoldToTalk.tsx` | MediaRecorder → `/api/transcribe` (mocked) → editable text |
@@ -231,13 +231,14 @@ npx vite --port 5291          # or npm run dev
   `?new=1` or "Start a new life" starts fresh. If the socket can't connect within 6 s, a notice
   offers "Play the offline demo" (switches to the mock without a reload).
 - **Clock** (`src/ui/clock.ts`): real elapsed time × the speed's secondsPerYear; stops in "deciding"
-  and "interlude"; 0.25× while a small card is up (it slides after smallTimeoutSec; the countdown
-  pauses outside play; unseen small cards from past years slide quietly); never passes
+  and "interlude"; 0.5× while a small card is up (one at a time; it slides after smallTimeoutSec
+  of idle time: any right-pane interaction holds it for 4 s, typing holds the clock); never passes
   `bufferedTo` (shows "Life is thinking…"); re-sends a tick the agent didn't confirm.
 - **World** (`src/ui/middle/WorldView.tsx`): lazy `<World>` with `<WorldSlot>` as the fallback;
   `spec = years[playhead].scene` (sticky while a fork rewrites its year, a "today" scene before
   the first year); the world drives the interlude (`onCut` → captions, `onInterludeDone` →
-  `pause(false)`); a moment holds the clock (0.7 s in Auto); `paused` while a big card dims it.
+  `pause(false)`); moments play only on spaced turning points and hold the clock 3-4.4 s
+  (`src/ui/pacing.ts`); `paused` while a big card dims it.
   "Meanwhile…" holds its title from the end of the fork moment until the cuts arrive.
 - **Media**: portraits (`/api/portrait`, only if a selfie or a look was given; aged 35/50/70 in the
   background; the Portrait shows the band for the age), hold-to-talk (`/api/transcribe`; live never
@@ -284,3 +285,19 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
 - Mock content repeats at 1×/2× (later forks recycle the life-stage templates).
 - Mid-animation frames (fork flight, blink) were checked live in the browser pane, not captured
   at full resolution.
+
+**Pass 3 (Sat Nov 7, owner's live run: right pane), shots in `docs/fix-shots/right-pane-*`**
+- With real-engine settings (long labels, long select values) the 2-column settings grid ran off
+  the pane, hover hints floated over other controls, and the dialogue (flex-basis auto) out-shrank
+  the card until only its footer showed. Now `.right` is one flex column: settings (≤40%), the
+  dialogue (flex-basis 0, its own scroll, shrinks to 0), the card at its natural height. Nothing
+  overlaps the card.
+- Settings fold to a one-line bar ("Life settings · 4 · nudges apply from 32") while a card is up,
+  open again ~1.4 s after it resolves (or on click), and fold away for a big decision. One column
+  unless the panel has ≥640 px of content; labels/values wrap; chips wrap into rows; hints are a
+  muted line under the label. Slider key steps and chip bursts settle into one nudge.
+- Card budget at 1280×720 with the engine's longest copy: inline keycaps (answers get the full tile
+  width), say-more starts at one line and grows, and on ≤860 px tall screens answer hints clamp to
+  one line (full hint as the tooltip) and the say-more microcopy keeps its first sentence.
+- Layout QA: `window.__mock` (dev only) is the mock store; inject long copy with
+  `__mock.setState(...)` to check layouts.

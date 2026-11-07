@@ -3,7 +3,7 @@ import type { Ending, SafetyResult } from "../../shared/engine";
 import type { Branch, LiveSetting, LogLine, SessionState, SimYear } from "../../shared/sim";
 import { fixPeopleNumbers, peopleIssues, similarity } from "./consistency";
 import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, settingValueLabel, yearLine } from "./context";
-import { branchPath, chosenPath, lifeAt, nowBlock, peopleNowLine, peopleSummary, type LifeNow } from "./ledger";
+import { branchForks, forksTaken, lifeAt, nowBlock, peopleNowLine, peopleSummary, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
 import { ENDING_SYSTEM, endingPrompt, SAFETY_SYSTEM, SETTINGS_SYSTEM, settingsPrompt } from "./prompts/extras";
 import { EndingLLM, SafetyLLM, SettingsLLM } from "./schemas";
@@ -59,7 +59,7 @@ export async function settingsForState(call: Caller, state: SessionState, today:
   const profile = state.profile!;
   const past = state.years.filter((y) => y.year <= state.playhead.year);
   // settings follow the life as it stands (after the latest fork), not the start profile
-  const now = nowContext({ profile, years: past, atYear: state.playhead.year, path: chosenPath(state, state.playhead.year), today }).text;
+  const now = nowContext({ profile, years: past, atYear: state.playhead.year, path: forksTaken(state, state.playhead.year), today }).text;
   const current = state.settings.length
     ? state.settings.map((s) => `${s.id}: ${s.type} "${s.label}" = ${settingValueLabel(s, s.value)}`).join("\n")
     : "(none yet)";
@@ -129,14 +129,14 @@ export async function endingFor(call: Caller, state: SessionState, branches: Bra
     const n = lifeAt(profile, years.filter((y) => y.year < atYear), atYear);
     return `${n.place}; ${n.work}; people: ${peopleNowLine(n)}`;
   };
-  const chosenEnd = lifeAt(profile, state.years, endYear, chosenPath(state));
+  const chosenEnd = lifeAt(profile, state.years, endYear, forksTaken(state));
   const ends: Record<string, LifeNow> = { chosen: chosenEnd };
   lives.push(
     `id "chosen": THEIR CHOSEN LIFE (from ${start}, age ${profile.age})\nDecisions: ${decisionsBlock(state, 9999).split("\n").slice(0, 8).join(" / ")}\nAt the start: ${startCtx(state.years, start)}\n${compactLife(state.years, start, 30)}\n${nowBlock(chosenEnd, { title: `AT THE END (${endYear})` })}`,
   );
   for (const b of branches) {
     const shared = state.years.filter((y) => y.year < b.forkYear);
-    const bEnd = lifeAt(profile, [...shared, ...b.years], endYear, branchPath(state, b));
+    const bEnd = lifeAt(profile, [...shared, ...b.years], endYear, branchForks(state, b));
     ends[b.id] = bEnd;
     lives.push(
       `id "${b.id}": "${b.title}" (forked at ${b.forkAge} in ${b.forkYear}; five-year answer is spoken at ${b.forkAge})\nShared past up to then: ${shared.length ? yearLine(shared[shared.length - 1]!) : "(none)"}\nAt the fork: ${startCtx(shared, b.forkYear)}\n${compactLife(b.years, b.forkYear, 14)}\n${nowBlock(bEnd, { title: `AT THE END (${endYear})` })}`,

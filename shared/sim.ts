@@ -6,7 +6,8 @@
  * no unions except X | null, small string enums, header fields before big arrays.
  */
 import { z } from "zod";
-import { BaseRateRef, Cause, DomainKey, DomainStates, Profile, Tone, Year } from "./schema";
+import { CURRENCY_CODES } from "./currency";
+import { BaseRateRef, Cause, DomainKey, DomainStates, Gender, Profile, Tone, Year } from "./schema";
 
 const int = () => z.number().int();
 
@@ -30,10 +31,12 @@ export interface SpeedConfig {
   interludeEveryYears: number | null;
 }
 
+// Small budgets amended Sat Nov 7 (D-081 note): ~1 small decision a year at 1x, one every ~1.5
+// years at 2x, one every ~3 years at 4x (was 200/100/50: 2-4 a year kept 2x slowed nearly always).
 export const SPEED_CONFIG: Record<SpeedMode, SpeedConfig> = {
-  "1x": { smallBudget: 200, bigBudget: 20, secondsPerYear: 6, smallTimeoutSec: null, interludeEveryYears: 10 },
-  "2x": { smallBudget: 100, bigBudget: 10, secondsPerYear: 4, smallTimeoutSec: 12, interludeEveryYears: 10 },
-  "4x": { smallBudget: 50, bigBudget: 5, secondsPerYear: 2, smallTimeoutSec: 12, interludeEveryYears: null },
+  "1x": { smallBudget: 45, bigBudget: 20, secondsPerYear: 6, smallTimeoutSec: null, interludeEveryYears: 10 },
+  "2x": { smallBudget: 30, bigBudget: 10, secondsPerYear: 4, smallTimeoutSec: 12, interludeEveryYears: 10 },
+  "4x": { smallBudget: 15, bigBudget: 5, secondsPerYear: 2, smallTimeoutSec: 10, interludeEveryYears: null },
   auto: { smallBudget: 0, bigBudget: 5, secondsPerYear: 1.5, smallTimeoutSec: null, interludeEveryYears: null },
 };
 
@@ -47,6 +50,8 @@ export const Appearance = z.object({
   skinTone: z.enum(["tone1", "tone2", "tone3", "tone4", "tone5", "tone6"]).nullable().describe("User-picked swatch, 1 lightest .. 6 deepest"),
   glasses: z.boolean().nullable(),
   facialHair: z.boolean().nullable(),
+  /** Self-identified (woman / man / non-binary / prefer not to say). Sets pronouns in the story, the portrait and the 3D self. Never inferred. */
+  gender: Gender.nullable().default(null).describe("Self-identified; null = not set (they/them)"),
 });
 export type Appearance = z.infer<typeof Appearance>;
 
@@ -61,6 +66,8 @@ export const StartInput = z.object({
   speed: SpeedMode,
   appearance: Appearance.nullable(),
   hasSelfie: z.boolean(),
+  /** Display currency they picked (shared/currency.ts). The engine still computes in USD. null = from the country. */
+  currency: z.enum(CURRENCY_CODES).nullable().default(null),
 });
 export type StartInput = z.infer<typeof StartInput>;
 

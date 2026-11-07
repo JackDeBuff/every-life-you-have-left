@@ -15,6 +15,8 @@ interface Props {
   endYear: number;
   place: string;
   verdict: string;
+  /** Line under the picture; defaults to the verdict (pass the path when the letter quotes the verdict). */
+  caption?: string;
   message: string;
   quote: string | null;
   states: DomainStates | null;
@@ -28,24 +30,32 @@ function css(v: string, el: Element = document.documentElement) {
   return getComputedStyle(el).getPropertyValue(v).trim() || "#000";
 }
 
-function wrap(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number, maxLines = 99): number {
-  const words = text.split(/\s+/);
+/** Word-wrap `text` to `maxW` in the current font. */
+function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const out: string[] = [];
   let line = "";
-  let lines = 0;
-  for (const w of words) {
+  for (const w of text.split(/\s+/).filter(Boolean)) {
     const test = line ? `${line} ${w}` : w;
     if (ctx.measureText(test).width > maxW && line) {
-      ctx.fillText(line, x, y);
-      y += lh;
+      out.push(line);
       line = w;
-      if (++lines >= maxLines - 1) {
-        ctx.fillText(`${line}…`, x, y);
-        return y + lh;
-      }
     } else line = test;
   }
-  if (line) ctx.fillText(line, x, y);
-  return y + lh;
+  if (line) out.push(line);
+  return out;
+}
+
+/** Last resort only (absurdly long text at the smallest size): end on a word, one clean ellipsis. */
+function clampLines(ls: string[], max: number): string[] {
+  if (ls.length <= max) return ls;
+  const kept = ls.slice(0, max);
+  kept[max - 1] = `${kept[max - 1]!.replace(/[\s.,;:!?…]+$/, "")}…`;
+  return kept;
+}
+
+function drawLines(ctx: CanvasRenderingContext2D, ls: string[], x: number, y: number, lh: number): number {
+  ls.forEach((l, i) => ctx.fillText(l, x, y + i * lh));
+  return y + ls.length * lh;
 }
 
 export function Postcard(p: Props) {
@@ -246,23 +256,46 @@ function draw(c: HTMLCanvasElement, p: Props) {
   });
   ctx.restore();
 
-  // message
-  ctx.fillStyle = ink;
-  ctx.font = `italic 420 34px ${serif}`;
-  let y = 340;
-  y = wrap(ctx, `Dear ${p.name},`, X, y, 360, 46);
-  y += 8;
-  ctx.font = `italic 420 28px ${serif}`;
-  y = wrap(ctx, p.message, X, y, 360, 40, 9);
-  if (p.quote) {
-    y += 10;
-    ctx.fillStyle = ink2;
-    ctx.font = `500 21px ${sans}`;
-    y = wrap(ctx, `You once said “${p.quote}”`, X, y, 360, 30, 3);
+  // message: the whole letter always fits. Step the size down until the letter, the quote and the
+  // signature sit above the bottom margin; never cut a sentence off mid-way.
+  const MW = 360;
+  const DEAR = 340;
+  const SIGN_MAX = H - 70;
+  const quoteText = p.quote ? `You once said “${p.quote}”` : null;
+  let fit: { fs: number; lh: number; m: string[]; qs: number; qlh: number; q: string[] } | null = null;
+  for (const fs of [28, 26, 24, 22, 20, 18]) {
+    const lh = Math.round(fs * 1.43);
+    ctx.font = `italic 420 ${fs}px ${serif}`;
+    const m = wrapLines(ctx, p.message, MW);
+    const qs = Math.max(16, Math.round(fs * 0.75));
+    const qlh = Math.round(qs * 1.43);
+    ctx.font = `500 ${qs}px ${sans}`;
+    const q = quoteText ? wrapLines(ctx, quoteText, MW) : [];
+    const sign = DEAR + 54 + m.length * lh + (q.length ? 10 + q.length * qlh : 0) + 34;
+    fit = { fs, lh, m, qs, qlh, q };
+    if (sign <= SIGN_MAX) break;
+  }
+  const f = fit!;
+  // Still too long at the smallest size: the quote gives way first, then the letter ends on a word.
+  const room = (SIGN_MAX - 34 - DEAR - 54) / f.lh;
+  if (DEAR + 54 + f.m.length * f.lh + (f.q.length ? 10 + f.q.length * f.qlh : 0) + 34 > SIGN_MAX) {
+    f.q = [];
+    f.m = clampLines(f.m, Math.max(1, Math.floor(room)));
   }
   ctx.fillStyle = ink;
-  ctx.font = `italic 420 28px ${serif}`;
-  ctx.fillText(`— ${p.name}, at ${p.endAge}`, X, Math.min(H - 70, y + 34));
+  ctx.font = `italic 420 34px ${serif}`;
+  ctx.fillText(`Dear ${p.name},`, X, DEAR);
+  ctx.font = `italic 420 ${f.fs}px ${serif}`;
+  let y = drawLines(ctx, f.m, X, DEAR + 54, f.lh);
+  if (f.q.length) {
+    y += 10;
+    ctx.fillStyle = ink2;
+    ctx.font = `500 ${f.qs}px ${sans}`;
+    y = drawLines(ctx, f.q, X, y, f.qlh);
+  }
+  ctx.fillStyle = ink;
+  ctx.font = `italic 420 ${Math.min(28, f.fs + 2)}px ${serif}`;
+  ctx.fillText(`— ${p.name}, at ${p.endAge}`, X, Math.min(SIGN_MAX, y + 34));
 
   // address
   ctx.fillStyle = ink2;
@@ -280,11 +313,30 @@ function draw(c: HTMLCanvasElement, p: Props) {
     ctx.lineTo(W - 70, 484 + i * 64);
     ctx.stroke();
   });
+  // The small print wraps inside the address column (it used to run off the card's right edge).
   ctx.fillStyle = ink2;
   ctx.font = `500 15px ${sans}`;
-  ctx.fillText("A projection, not a prediction · Every Life You Have Left", X + 440, H - 60);
-  // verdict as a caption under the picture
-  ctx.fillStyle = "rgba(247,245,240,0.9)";
-  ctx.font = `600 28px ${sans}`;
-  wrap(ctx, p.verdict, 56, 880, LW - 110, 38, 3);
+  const fine = wrapLines(ctx, "A projection, not a prediction · Every Life You Have Left", W - 70 - (X + 440));
+  drawLines(ctx, fine, X + 440, H - 60 - (fine.length - 1) * 21, 21);
+  // caption under the picture (the path you took, or the verdict): bottom-anchored, below the
+  // threads, stepping down a size rather than cutting off.
+  const caption = (p.caption ?? p.verdict).trim();
+  if (caption) {
+    ctx.fillStyle = "rgba(247,245,240,0.9)";
+    const CW = LW - 110;
+    const LAST = H - 58;
+    const TOP = 812;
+    let cap: { fs: number; lh: number; ls: string[] } | null = null;
+    for (const fs of [28, 25, 22, 20, 18]) {
+      ctx.font = `600 ${fs}px ${sans}`;
+      const lh = Math.round(fs * 1.36);
+      const ls = wrapLines(ctx, caption, CW);
+      cap = { fs, lh, ls };
+      if (LAST - (ls.length - 1) * lh - fs >= TOP) break;
+    }
+    const c = cap!;
+    const ls = clampLines(c.ls, Math.max(1, Math.floor((LAST - TOP + c.lh - c.fs) / c.lh)));
+    ctx.font = `600 ${c.fs}px ${sans}`;
+    drawLines(ctx, ls, 56, LAST - (ls.length - 1) * c.lh, c.lh);
+  }
 }

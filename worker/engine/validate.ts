@@ -160,6 +160,8 @@ export interface YearCheckCtx {
   /** Coarse snapshots (5-year steps): wider state deltas allowed, no per-year cooldown checks. */
   coarse: boolean;
   decisionIds: string[];
+  /** Net worth three years before (chosen life), for the "2x in 3 years" check. */
+  netWorth3YearsAgo?: number | null;
 }
 
 export interface YearCheck {
@@ -359,6 +361,26 @@ export function checkYear(draft: YearDraft, ctx: YearCheckCtx): YearCheck {
     if (Math.abs(netWorth - prev.money.netWorth) > nwSwing * (moneyEvent ? 2 : 1)) {
       soft.push("net worth swing capped");
       netWorth = Math.round(prev.money.netWorth + Math.sign(netWorth - prev.money.netWorth) * nwSwing * (moneyEvent ? 2 : 1));
+    }
+    // Wealth grows only from what the life earns and saves plus returns: at most ~45% of income
+    // saved and ~7% on what's invested, a year. A windfall (money_up: a sale, equity, an
+    // inheritance) may add more, still bounded. Then the "2x in 3 years" check.
+    const windfall = outEvents.some((e) => e.category === "money_up");
+    const earn = Math.max(income, prev.money.income);
+    const perYear = 0.45 * earn + 0.07 * Math.max(0, prev.money.netWorth) + 10_000;
+    const maxGain = windfall ? 3 * perYear * span + 150_000 : perYear * span;
+    if (netWorth - prev.money.netWorth > maxGain) {
+      soft.push("net worth growth capped (income x savings + returns)");
+      netWorth = Math.round(prev.money.netWorth + maxGain);
+    }
+    // More than doubled in 3 years without a windfall: hold it to 3 years of savings + returns.
+    const nw3 = ctx.netWorth3YearsAgo;
+    if (!ctx.coarse && !windfall && nw3 !== null && nw3 !== undefined && nw3 > 0 && netWorth > 2 * nw3) {
+      const bound = Math.round(nw3 * 1.225 + 3 * (0.45 * earn + 10_000));
+      if (netWorth > bound) {
+        soft.push("net worth more than doubled in 3 years without a windfall: capped to savings + returns");
+        netWorth = Math.max(prev.money.netWorth, bound);
+      }
     }
   }
 

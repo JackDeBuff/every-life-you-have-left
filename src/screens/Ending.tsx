@@ -9,7 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
-import { money, ROMAN } from "../ui/format";
+import { CURRENCIES, RATES_AS_OF } from "../../shared/currency";
+import { money, moneyHint, ROMAN, useCurrency } from "../ui/format";
 import { Icon } from "../ui/icons";
 import { MiniRose } from "../ui/left/LifeRose";
 import { Portrait } from "../ui/left/Portrait";
@@ -30,6 +31,7 @@ interface LifeCol {
 
 export default function Ending() {
   const s = useSim((x) => x);
+  const cur = useCurrency();
   const root = useRef<HTMLDivElement>(null);
   const [talkLife, setTalkLife] = useState("chosen");
   const talkRef = useRef<HTMLElement>(null);
@@ -73,11 +75,12 @@ export default function Ending() {
     [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
   const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
-  const message = useMemo(
-    // The engine writes a postcard line from this life (ending.postcard); the fixed line is only a fallback.
-    () => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} ${(s.ending as { postcard?: string } | null)?.postcard ?? "Decide the small things faster and the big things slower. It worked out better than you'd think."}`,
-    [chosenLast, lives, p.city, s.ending],
-  );
+  // The letter is this life's own verdict plus the engine's postcard line for THIS life
+  // (ending.postcard; no stock advice line: it read the same on every card); the picture's caption
+  // is the path you took, so the two don't repeat each other.
+  const postcard = (s.ending as { postcard?: string } | null)?.postcard ?? "";
+  const message = useMemo(() => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} ${postcard}`.trim(), [chosenLast, lives, p.city, postcard]);
+  const caption = lives[0]!.path || `${p.firstName ? `${p.firstName}'s` : "Your"} life, ${p.age} to ${s.endAge}`;
 
   return (
     <div className="ending scroll" ref={root}>
@@ -124,7 +127,7 @@ export default function Ending() {
                 </div>
                 <div>
                   <dt className="label">Net worth</dt>
-                  <dd className="data">{money(l.last.money.netWorth)}</dd>
+                  <dd className="data" title={moneyHint(l.last.money.netWorth, cur)}>{money(l.last.money.netWorth, cur)}</dd>
                 </div>
               </dl>
             )}
@@ -140,7 +143,7 @@ export default function Ending() {
             </button>
           </article>
         ))}
-        <p className="lives-note small faint">Side by side, not ranked. Money is a projection in today's dollars, not a prediction.</p>
+        <p className="lives-note small faint">Side by side, not ranked. Money is a projection in today's {CURRENCIES[cur].noun}, not a prediction{cur === "USD" ? "" : ` ($1 = ${CURRENCIES[cur].symbol}${CURRENCIES[cur].perUsd}, ${RATES_AS_OF})`}.</p>
       </section>
 
       <section className="end-sec post-sec">
@@ -154,6 +157,7 @@ export default function Ending() {
           endYear={endYear}
           place={chosenLast?.place ?? p.city ?? ""}
           verdict={lives[0]!.verdict}
+          caption={caption}
           message={message}
           quote={firstQuote}
           states={chosenLast?.states ?? null}

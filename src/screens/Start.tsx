@@ -3,7 +3,8 @@
  * speed (Auto pre-selected for judges), optional look + selfie, optional "tell me more", consent.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { endAgeFor } from "../../shared/schema";
+import { CURRENCIES, CURRENCY_CODES, currencyForCountry, detectCurrency, type CurrencyCode } from "../../shared/currency";
+import { endAgeFor, pronounsFor, type Gender } from "../../shared/schema";
 import type { Appearance, SpeedMode, StartInput } from "../../shared/sim";
 import { fastForward, jumpParams } from "../ui/devJump";
 import { HoldToTalk } from "../ui/HoldToTalk";
@@ -18,12 +19,13 @@ import { LongDay } from "../ui/start/LongDay";
 
 const SPEEDS: { id: SpeedMode; key: string; title: string; note: string }[] = [
   { id: "auto", key: "Auto", title: "About 3 minutes", note: "5 big choices. Best for a first look." },
-  { id: "4x", key: "4×", title: "Quick", note: "~5 big, ~50 small choices" },
-  { id: "2x", key: "2×", title: "Considered", note: "~10 big, ~100 small" },
-  { id: "1x", key: "1×", title: "Deep", note: "~20 big, ~200 small. Hours, if you like" },
+  { id: "4x", key: "4×", title: "Quick", note: "~5 big, ~15 small choices" },
+  { id: "2x", key: "2×", title: "Considered", note: "~10 big, ~30 small" },
+  { id: "1x", key: "1×", title: "Deep", note: "~20 big, ~45 small. Take your time" },
 ];
 
 const HAIR_STYLES: NonNullable<Appearance["hairStyle"]>[] = ["short", "medium", "long", "curly", "coily", "shaved", "bun"];
+const GENDER_CHOICES: [Gender, string][] = [["woman", "Woman"], ["man", "Man"], ["nonbinary", "Non-binary"], ["undisclosed", "Prefer not to say"]];
 const COUNTRY_NAMES: Record<string, string> = {
   usa: "US", "united states": "US", us: "US", uk: "GB", "united kingdom": "GB", england: "GB", canada: "CA", india: "IN", japan: "JP", germany: "DE", france: "FR",
   spain: "ES", portugal: "PT", italy: "IT", mexico: "MX", brazil: "BR", singapore: "SG", australia: "AU", korea: "KR", "south korea": "KR", china: "CN", nigeria: "NG",
@@ -34,7 +36,7 @@ export function parsePlace(raw: string): { city: string; region: string | null; 
   const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
   const city = parts[0] ?? "Somewhere";
   const known = KNOWN_PLACES[city.toLowerCase()];
-  if (parts.length === 1) return { city, region: known?.region ?? null, country: known?.country ?? "US" };
+  if (parts.length <= 1) return { city, region: known?.region ?? null, country: known?.country ?? "US" };
   const last = parts[parts.length - 1]!;
   const code = COUNTRY_NAMES[last.toLowerCase()];
   if (code) return { city, region: parts.length > 2 ? parts[1]! : null, country: code };
@@ -58,11 +60,13 @@ export default function Start() {
   const [line, setLine] = useState(demo ? SAMPLE.line : "");
   const [via, setVia] = useState<"text" | "voice">("text");
   const [speed, setSpeed] = useState<SpeedMode>("auto");
-  const [look, setLook] = useState<Appearance>({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null });
+  const [look, setLook] = useState<Appearance>({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null, gender: null });
   const [selfie, setSelfie] = useState<{ file: File; url: string } | null>(null);
   const [docs, setDocs] = useState<(AddedDoc & { text: string; file: File | null })[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [adult, setAdult] = useState(demo);
+  /** null = automatic: the currency they write in, else the one where they live. */
+  const [currency, setCurrency] = useState<CurrencyCode | null>(null);
   const [open, setOpen] = useState<"look" | "more" | null>(null);
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -72,6 +76,9 @@ export default function Start() {
   const ready = name.trim().length > 0 && ageOk && place.trim().length > 1 && adult;
   const endAge = ageOk ? endAgeFor(ageN) : 70;
   const hasLook = Object.values(look).some((v) => v !== null);
+  const written = useMemo(() => detectCurrency(line), [line]);
+  const shownCurrency: CurrencyCode = currency ?? written ?? currencyForCountry(parsePlace(place).country);
+  const currencyWhy = currency ? "" : written ? "From what you wrote" : place.trim() ? "From where you live" : "";
 
   // Fetch the 3D world's chunk while the form is being filled, so the first year isn't a blank pane.
   useEffect(() => {
@@ -105,6 +112,7 @@ export default function Start() {
       speed,
       appearance: hasLook ? look : null,
       hasSelfie: !!selfie,
+      currency: shownCurrency,
     };
     if (!reducedMotion() && rootRef.current) {
       gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 0.4, duration: 0.5, stagger: 0.03 });
@@ -170,6 +178,43 @@ export default function Start() {
           </label>
         </div>
 
+        <div className="form-row split">
+        <div className="field">
+          <span className="label">
+            <span>Gender · optional</span>
+            <span className="faint">{look.gender ? `The story will say ${pronounsFor(look.gender)}` : "Not set: the story says they/them"}</span>
+          </span>
+          <div className="chips" role="radiogroup" aria-label="Gender">
+            {GENDER_CHOICES.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={look.gender === id}
+                className="chip"
+                data-on={look.gender === id}
+                onClick={() => setLook({ ...look, gender: look.gender === id ? null : id })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="field">
+          <span className="label">
+            <span>Money in</span>
+            <span className="faint">{currencyWhy}</span>
+          </span>
+          <select className="input" value={shownCurrency} onChange={(e) => setCurrency(e.target.value as CurrencyCode)}>
+            {CURRENCY_CODES.map((c) => (
+              <option key={c} value={c}>
+                {CURRENCIES[c].symbol} {c} · {CURRENCIES[c].name}
+              </option>
+            ))}
+          </select>
+        </label>
+        </div>
+
         <div className="field">
           <span className="label">
             <span>What's on your mind lately?</span>
@@ -219,7 +264,7 @@ export default function Start() {
           </button>
           {open === "look" && (
             <div className="opt-body look">
-              <Portrait appearance={look} age={ageOk ? ageN : 25} progress={0.1} size={92} />
+              <Portrait appearance={look} age={ageOk ? ageN : 25} progress={0.1} size={116} />
               <div className="look-controls">
                 <div className="field">
                   <span className="label">Hair</span>

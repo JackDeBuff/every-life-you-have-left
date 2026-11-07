@@ -7,7 +7,7 @@ import { getBaseRate } from "../../shared/baseRates";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SessionState, SimYear } from "../../shared/sim";
 import { decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, yearLine } from "./context";
-import { branchPath, chosenPath, type LifeNow } from "./ledger";
+import { branchForks, forksTaken, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
 import { futureSelfSystem, INTERVIEWER_SYSTEM } from "./prompts/chat";
 import { BREAK_CHARACTER } from "./prompts/extras";
@@ -50,14 +50,14 @@ function lifeYearsUpTo(state: SessionState, life: string, age: number): { years:
     const forks = state.decisions.filter((d) => d.kind === "big" && d.status === "answered" && d.year <= year);
     const last = forks.at(-1);
     const opt = last ? last.options.find((o) => o.id === state.answers.find((a) => a.decisionId === last.id)?.optionId) : undefined;
-    return { years, title: "Your Path", forkLine: opt?.branchTitle ? `the life where you chose "${opt.branchTitle}"` : "the life you chose", path: chosenPath(state, year) };
+    return { years, title: "Your Path", forkLine: opt?.branchTitle ? `the life where you chose "${opt.branchTitle}"` : "the life you chose", path: forksTaken(state, year) };
   }
   const b = state.branches.find((x) => x.id === life);
   if (!b) return null;
   const shared = state.years.filter((y) => y.year < b.forkYear);
   const own = b.years.filter((y) => y.year <= year);
   const decision = state.decisions.find((d) => d.id === b.forkDecisionId);
-  return { years: [...shared, ...own], title: b.title, forkLine: branchLabel(state, decision, b).split(". From here")[0]!, path: branchPath(state, b) };
+  return { years: [...shared, ...own], title: b.title, forkLine: branchLabel(state, decision, b).split(". From here")[0]!, path: branchForks(state, b) };
 }
 
 export async function* reply(
@@ -79,7 +79,7 @@ export async function* reply(
     const now = state.years.filter((y) => y.year <= state.playhead.year);
     const statIds = [...new Set(now.flatMap((y) => y.events.map((e) => e.baseRate?.statId)).filter((x): x is NonNullable<typeof x> => Boolean(x)))];
     const stats = statIds.map((id) => getBaseRate(id)).filter((b): b is NonNullable<typeof b> => Boolean(b)).map((b) => `- ${b.display} (${b.source})`).join("\n");
-    const nowText = nowContext({ profile: p, years: now, atYear: state.playhead.year, path: chosenPath(state, state.playhead.year), today }).text;
+    const nowText = nowContext({ profile: p, years: now, atYear: state.playhead.year, path: forksTaken(state, state.playhead.year), today }).text;
     system = `${INTERVIEWER_SYSTEM}\n\nWHO THEY ARE\n${personBlock(p)}\n\nTHEIR WORDS\n${quotesBlock(p)}\n\nTHEIR SIMULATED LIFE SO FAR\n${lifeSoFarBlock(now, 20)}\n\n${nowText}\n\nDECISIONS\n${decisionsBlock(state, state.playhead.year)}\n\nSTATISTICS BEHIND THEIR LIFE (cite only these; never invent a number or a study)\n${stats || "(none cited yet: explain with their own words and choices instead)"}`;
   } else {
     const l = lifeYearsUpTo(state, life, age);

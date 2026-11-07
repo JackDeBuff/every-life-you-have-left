@@ -16,7 +16,8 @@ export function LifeLog() {
 
   const groups = useMemo(() => {
     const out: { year: number; age: number; lines: LogLine[] }[] = [];
-    for (const l of log) {
+    const ordered = log.map((l, i) => ({ l, i })).sort((a, b) => a.l.year - b.l.year || a.i - b.i).map((x) => x.l);
+    for (const l of ordered) {
       const g = out[out.length - 1];
       if (g && g.year === l.year) g.lines.push(l);
       else out.push({ year: l.year, age: l.age, lines: [l] });

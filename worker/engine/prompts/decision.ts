@@ -25,7 +25,8 @@ THE CARD
 - The 4 forks must be genuinely different lives, not good / bad / neutral / other, and all plausible for this person right now. No strawmen, no joke option, none is "right". Two forks must not be the same choice with different timing.
 - placeholder: one short line inviting their own words, e.g. "Or tell me what you'd really do, and what would make it easier..."
 - domains: 1-3 domains this is about.
-- Never ask about race, religion, orientation or health conditions. No medical, legal or financial advice in the wording.`;
+- Never ask about race, religion, orientation or health conditions. No medical, legal or financial advice in the wording.
+- KNOWN PLANS in PERSON are already decided: never present one as a new idea and never ignore it. A fork may question a plan only when it is genuinely uncertain for them (certainty likely or hoped, or their words sound torn): then one fork keeps it ("Go back as planned") and others change it ("Stay abroad another year"). A fixed plan isn't up for a vote; fork on how they live it (which role, where to live, who comes along, what they keep from the life before).`;
 
 export function bigDecisionPrompt(o: {
   person: string;
@@ -88,5 +89,6 @@ Return only what this answer teaches us:
 - shortForm: a <= 12 word excerpt copied verbatim from their written answer (null if they wrote nothing).
 - worries: the full 0..1 map, updated (raise a domain they're clearly anxious about, lower one they shrugged off; small moves, +-0.2 at most).
 - facts, people, fears, values, constraints: only new or corrected items, citing the answer's quote id when they wrote text. People keep the label they already have. Never invent names.
-- money: only if the answer changes what we know about money, else null.
+- money: only if the answer changes what we know about money, else null. Every money field is USD (convert with the rate in PROFILE if they wrote another currency).
+- plans: only new concrete plans with a time that this answer states ("I'm moving to Tokyo next spring"), with year, when, kind, certainty (fixed / likely / hoped) and the answer's quote id. [] otherwise.
 - Never record race, ethnicity, religion, orientation, diagnoses or immigration status.`;

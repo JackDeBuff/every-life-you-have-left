@@ -168,16 +168,55 @@ export interface MoneyAnchor {
   age: number;
   income: number;
   netWorthMedian: number;
+  /** Pay where they live now vs. where they started (1 = same country). */
+  placeScale: number;
 }
 
-export function moneyAnchor(profile: Profile, age: number): MoneyAnchor {
+/**
+ * `here`: the country the life is in now (countryOf(place)). After a move, pay re-anchors to the
+ * place: the same work pays ~sqrt(local median / home median) as much in USD (Bangkok vs the US:
+ * ~1/3; Singapore: ~0.9), and wealth follows part of the way (what they had comes with them).
+ * QA caught a Durham-to-Bangkok life on US pay, $198k -> $2.1M in three years.
+ */
+export function moneyAnchor(profile: Profile, age: number, here?: string | null): MoneyAnchor {
   const med = countryMedianIncome(profile.country);
   const base = profile.money.incomeUsd ?? Math.round(med * (profile.age < 23 ? 0.35 : 1));
   const income = Math.round((base * earningsCurve(age)) / earningsCurve(profile.age) / 500) * 500;
   const countryScale = med / 62600;
   const personalScale = Math.sqrt(clamp(base / med, 0.3, 4));
   const nw = Math.round((usNetWorthMedian(age) * countryScale * personalScale) / 1000) * 1000;
-  return { age, income, netWorthMedian: nw };
+  const away = here && here.toUpperCase() !== profile.country.toUpperCase() && COUNTRY_MEDIAN_USD[here.toUpperCase()];
+  const k = away ? clamp(Math.sqrt(countryMedianIncome(here!) / med), 0.25, 1.6) : 1;
+  return { age, income: Math.round((income * k) / 500) * 500, netWorthMedian: Math.round((nw * (0.4 + 0.6 * k)) / 1000) * 1000, placeScale: k };
+}
+
+const PLACE_COUNTRY: [RegExp, string][] = [
+  [/\b(usa|united states|u\.s\.)\b/, "US"], [/\bcanada\b|toronto|montreal|vancouver|calgary|ottawa/, "CA"],
+  [/united kingdom|england|scotland|wales|london|manchester|edinburgh|leeds|bristol/, "GB"], [/ireland|dublin|cork\b/, "IE"],
+  [/germany|berlin|munich|hamburg|frankfurt/, "DE"], [/france|paris|lyon|marseille|arles|bordeaux|nice\b/, "FR"], [/netherlands|amsterdam|rotterdam/, "NL"],
+  [/belgium|brussels/, "BE"], [/switzerland|zurich|zürich|geneva|basel/, "CH"], [/austria|vienna/, "AT"], [/sweden|stockholm/, "SE"], [/norway|oslo/, "NO"],
+  [/denmark|copenhagen/, "DK"], [/finland|helsinki/, "FI"], [/spain|madrid|barcelona|valencia|seville|sevilla|málaga|malaga/, "ES"], [/portugal|lisbon|porto\b/, "PT"],
+  [/italy|rome|milan|florence|naples|bologna/, "IT"], [/greece|athens/, "GR"], [/poland|warsaw|krak/, "PL"], [/czech|prague/, "CZ"],
+  [/australia|sydney|melbourne|brisbane|perth\b/, "AU"], [/new zealand|auckland|wellington/, "NZ"], [/japan|tokyo|osaka|kyoto/, "JP"], [/korea|seoul|busan/, "KR"],
+  [/taiwan|taipei/, "TW"], [/hong kong/, "HK"], [/singapore/, "SG"], [/china|shanghai|beijing|shenzhen/, "CN"], [/thailand|bangkok|chiang mai|phuket/, "TH"],
+  [/vietnam|hanoi|ho chi minh|saigon|da nang/, "VN"], [/malaysia|kuala lumpur|penang|george town/, "MY"], [/indonesia|jakarta|bali\b/, "ID"],
+  [/philippines|manila|cebu/, "PH"], [/india|bengaluru|bangalore|mumbai|delhi|hyderabad|pune|chennai|kolkata/, "IN"], [/pakistan|karachi|lahore/, "PK"],
+  [/bangladesh|dhaka/, "BD"], [/sri lanka|colombo/, "LK"], [/brazil|são paulo|sao paulo|rio de janeiro/, "BR"], [/mexico|guadalajara|oaxaca|monterrey/, "MX"],
+  [/argentina|buenos aires/, "AR"], [/chile|santiago/, "CL"], [/colombia|bogot|medell/, "CO"], [/peru\b|lima\b/, "PE"], [/uae|united arab emirates|dubai|abu dhabi/, "AE"],
+  [/saudi|riyadh/, "SA"], [/israel|tel aviv/, "IL"], [/turkey|türkiye|istanbul/, "TR"], [/egypt|cairo/, "EG"], [/nigeria|lagos|abuja/, "NG"], [/kenya|nairobi/, "KE"],
+  [/south africa|cape town|johannesburg/, "ZA"], [/ghana|accra/, "GH"],
+];
+
+/** The country (ISO-2) of a place string like "Bangkok, Thailand" or "Durham, NC"; null if unsure. */
+export function countryOf(place: string): string | null {
+  if (!place) return null;
+  const p = place.toLowerCase();
+  const last = place.split(",").map((s) => s.trim()).at(-1) ?? "";
+  if (last === "US" || (/^[A-Z]{2}$/.test(last) && usFlavor(last))) return "US";
+  for (const name of Object.keys(US_STATE_NAMES)) if (p.includes(name)) return "US";
+  for (const [rx, code] of PLACE_COUNTRY) if (rx.test(p)) return code;
+  if (/^[A-Z]{2}$/.test(last) && COUNTRY_MEDIAN_USD[last]) return last;
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------------

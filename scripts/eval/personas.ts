@@ -16,7 +16,7 @@ export interface Persona {
   voice: string;
 }
 
-const base = { via: "text" as const, speed: "auto" as const, appearance: null, hasSelfie: false };
+const base = { via: "text" as const, speed: "auto" as const, appearance: null, hasSelfie: false, currency: null };
 
 export const PERSONAS: Persona[] = [
   {

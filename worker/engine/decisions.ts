@@ -5,7 +5,7 @@ import type { Decision, DecisionOption, SessionState } from "../../shared/sim";
 import { pastTimeIssues } from "./calendar";
 import { fixPeopleNumbers, framingIssues, peopleIssues, recentFramings, repeatTopicIssues, stateIssues, type Issue } from "./consistency";
 import { decisionLine, decisionsBlock, lifeSoFarBlock, nowContext, personBlock, quotesBlock, worldBlock } from "./context";
-import { chosenPath } from "./ledger";
+import { forksTaken } from "./ledger";
 import type { Caller, Tier } from "./models";
 import { BIG_DECISION_SYSTEM, bigDecisionPrompt, SMALL_DECISION_SYSTEM, smallDecisionPrompt } from "./prompts/decision";
 import { DecisionLLM, LEANS, type DecisionLLM as DecisionDraft } from "./schemas";
@@ -87,7 +87,7 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
   const isFirst = kind === "big" && !state.decisions.some((d) => d.kind === "big");
   const startLine = profile.quotes.filter((q) => q.questionId === "start").map((q) => q.text).join(" ");
   // The life as it stands in the slot's year (only the years before it), with today's date.
-  const ctx = nowContext({ profile, years: past, atYear: slot.year, path: chosenPath(state, slot.year), today });
+  const ctx = nowContext({ profile, years: past, atYear: slot.year, path: forksTaken(state, slot.year), today });
   const earlierBig = state.decisions.filter((d) => d.kind === "big" && d.year <= slot.year && d.status !== "pending");
   const earlier = earlierBig.map((d) => decisionLine(state, d)).join("\n");
   const smalls = state.decisions.filter((d) => d.kind === "small" && d.year <= slot.year).sort((a, b) => a.year - b.year);
@@ -163,35 +163,89 @@ export async function makeDecisionFor(call: Caller, state: SessionState, slot: D
     return { ...d, prompt: f(d.prompt), whyAsking: f(d.whyAsking), options: d.options.map((o) => ({ ...o, label: f(o.label), hint: o.hint ? f(o.hint) : o.hint })) };
   };
 
+  // A card that contradicts the life as it stands gets ONE rewrite on the same tier, with the
+  // problems listed; the one with fewer problems wins.
+  const card = async (tier: Tier): Promise<Decision> => {
+    const res = await attempt(tier);
+    const draft = res.data ?? coerceDecision(res.raw);
+    if (!draft) throw new Error("decision: no usable card");
+    let c = fixNumbers(finalize(state, slot, draft, kind, r.domain));
+    const issues = issuesOf(c);
+    if (issues.length) {
+      try {
+        const again = await attempt(tier, issues.map((x) => `- ${x.msg}`).join("\n"));
+        const d2 = again.data ?? coerceDecision(again.raw);
+        if (d2) {
+          const c2 = fixNumbers(finalize(state, slot, d2, kind, r.domain));
+          if (issuesOf(c2).length < issues.length) c = c2;
+        }
+      } catch {
+        /* keep the first card */
+      }
+    }
+    return c;
+  };
+
+  // Big cards race the fast model when the heavy one is slow: the first card after ~3 s (the user
+  // is looking at an empty card; 3.8 Flash took 4.8-16.7 s there), later ones after 7 s (they are
+  // written ahead of the playhead, but a late one holds it). First usable card wins.
+  if (kind === "big") {
+    const raced = await raceAfter(() => card("heavy"), () => card("fast"), isFirst ? FIRST_CARD_RACE_MS : BIG_CARD_RACE_MS).catch(() => null);
+    if (raced) return raced;
+  }
+
   // Two tries on the slot's model, then one on the other tier; a strict-schema miss is coerced
   // from the raw JSON first (argon returned near-valid cards that zod rejected in the eval).
-  // A card that contradicts the life gets ONE rewrite with the problems listed; the better one wins.
-  const tiers: Tier[] = kind === "big" ? ["heavy", "heavy", "fast"] : ["fast", "fast", "heavy"];
+  const tiers: Tier[] = kind === "big" ? ["heavy", "fast"] : ["fast", "fast", "heavy"];
   for (const tier of tiers) {
     try {
-      const res = await attempt(tier);
-      const draft = res.data ?? coerceDecision(res.raw);
-      if (!draft) continue;
-      let card = fixNumbers(finalize(state, slot, draft, kind, r.domain));
-      const issues = issuesOf(card);
-      if (issues.length) {
-        try {
-          const again = await attempt(tier, issues.map((i) => `- ${i.msg}`).join("\n"));
-          const d2 = again.data ?? coerceDecision(again.raw);
-          if (d2) {
-            const card2 = fixNumbers(finalize(state, slot, d2, kind, r.domain));
-            if (issuesOf(card2).length < issues.length) card = card2;
-          }
-        } catch {
-          /* keep the first card */
-        }
-      }
-      return card;
+      return await card(tier);
     } catch {
       /* next try */
     }
   }
   return fallbackDecision(state, slot, kind, r.domain, r.why);
+}
+
+export const FIRST_CARD_RACE_MS = 3000;
+export const BIG_CARD_RACE_MS = 7000;
+
+/**
+ * Run `a`; if it hasn't succeeded after `ms` (or fails), run `b` too. Resolves with the first
+ * success, rejects only when both fail. The loser runs to completion (its spend is small).
+ */
+export function raceAfter<T>(a: () => Promise<T>, b: () => Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let done = false;
+    let failures = 0;
+    let started = 1;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startB = () => {
+      if (done || started > 1) return;
+      started = 2;
+      run(b);
+    };
+    const run = (f: () => Promise<T>) =>
+      f().then(
+        (v) => {
+          if (done) return;
+          done = true;
+          if (timer !== undefined) clearTimeout(timer);
+          resolve(v);
+        },
+        (e: unknown) => {
+          failures++;
+          if (done) return;
+          if (started === 1) startB();
+          else if (failures >= started) {
+            done = true;
+            reject(e);
+          }
+        },
+      );
+    run(a);
+    timer = setTimeout(startB, ms);
+  });
 }
 
 /** Best-effort repair of a near-valid card: needs a prompt and 4 labelled options. */

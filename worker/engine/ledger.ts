@@ -497,7 +497,7 @@ export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
 // Paths (forks taken)
 // ---------------------------------------------------------------------------------------------
 
-export function chosenPath(state: SessionState, uptoYear = 9999): LifeNow["path"] {
+export function forksTaken(state: SessionState, uptoYear = 9999): LifeNow["path"] {
   return state.decisions
     .filter((d) => d.kind === "big" && d.status === "answered" && d.year <= uptoYear)
     .sort((a, b) => a.year - b.year)
@@ -508,8 +508,8 @@ export function chosenPath(state: SessionState, uptoYear = 9999): LifeNow["path"
     });
 }
 
-export function branchPath(state: SessionState, branch: Branch): LifeNow["path"] {
-  return [...chosenPath(state, branch.forkYear - 1), { year: branch.forkYear, age: branch.forkAge, title: branch.title }];
+export function branchForks(state: SessionState, branch: Branch): LifeNow["path"] {
+  return [...forksTaken(state, branch.forkYear - 1), { year: branch.forkYear, age: branch.forkAge, title: branch.title }];
 }
 
 // ---------------------------------------------------------------------------------------------

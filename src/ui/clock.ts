@@ -4,7 +4,8 @@
  * scale, and calls sim.tick(year) when a year completes. Rules:
  *  - runs only in phase "playing" and not paused; big decisions (phase "deciding") and the
  *    interlude stop it, and so do UI holds (the fork moment, a world moment's cinematic)
- *  - a pending small decision slows it to 0.25× (the card slides itself after smallTimeoutSec)
+ *  - a pending small decision slows it to 0.5× (the card slides itself after smallTimeoutSec of
+ *    idle time); typing an answer into a small card holds it
  *  - it never runs past `bufferedTo`: when the buffer is behind it waits at the year's end and
  *    reports `starved` (the world shows "life is thinking…")
  *  - the network round trip of a tick is hidden: time keeps accruing while the agent confirms
@@ -12,7 +13,9 @@
  */
 import { create } from "zustand";
 import { SPEED_CONFIG } from "../../shared/sim";
+import { typingInSmallCard } from "./activity";
 import { gsap } from "./motion";
+import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, SMALL_DECISION_SCALE } from "./pacing";
 import { sim } from "./session";
 
 type Listener = (yearFloat: number, scale: number) => void;
@@ -63,22 +66,6 @@ class LifeClock {
     return this.scale;
   }
 
-  /**
-   * The engine can schedule 2-3 small decisions a year at 2x/4x, and the card shows one at a time.
-   * Small decisions from a year the playhead has left, that were never on screen (not the first
-   * pending one), slide quietly so a backlog can't hold the clock at 0.25x for the rest of the life.
-   */
-  private slid = new Set<string>();
-  private sweepSmall(s: ReturnType<typeof sim>) {
-    const pending = s.decisions.filter((d) => d.status === "pending");
-    const shown = pending[0]?.id;
-    for (const d of pending) {
-      if (d.kind !== "small" || d.id === shown || d.year >= s.playhead.year || this.slid.has(d.id)) continue;
-      this.slid.add(d.id);
-      void s.answer({ decisionId: d.id, optionId: null, text: null, via: "tap", slid: true }).catch(() => {});
-    }
-  }
-
   private setStarved(v: boolean) {
     if (useClockUi.getState().starved !== v) useClockUi.setState({ starved: v });
   }
@@ -104,10 +91,10 @@ class LifeClock {
     // The last year may always be "ticked past": that is the end-of-life signal.
     const buffered = next > endYear || s.bufferedTo === null || s.bufferedTo >= next;
     const smallPending = s.decisions.some((d) => d.kind === "small" && d.status === "pending");
-    this.sweepSmall(s);
-    const playing = s.phase === "playing" && !s.playhead.paused && this.holds.size === 0 && !document.hidden;
-    const target = playing ? (smallPending ? 0.25 : 1) : 0;
-    const k = Math.min(1, dtMs / (target < this.scale ? 260 : 600));
+    // Writing an answer to a small card holds time (the agent keeps one small card open at a time).
+    const playing = s.phase === "playing" && !s.playhead.paused && this.holds.size === 0 && !document.hidden && !typingInSmallCard();
+    const target = playing ? (smallPending ? SMALL_DECISION_SCALE : 1) : 0;
+    const k = Math.min(1, dtMs / (target < this.scale ? CLOCK_EASE_OUT_MS : CLOCK_EASE_IN_MS));
     this.scale += (target - this.scale) * k;
     if (Math.abs(this.scale - target) < 0.002) this.scale = target;
     // Leaving a decision or an interlude starts a fresh year (no carried-over time).

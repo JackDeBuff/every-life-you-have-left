@@ -1,6 +1,7 @@
 /**
- * "Tell me more": CV / LinkedIn PDF (text via pdf.js) and an AI-app export (paste, with a prompt
- * to copy). Plus the know-me dial that unlocks the twin chat at TWIN_THRESHOLD (D-026).
+ * "Tell me more": CV / LinkedIn PDF (text via pdf.js; click or drop, with LinkedIn's own export
+ * steps) and an AI-app export (copy the prompt, open ChatGPT or Claude, paste the answer back).
+ * Plus the know-me dial that unlocks the twin chat at TWIN_THRESHOLD (D-026).
  */
 import * as Popover from "@radix-ui/react-popover";
 import { useState } from "react";
@@ -18,8 +19,50 @@ export interface AddedDoc {
 
 const LABEL: Record<DocKind, string> = { cv: "CV", linkedin: "LinkedIn", ai_export: "AI export" };
 
+/** LinkedIn's own steps (help article "Save a profile as a PDF", checked Nov 2026): Me > your profile > More or Resources > Save to PDF. */
+export const LINKEDIN_PROFILE_URL = "https://www.linkedin.com/in/me/";
+
+function LinkedInSteps() {
+  return (
+    <div className="howto">
+      <ol className="steps small">
+        <li>
+          <a href={LINKEDIN_PROFILE_URL} target="_blank" rel="noopener noreferrer" className="ext">
+            Open your LinkedIn profile <Icon name="arrowUpRight" size={12} />
+          </a>
+        </li>
+        <li>
+          Under your name, click <b>Resources</b> (or <b>More</b>), then <b>Save to PDF</b>.
+        </li>
+        <li>Drop that PDF on the LinkedIn box, or click the box to choose it.</li>
+      </ol>
+      <p className="faint small">On a computer, not the app. It exports best when your profile is in English.</p>
+    </div>
+  );
+}
+
+/** Copy text, with a fallback for browsers that block the async clipboard. */
+async function copyText(t: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(t);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }
+}
+
 export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]; onAdd: (kind: DocKind, text: string, name: string, file?: File) => void; dense?: boolean }) {
   const [busy, setBusy] = useState<DocKind | null>(null);
+  const [drag, setDrag] = useState<DocKind | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const has = (k: DocKind) => added.find((d) => d.kind === k);
 
@@ -38,16 +81,57 @@ export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]
     }
   }
 
+  /** A file slot you can click or drop a PDF on. */
+  const slot = (k: "cv" | "linkedin", label = LABEL[k]) => (
+    <label
+      key={k}
+      className="upload"
+      data-done={!!has(k)}
+      data-busy={busy === k}
+      data-drag={drag === k}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (drag !== k) setDrag(k);
+      }}
+      onDragLeave={() => setDrag(null)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDrag(null);
+        void onFile(k, e.dataTransfer.files?.[0]);
+      }}
+    >
+      <input type="file" accept=".pdf,application/pdf,.txt" className="sr-only" onChange={(e) => void onFile(k, e.target.files?.[0])} />
+      <Icon name={has(k) ? "check" : "file"} size={15} />
+      <span className="upload-name" title={has(k)?.name}>{has(k) ? (dense ? `${LABEL[k]} added` : has(k)!.name) : label}</span>
+      <span className="upload-act faint">{busy === k ? "Reading…" : has(k) ? `${Math.round(has(k)!.chars / 100) / 10}k chars` : drag === k ? "Drop it" : "PDF"}</span>
+    </label>
+  );
+
   return (
     <div className={`uploads ${dense ? "dense" : ""}`}>
-      {(["cv", "linkedin"] as const).map((k) => (
-        <label key={k} className="upload" data-done={!!has(k)} data-busy={busy === k}>
-          <input type="file" accept=".pdf,application/pdf,.txt" className="sr-only" onChange={(e) => void onFile(k, e.target.files?.[0])} />
-          <Icon name={has(k) ? "check" : "file"} size={15} />
-          <span className="upload-name" title={has(k)?.name}>{has(k) ? (dense ? `${LABEL[k]} added` : has(k)!.name) : LABEL[k]}</span>
-          <span className="upload-act faint">{busy === k ? "Reading…" : has(k) ? `${Math.round(has(k)!.chars / 100) / 10}k chars` : "PDF"}</span>
-        </label>
-      ))}
+      {slot("cv")}
+      {dense ? (
+        <Popover.Root>
+          <Popover.Trigger asChild>
+            <button type="button" className="upload" data-done={!!has("linkedin")}>
+              <Icon name={has("linkedin") ? "check" : "file"} size={15} />
+              <span className="upload-name">{has("linkedin") ? "LinkedIn added" : "LinkedIn"}</span>
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content className="pop ai-pop" side="right" align="start" sideOffset={10} collisionPadding={12}>
+              <p className="label">Your LinkedIn, as a PDF</p>
+              <LinkedInSteps />
+              <div className="uploads">{slot("linkedin", "Choose or drop the PDF")}</div>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      ) : (
+        <>
+          {slot("linkedin", "LinkedIn profile PDF")}
+          {!has("linkedin") && <LinkedInSteps />}
+        </>
+      )}
       <AiExport done={!!has("ai_export")} dense={dense} onAdd={(t) => onAdd("ai_export", t, "AI-app export")} />
       {err && <p className="upload-err small">{err}</p>}
     </div>
@@ -58,32 +142,40 @@ function AiExport({ done, onAdd, dense }: { done: boolean; onAdd: (t: string) =>
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    if (await copyText(AI_EXPORT_PROMPT)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }
+  };
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button type="button" className="upload" data-done={done}>
           <Icon name={done ? "check" : "chat"} size={15} />
-          <span className="upload-name">{done ? (dense ? "Added" : "AI-app export added") : dense ? "AI export" : "AI-app export"}</span>
+          <span className="upload-name">{done ? (dense ? "Added" : "AI-app export added") : dense ? "AI export" : "What your AI app knows about you"}</span>
           <span className="upload-act faint">Paste</span>
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content className="pop ai-pop" side="right" align="start" sideOffset={10} collisionPadding={12}>
-          <p className="label">Step 1 · copy this into your AI app</p>
-          <div className="prompt-box small">{AI_EXPORT_PROMPT}</div>
-          <button
-            type="button"
-            className="btn ghost sm"
-            onClick={() => {
-              void navigator.clipboard?.writeText(AI_EXPORT_PROMPT);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1600);
-            }}
-          >
-            <Icon name={copied ? "check" : "copy"} size={14} /> {copied ? "Copied" : "Copy the prompt"}
-          </button>
-          <p className="label" style={{ marginTop: 14 }}>Step 2 · paste what it says</p>
-          <textarea className="textarea" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the summary here…" />
+        <Popover.Content className="pop ai-pop" side={dense ? "right" : "bottom"} align={dense ? "start" : "end"} sideOffset={10} collisionPadding={12} onFocusOutside={(e) => e.preventDefault()}>
+          <p className="label">1 · Copy this prompt</p>
+          <div className="prompt-box small" onClick={() => void copy()} title="Click to copy">
+            {AI_EXPORT_PROMPT}
+          </div>
+          <div className="ai-row">
+            <button type="button" className="btn sun sm" onClick={() => void copy()}>
+              <Icon name={copied ? "check" : "copy"} size={14} /> {copied ? "Copied" : "Copy prompt"}
+            </button>
+            <a className="btn ghost sm" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">
+              ChatGPT <Icon name="arrowUpRight" size={12} />
+            </a>
+            <a className="btn ghost sm" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">
+              Claude <Icon name="arrowUpRight" size={12} />
+            </a>
+          </div>
+          <p className="label" style={{ marginTop: 10 }}>2 · Paste its answer here</p>
+          <textarea className="textarea" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste what your AI app wrote back…" />
           <div className="row-end">
             <button type="button" className="btn sm" disabled={text.trim().length < 40} onClick={() => (onAdd(text.trim()), setOpen(false), setText(""))}>
               Add it

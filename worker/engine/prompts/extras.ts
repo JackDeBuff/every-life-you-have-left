@@ -8,7 +8,7 @@ import { CONTENT_LINE, VOICE } from "./rules";
 // "Meanwhile, in your other lives..." (fast model)
 // ---------------------------------------------------------------------------------------------
 
-export const INTERLUDE_SYSTEM = `You write the captions for "Meanwhile, in your other lives...": three quick scene cuts of the lives this person didn't choose, at their current age.
+export const INTERLUDE_SYSTEM = `You write the captions for "Meanwhile, in your other lives...": quick scene cuts of the lives this person didn't choose (one per life listed), at their current age.
 
 One caption per life, <= 14 words, present tense, second person. One concrete, honest detail of where that life stands right now: place, work, people or money. Not glamorous, not tragic, no judgement, no comparison to the chosen life. Get ages right: use the "people now" bands (a young adult child is not "the teenager").
 Good: "In Lisbon at 31: the studio pays rent, barely. Mom visits in June."

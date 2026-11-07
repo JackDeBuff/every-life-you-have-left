@@ -2,6 +2,10 @@
  * Right pane (SPEC §1): live settings on top, the dialogue as the largest area, the decision card
  * at the foot. The dialogue is a single column in the Disco Elysium manner: no bubbles, speaker
  * tags in small caps, and your own words always in the serif.
+ *
+ * Layout contract (play.css `.right`): one flex column. The card (or composer) takes its natural
+ * height first; the settings fold to a one-line bar while a card is open; the dialogue gets what is
+ * left (flex-basis 0) and scrolls on its own. Nothing overlaps the card.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { HoldToTalk } from "../HoldToTalk";
@@ -9,19 +13,25 @@ import { Icon } from "../icons";
 import { sim, useSim } from "../session";
 import type { ChatEntry } from "../types";
 import { useUi } from "../uiStore";
+import { CardPending } from "./CardPending";
 import { DecisionCard } from "./DecisionCard";
 import { LiveSettings } from "./LiveSettings";
 
 export function RightPane() {
   const decisions = useSim((s) => s.decisions);
   const forking = useUi((s) => s.forking);
-  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : decisions.find((d) => d.status === "pending");
+  const deciding = useSim((s) => s.phase === "deciding");
+  // A due fork always takes the pane (it preempts a small card; the agent shelves that one).
+  const pendingBig = deciding ? decisions.find((d) => d.kind === "big" && d.status === "pending") : undefined;
+  const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending"));
   const big = active?.kind === "big";
+  // The first fork is being written: its card's place shows that (never an empty pane).
+  const firstPending = useSim((s) => s.phase !== "ended" && !!s.profile && !s.decisions.some((d) => d.kind === "big"));
   return (
-    <aside className="pane right" data-region="right" data-big={big} aria-label="Settings and conversation">
-      <LiveSettings collapsed={big} />
+    <aside className="pane right" data-region="right" data-big={big} data-card={!!active} aria-label="Settings and conversation">
+      <LiveSettings pending={active ? { id: active.id, big } : null} />
       <Dialogue hidden={big} />
-      {active ? <DecisionCard key={active.id} d={active} /> : <Composer />}
+      {active ? <DecisionCard key={active.id} d={active} /> : firstPending ? <CardPending /> : <Composer />}
     </aside>
   );
 }
@@ -111,6 +121,7 @@ function Entry({ c, cont = false }: { c: ChatEntry; cont?: boolean }) {
 /** When no decision is open: say anything, any time. It becomes a quote and shapes next year. */
 function Composer() {
   const [text, setText] = useState("");
+  const [micNote, setMicNote] = useState<string | null>(null);
   const phase = useSim((s) => s.phase);
   const age = useSim((s) => s.playhead.age);
   const send = () => {
@@ -136,11 +147,16 @@ function Composer() {
             }
           }}
         />
-        <HoldToTalk compact hint="free" onText={(t) => setText((x) => (x.trim() ? `${x.trim()} ${t}` : t))} />
+        <HoldToTalk compact hint="free" onText={(t) => setText((x) => (x.trim() ? `${x.trim()} ${t}` : t))} onNotice={setMicNote} />
         <button className="btn sm send" disabled={!text.trim()} onClick={send} aria-label="Send">
           <Icon name="send" size={14} />
         </button>
       </div>
+      {micNote && (
+        <p className="say-note" role="status">
+          <Icon name="info" size={12} /> {micNote}
+        </p>
+      )}
     </div>
   );
 }

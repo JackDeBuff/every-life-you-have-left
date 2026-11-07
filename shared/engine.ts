@@ -34,6 +34,19 @@ export interface Ending {
 
 export interface SafetyResult { flagged: boolean; kind: "self_harm" | "abuse" | "other" | null }
 
+/**
+ * A fork worked out while its card is still being read (speculative): the coarse branch for EVERY
+ * option, the active branches advanced to the fork year, and interlude captions for all of them.
+ * Passing it to spawnBranches() and interlude() makes the "meanwhile" cuts ready at once.
+ */
+export interface PreparedFork {
+  decisionId: string;
+  fresh: Branch[];
+  advanced: Branch[];
+  /** branchId → caption at the fork's year. */
+  captions: Record<string, string>;
+}
+
 export interface Engine {
   /** Build the first profile from the start line (+ any docs). Quotes are verbatim from the user. */
   startProfile(input: StartInput, docs: DocInput[]): Promise<Profile>;
@@ -53,11 +66,13 @@ export interface Engine {
   logFor(state: SessionState, year: SimYear): LogLine[];
 
   /** After a big decision: the 3 unchosen options become branches; return the 3 most divergent active ones overall. */
-  spawnBranches(state: SessionState, decision: Decision, chosenOptionId: string): Promise<Branch[]>;
+  spawnBranches(state: SessionState, decision: Decision, chosenOptionId: string, prepared?: PreparedFork | null): Promise<Branch[]>;
+  /** Optional, speculative: prepare a fork while its card is open (see PreparedFork). */
+  prepareFork?(state: SessionState, decision: Decision): Promise<PreparedFork>;
   /** Advance a hidden branch coarsely (5-year steps) up to `untilYear`; `fine` = yearly (on peek). */
   stepBranch(state: SessionState, branch: Branch, untilYear: number, fine: boolean): Promise<Branch>;
   /** "Meanwhile, in your other lives…" — one cut per active branch at the current year. */
-  interlude(state: SessionState): Promise<InterludeCut[]>;
+  interlude(state: SessionState, prepared?: PreparedFork | null): Promise<InterludeCut[]>;
 
   /** 3–5 live settings generated from the user's answers (start + after each big decision). */
   settingsFor(state: SessionState): Promise<LiveSetting[]>;

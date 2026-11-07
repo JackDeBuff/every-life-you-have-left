@@ -22,7 +22,7 @@
  *   endAge  → step branches to the end, ending(), phase ended.
  */
 import { Agent, callable, type Connection, type ConnectionContext } from "agents";
-import type { DecisionSlot, DocInput, Engine, Ending, SafetyResult } from "../../shared/engine";
+import type { DecisionSlot, DocInput, Engine, Ending, PreparedFork, SafetyResult } from "../../shared/engine";
 import { endAgeFor } from "../../shared/schema";
 import {
   SPEED_CONFIG,
@@ -37,13 +37,15 @@ import {
   type SimYear,
 } from "../../shared/sim";
 import type { Profile } from "../../shared/schema";
-import { loadEngine, type LoadedEngine } from "../engine-select";
+import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
+import { costOf } from "../engine/pricing";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
 import { diffState, type AgentState, type AnswerInput, type ChatMessage, type SnapshotMsg } from "./protocol";
 
 const BUFFER_AHEAD = 4; // keep at least this many years generated past the playhead (target ≥2)
 const CHUNK = 4; // generateYears chunk size (3–5)
+const CHUNK_FAST = 8; // Auto/4x: one streamed call per stretch, up to the next fork
 const LOOKAHEAD_SMALL = 1; // make small decisions this many years before the playhead reaches them
 // Big ones earlier (the playhead waits at a big slot until its decision exists): ~12 s of playback
 // ahead, at least 2 years. A real big decision takes ~5 s on 3.8 Flash, 15-20 s when it stalls.
@@ -55,8 +57,10 @@ const INTERLUDE_S = 30;
 const FLUSH_MS = 50; // patch coalescing
 const HEDGE_MS = 6500; // no year streamed after this long → the fast writer races the stretch
 // From a fork's answer to its "meanwhile" cuts. Past this the interlude is skipped (measured: a
-// 28 s stall once); life resumes and the branches land in the background.
-const FORK_DEADLINE_MS = 13_000;
+// 28 s stall once); life resumes and the branches land in the background. The fork is normally
+// prepared while its card is open (prepareFork), so the cuts are ready at the answer; Auto (the
+// judge run, <= 3 min) waits less for a fork that isn't.
+const forkDeadlineMs = (speed: AgentState["speed"]) => (speed === "auto" ? 8000 : 13_000);
 
 /** The promise's value if it settles before `deadline` (epoch ms), else null. Rejections propagate. */
 function before<T>(p: Promise<T>, deadline: number): Promise<T | null> {
@@ -99,6 +103,7 @@ export function initialAgentState(sessionId: string): AgentState {
     bufferedTo: null,
     engine: "mock",
     error: null,
+    usage: null,
   };
 }
 
@@ -140,6 +145,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     bindLlm(this.env as unknown as LlmEnv);
     const st = this.state;
     this.cur = st && st.sessionId ? { ...initialAgentState(this.name), ...st } : initialAgentState(this.name);
+    if (this.cur.usage) this.spend = { usd: this.cur.usage.usd, calls: this.cur.usage.calls, byPurpose: { ...this.cur.usage.byPurpose } };
     if (this.cur.phase !== "start" && this.cur.profile) {
       const ph = this.cur.playhead.year;
       this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => sl.year > ph);
@@ -161,9 +167,28 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     return this.mirrorDb;
   }
 
+  /** Session cost tally (admin + timing runs). Published at most every few seconds. */
+  private spend = { usd: 0, calls: 0, byPurpose: {} as Record<string, number> };
+  private spendTimer: ReturnType<typeof setTimeout> | null = null;
+  private onUsage: UsageSink = (u) => {
+    const c = costOf(u);
+    // Latency trail for timing runs (no personal data): purpose, model, first token, total.
+    console.log(`[llm] ${u.purpose} ${u.model.replace("gemini-", "")} ft=${u.firstTokenMs ?? "-"} ms=${u.ms}${u.hedged ? " hedged" : ""}`);
+    this.spend.usd += c;
+    this.spend.calls++;
+    const k = u.purpose.split(".")[0] ?? u.purpose;
+    this.spend.byPurpose[k] = (this.spend.byPurpose[k] ?? 0) + c;
+    if (!this.spendTimer)
+      this.spendTimer = setTimeout(() => {
+        this.spendTimer = null;
+        const r = (x: number) => Math.round(x * 10000) / 10000;
+        this.update({ usage: { usd: r(this.spend.usd), calls: this.spend.calls, byPurpose: Object.fromEntries(Object.entries(this.spend.byPurpose).map(([a, b]) => [a, r(b)])) } });
+      }, 2000);
+  };
+
   private engInfo(): Promise<LoadedEngine> {
     if (!this.enginePromise) {
-      this.enginePromise = loadEngine(this.env).then((r) => {
+      this.enginePromise = loadEngine(this.env, this.onUsage).then((r) => {
         this.engineSync = r.engine;
         return r;
       });
@@ -292,7 +317,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   async answer(a: AnswerInput): Promise<void> {
     const d = this.s.decisions.find((x) => x.id === a.decisionId);
-    if (!d || d.status !== "pending") return;
+    if (!d) return;
+    // A small card that slid (or was shelved by a fork) while they were answering it: their answer
+    // still counts, bound to the card they answered (never to whatever is pending now).
+    const late = d.kind === "small" && d.status === "slid" && !a.slid && (!!a.optionId || !!a.text?.trim());
+    if (d.status !== "pending" && !late) return;
     const rec: DecisionAnswer = {
       decisionId: d.id,
       optionId: a.optionId ?? null,
@@ -322,8 +351,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     const decisionLine = this.line(d.year, "decision", opt ? `You chose: ${opt.label}` : `You said: "${short(rec.text ?? "", 18)}"`, d.id, d.domains[0] ?? null);
     this.update((s) => ({
       decisions: s.decisions.map((x) => (x.id === d.id ? answered : x)),
-      answers: [...s.answers, rec],
-      log: [...s.log, decisionLine],
+      answers: [...s.answers.filter((x) => !(late && x.decisionId === d.id)), rec],
+      log: [...s.log.filter((l) => !(late && l.kind === "slid" && l.refId === d.id)), decisionLine],
       thinking: isBig ? true : s.thinking,
     }));
 
@@ -439,7 +468,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       this.update({ thinking: starved });
     }
     this.gateCheck();
-    if (this.s.phase === "playing" && this.s.playhead.year >= this.endYear) {
+    // The end year itself plays like any other; the client asks for the year after it to end.
+    if (this.s.phase === "playing" && this.s.playhead.year >= this.endYear && Math.floor(year) > this.endYear) {
       this.runEnding();
       return;
     }
@@ -463,8 +493,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!b) throw new Error("unknown_branch");
     const engine = await this.eng();
     const stepped = await engine.stepBranch(this.s, b, this.s.playhead.year, true);
-    this.update((s) => ({ branches: s.branches.map((x) => (x.id === branchId ? stepped : x)) }));
-    void this.mirror.branches([stepped]);
+    this.update((s) => ({ branches: s.branches.map((x) => (x.id === branchId ? { ...stepped, status: x.status } : x)) }));
+    void this.mirror.branches(this.s.branches.filter((x) => x.id === branchId));
     return stepped;
   }
 
@@ -526,6 +556,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   /** Dev only: wipe the session back to the start screen. */
   async reset(): Promise<void> {
     this.epoch++;
+    this.spend = { usd: 0, calls: 0, byPurpose: {} };
+    this.prepared.clear();
     this.holdGen = false;
     this.endingPre = null;
     this.slots = [];
@@ -560,17 +592,33 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
   private updateBudgets(): void {
-    const left = this.slots.filter((sl) => !this.materialized(sl));
+    const ph = this.s.playhead.year;
+    const left = this.slots.filter((sl) => !this.materialized(sl) && sl.year >= ph);
     this.update({
       budgets: { smallLeft: left.filter((x) => x.kind === "small").length, bigLeft: left.filter((x) => x.kind === "big").length },
     });
   }
 
-  /** Create decisions shortly before the playhead reaches them (serialized). */
+  /**
+   * Create decisions shortly before the playhead reaches them (serialized). At most ONE small
+   * decision exists at a time (pending or being written): the next one is written only after it is
+   * answered or slides, and small slots the playhead passes meanwhile are dropped, so cards never
+   * queue up (owner, Sat Nov 7: a backlog slid in bursts). No small card next to an open fork.
+   */
   private ensureDecisions(): void {
     const s = this.s;
     if (!s.profile || s.phase === "ended") return;
     const ph = s.playhead.year;
+    let smallBusy =
+      s.decisions.some((d) => d.kind === "small" && d.status === "pending") || [...this.making].some((k) => k.startsWith("small-"));
+    // The next fork that isn't answered yet (pending, or its slot not written yet).
+    const openFork = Math.min(
+      ...s.decisions.filter((d) => d.kind === "big" && d.status === "pending").map((d) => d.year),
+      ...this.slots.filter((sl) => sl.kind === "big" && sl.year >= ph && !this.materialized(sl)).map((sl) => sl.year),
+      Infinity,
+    );
+    // ...and the fork just answered: its consequence year plays without a small card.
+    const lastFork = Math.max(...s.decisions.filter((d) => d.kind === "big" && d.status === "answered").map((d) => d.year), -Infinity);
     const byKindYear = new Map<string, number>();
     for (const sl of this.slots) {
       const k = `${sl.kind}-${sl.year}`;
@@ -580,6 +628,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       if (sl.year < ph) continue; // passed while we were busy: skip it
       const key = this.slotKey(sl, idx);
       if (this.making.has(key) || this.materialized(sl)) continue;
+      if (sl.kind === "small") {
+        if (smallBusy || openFork <= sl.year + 1 || sl.year <= lastFork) continue;
+        smallBusy = true;
+      }
       this.queueDecision(sl, key);
     }
   }
@@ -642,14 +694,54 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     }));
   }
 
+  /**
+   * Speculative forks: once a big decision exists and the chosen life is written up to its year,
+   * write every option's branch, advance the other lives to that year and caption them all, while
+   * the user is still on the way to (or reading) the card. At the answer the 3 unchosen branches
+   * are kept and the "meanwhile" cuts are ready at once. Cost: one extra coarse branch per fork.
+   */
+  private prepared = new Map<string, Promise<PreparedFork | null>>();
+  private maybePrepare(): void {
+    const s = this.s;
+    // (The first card is written from a provisional profile; preparing waits for the real one.)
+    if (!s.profile || s.phase === "ended") return;
+    const lastYear = s.years.at(-1)?.year ?? this.startYear - 1;
+    for (const d of s.decisions) {
+      if (d.kind !== "big" || d.status !== "pending" || this.prepared.has(d.id)) continue;
+      if (d.year > this.startYear && lastYear < d.year - 1) continue;
+      const p = (async () => {
+        await this.profileReady;
+        const engine = await this.eng();
+        if (!engine.prepareFork) return null;
+        return engine.prepareFork(this.s, d);
+      })().catch((e: unknown) => {
+        console.error("prepareFork failed", e instanceof Error ? e.name : "error");
+        return null;
+      });
+      this.prepared.set(d.id, p);
+      this.ctx.waitUntil(p);
+    }
+  }
+
   /** A pending big decision at or before the playhead stops time. */
   private gateCheck(): void {
+    this.maybePrepare();
     const s = this.s;
     if (!s.profile || this.forking || this.ending) return;
     if (s.phase !== "playing" && s.phase !== "start") return;
     const big = s.decisions.find((d) => d.kind === "big" && d.status === "pending" && d.year <= s.playhead.year);
     if (big) {
-      this.update((st) => ({ phase: "deciding", playhead: { ...st.playhead, paused: true }, thinking: false }));
+      // A fork preempts an open small card: it is shelved silently (status "slid" with no answer
+      // record and no log line, so it never resurfaces and the chat doesn't mention it). The QA
+      // run locked up at 2x: the small card held the right pane while the dimmed fork waited.
+      const shelved = s.decisions.filter((d) => d.kind === "small" && d.status === "pending");
+      this.update((st) => ({
+        phase: "deciding",
+        playhead: { ...st.playhead, paused: true },
+        thinking: false,
+        decisions: shelved.length ? st.decisions.map((d) => (d.kind === "small" && d.status === "pending" ? { ...d, status: "slid" as const } : d)) : st.decisions,
+      }));
+      if (shelved.length) void this.mirror.decisions(this.s.decisions.filter((d) => shelved.some((x) => x.id === d.id)));
       this.persistNow();
       void this.mirror.session(this.s);
     }
@@ -681,12 +773,25 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.genRunning === this.epoch) return;
     const lastGen = s.years.at(-1)?.year ?? this.startYear - 1;
     if (lastGen >= this.endYear) return;
-    // Fast speeds keep a deeper buffer: it absorbs a stalled stretch, and the whole life is written
-    // a few years before the end so the ending can be prepared while the last years play.
-    const ahead = SPEED_CONFIG[s.speed].secondsPerYear <= 2 ? BUFFER_AHEAD + 2 : BUFFER_AHEAD;
+    // Never write past a fork that isn't answered yet: everything after it is rewritten at the answer.
+    const openFork = Math.min(
+      ...s.decisions.filter((d) => d.kind === "big" && d.status === "pending").map((d) => d.year),
+      ...this.slots.filter((sl) => sl.kind === "big" && sl.year > s.playhead.year && !this.materialized(sl)).map((sl) => sl.year),
+      Infinity,
+    );
+    if (lastGen >= openFork) return;
+    // Fast speeds keep a deeper buffer and write a whole stretch per call (each call boundary costs
+    // 2-9 s of prompt + first token; Auto plays a year every 1.5 s): it absorbs a stalled stretch,
+    // and the whole life is written a few years before the end so the ending is ready in time.
+    const fast = SPEED_CONFIG[s.speed].secondsPerYear <= 2;
+    const ahead = fast ? BUFFER_AHEAD + 4 : BUFFER_AHEAD;
     if (lastGen - s.playhead.year >= ahead) return;
     const from = lastGen + 1;
-    const count = Math.min(CHUNK, this.endYear - lastGen);
+    // A stretch that would leave 1-2 years before the fork (or the end) takes them too: a call
+    // for a single year costs as much latency as one for eight.
+    const reach = Math.min(this.endYear, openFork) - lastGen;
+    const size = fast ? CHUNK_FAST : CHUNK;
+    const count = reach <= size + 2 ? reach : size;
     const epoch = this.epoch;
     this.genRunning = epoch;
     this.bg("generate", async () => {
@@ -704,6 +809,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
           return { years: [...st.years, y], bufferedTo: y.year };
         });
         this.catchUpLog();
+        this.maybePrepare();
       };
       // Hedge the slow-first-token tail (25-60 s stalls on the heavy model): if nothing has
       // streamed after HEDGE_MS, a fast writer races the same stretch; first version wins.
@@ -778,6 +884,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   private stepBranchesCoarse(): void {
     if (this.steppingBranches) return;
     const ph = this.s.playhead.year;
+    // The chosen life's own years come first: a Worker holds ~6 open connections, and a production
+    // run starved 35 s at 37 while branch steps, a decision and settings shared them with the year
+    // stream and its hedges. Hidden lives wait until the buffer is healthy again.
+    const lastGen = this.s.years.at(-1)?.year ?? ph;
+    if (this.genRunning !== null && lastGen - ph < 4) return;
     const due = this.s.branches.filter((b) => b.status === "active" && (b.years.at(-1)?.year ?? b.forkYear) + BRANCH_STEP <= ph);
     if (!due.length) return;
     this.steppingBranches = true;
@@ -786,8 +897,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         const engine = await this.eng();
         const stepped = await Promise.all(due.map((b) => engine.stepBranch(this.s, b, ph, false).catch(() => b)));
         const byId = new Map(stepped.map((b) => [b.id, b]));
-        this.update((s) => ({ branches: s.branches.map((b) => byId.get(b.id) ?? b) }));
-        void this.mirror.branches(stepped);
+        // Keep the CURRENT status: a fork may have retired a life while its step was in flight
+        // (a step result used to bring it back: 4 "active" lives at the end of a QA run).
+        this.update((s) => ({ branches: s.branches.map((b) => { const n = byId.get(b.id); return n ? { ...n, status: b.status } : b; }) }));
+        void this.mirror.branches(this.s.branches.filter((b) => byId.has(b.id)));
       } finally {
         this.steppingBranches = false;
       }
@@ -796,7 +909,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
 
   /** After a big decision: branches → interlude → settings → playing. */
   private async fork(engine: Engine, d: Decision, chosenOptionId: string): Promise<void> {
-    const deadline = Date.now() + FORK_DEADLINE_MS;
+    const deadline = Date.now() + forkDeadlineMs(this.s.speed);
+    const prep = this.prepared.get(d.id) ?? null;
     try {
       const opt = d.options.find((o) => o.id === chosenOptionId);
       this.update((s) => ({ log: [...s.log, this.line(d.year, "fork", `Your life splits here: ${opt?.branchTitle ?? opt?.label ?? "your own way"}`, d.id, d.domains[0] ?? null)] }));
@@ -808,8 +922,14 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         });
         void this.mirror.branches(this.s.branches);
       };
-      const spawn = engine.spawnBranches(this.s, d, chosenOptionId);
+      // The speculative preparation (if any) is awaited, not repeated: it started earlier.
+      let prepared: PreparedFork | null = null;
+      const spawn = (async () => {
+        prepared = prep ? await prep : null;
+        return engine.spawnBranches(this.s, d, chosenOptionId, prepared);
+      })();
       const returned = await before(spawn, deadline);
+      this.prepared.delete(d.id);
       if (!returned) {
         // A stalled model call must not hold the whole life: skip this "meanwhile", keep playing,
         // and let the branches land when they're written.
@@ -819,7 +939,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         apply(returned);
         if (this.s.branches.some((b) => b.status === "active")) {
           this.forking = false;
-          await this.runInterlude(deadline);
+          await this.runInterlude(deadline, prepared);
           return;
         }
       }
@@ -830,7 +950,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.toPlaying();
   }
 
-  private async runInterlude(deadline = Date.now() + FORK_DEADLINE_MS): Promise<void> {
+  private async runInterlude(deadline = Date.now() + forkDeadlineMs(this.s.speed), prepared: PreparedFork | null = null): Promise<void> {
     const engine = await this.eng();
     const seq = ++this.interludeSeq;
     this.update((s) => ({
@@ -843,7 +963,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.persistNow();
     try {
       const copy = this.branchCopy();
-      const cuts = await before(engine.interlude(copy), Math.max(deadline, Date.now() + 4000));
+      const cuts = await before(engine.interlude(copy, prepared), Math.max(deadline, Date.now() + 4000));
       if (!cuts) throw new Error("interlude_late");
       this.publishBranches(copy);
       if (this.s.phase !== "interlude") return; // skipped by the client meanwhile

@@ -1,7 +1,10 @@
 /** Left pane: portrait, bio (name, rolling age, place, work, people, net worth), the life rose, tell me more. */
 import { useEffect, useRef, useState } from "react";
 import type { SimYearL } from "../../../worker/engine/ledger";
-import { money } from "../format";
+import { pronounsFor } from "../../../shared/schema";
+import { CURRENCIES, CURRENCY_CODES, currencyForPlace, type CurrencyCode } from "../../../shared/currency";
+import { money, moneyHint, moneyNote, setCurrencyPref, useCurrency, useCurrencyPref } from "../format";
+import { Icon } from "../icons";
 import { gsap, reducedMotion } from "../motion";
 import { useSim } from "../session";
 import { LifeRose } from "./LifeRose";
@@ -34,8 +37,17 @@ export function Bio() {
   const age = useSim((s) => s.playhead.age);
   const year = useSim((s) => s.playhead.year);
   const endAge = useSim((s) => s.endAge);
-  const yr = useSim((s) => s.years.find((y) => y.year === s.playhead.year) ?? null);
+  // This year, or (while it's being rewritten after a fork) the latest year already lived; the
+  // net worth must not flash $0 meanwhile (QA). Day one: their own savings minus debt, if known.
+  const yr = useSim((s) => s.years.find((y) => y.year === s.playhead.year) ?? s.years.findLast((y) => y.year <= s.playhead.year) ?? null);
+  const dayOne = useSim((s) => (s.profile?.money.savingsUsd ?? 0) - (s.profile?.money.debtUsd ?? 0));
+  const lastNw = useRef<number | null>(null);
+  if (yr) lastNw.current = yr.money.netWorth;
+  const netWorth = yr?.money.netWorth ?? lastNw.current ?? dayOne;
+  const sid = useSim((s) => s.sessionId);
+  const pref = useCurrencyPref();
   const forks = useSim((s) => s.decisions.filter((d) => d.kind === "big" && d.status === "answered").length);
+  const cur = useCurrency();
   const places = useSim((s) => new Set(s.years.filter((y) => y.year <= s.playhead.year).map((y) => y.place)).size);
   if (!p) return null;
   const startAge = p.age;
@@ -54,12 +66,18 @@ export function Bio() {
       })
     : [...p.people].sort((a, b) => b.closeness - a.closeness).slice(0, 5);
   const yearsIn = age - startAge;
+  // The life moved somewhere with another currency: offer to show money in it (once per currency).
+  const here = currencyForPlace(yr?.place);
+  const offer = here && here !== cur && !pref.dismissed.includes(here) ? here : null;
   return (
     <section className="bio" aria-label="Bio">
       <div className="bio-top">
         <Portrait appearance={appearance} age={age} progress={progress} portraits={portraits} size={96} label={`${p.firstName}, illustrated, at ${age}`} />
         <div className="bio-id">
-          <p className="bio-name">{p.firstName}</p>
+          <p className="bio-name">
+            {p.firstName}
+            {p.gender && p.gender !== "undisclosed" && <span className="bio-pron">{pronounsFor(p.gender)}</span>}
+          </p>
           <p className="bio-age" aria-label={`Age ${age}`}>
             <Roll value={age} />
           </p>
@@ -93,8 +111,27 @@ export function Bio() {
         <div className="money-row">
           <dt className="label">Net worth</dt>
           <dd>
-            <Count value={yr?.money.netWorth ?? 0} className="money data" />
-            <span className="money-note">A projection, not a prediction. Today's dollars.</span>
+            <span className="money-line">
+              <Count value={netWorth} code={cur} className="money data" />
+              <select className="cur-pick" aria-label="Show money in" value={cur} onChange={(e) => setCurrencyPref(sid, { override: e.target.value as CurrencyCode })}>
+                {CURRENCY_CODES.map((c) => (
+                  <option key={c} value={c}>
+                    {CURRENCIES[c].symbol} {c}
+                  </option>
+                ))}
+              </select>
+            </span>
+            {offer && (
+              <span className="cur-offer small">
+                <button type="button" className="cur-offer-yes" onClick={() => setCurrencyPref(sid, { override: offer })}>
+                  You're in {yr!.place.split(",")[0]} now · show {CURRENCIES[offer].symbol}?
+                </button>
+                <button type="button" className="cur-offer-no" aria-label="Keep the current currency" onClick={() => setCurrencyPref(sid, { dismissed: [...pref.dismissed, offer] })}>
+                  <Icon name="x" size={11} />
+                </button>
+              </span>
+            )}
+            <span className="money-note">{moneyNote(cur)}</span>
           </dd>
         </div>
       </dl>
@@ -126,13 +163,13 @@ export function Roll({ value }: { value: number }) {
 }
 
 /** Money counts toward its new value instead of jumping. */
-export function Count({ value, className }: { value: number; className?: string }) {
+export function Count({ value, className, code = "USD" }: { value: number; className?: string; code?: CurrencyCode }) {
   const el = useRef<HTMLSpanElement>(null);
   const cur = useRef({ v: value });
   useEffect(() => {
     if (!el.current) return;
     if (reducedMotion()) {
-      el.current.textContent = money(value);
+      el.current.textContent = money(value, code);
       cur.current.v = value;
       return;
     }
@@ -141,16 +178,16 @@ export function Count({ value, className }: { value: number; className?: string 
       duration: 0.9,
       ease: "power2.out",
       onUpdate: () => {
-        if (el.current) el.current.textContent = money(cur.current.v);
+        if (el.current) el.current.textContent = money(cur.current.v, code);
       },
     });
     return () => {
       tw.kill();
     };
-  }, [value]);
+  }, [value, code]);
   return (
-    <span ref={el} className={className}>
-      {money(value)}
+    <span ref={el} className={className} title={moneyHint(value, code)}>
+      {money(value, code)}
     </span>
   );
 }

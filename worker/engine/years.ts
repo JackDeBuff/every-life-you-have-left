@@ -25,7 +25,8 @@ import { COARSE_ADDENDUM, REPAIR_SYSTEM, repairPrompt, YEARS_SYSTEM, yearsPrompt
 import { OneYearLLM, YearsLLM, type YearDraft } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
-import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
+import { CATEGORY_RULES, countryOf, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
+import { laneFactors, laneLine, type MoneyPath } from "./money";
 import { rng, shuffled, usd } from "./util";
 
 export interface YearMetric {
@@ -77,6 +78,8 @@ export interface LifeSpec {
   lead?: { count: number; model: string };
   /** decisionIds per year (engine-owned). */
   decisionIdsFor: (year: number) => string[];
+  /** This life's money lane (worker/engine/money.ts): code moves its anchors off the typical path. */
+  money?: MoneyPath;
   /** Forks taken in this life (for the NOW block). */
   path?: LifeNow["path"];
 }
@@ -234,16 +237,29 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   ]);
   const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const worldInSpan = env.world.filter((w) => w.year <= last + 1);
+  // Money re-anchors to where the life is now (the latest written year's place).
+  const here = countryOf(past.at(-1)?.place ?? "") ?? profile.country;
   const anchors = (spec.coarse ? years : years.filter((_, i) => i % 2 === 0 || i === years.length - 1))
     .map((y) => {
-      const a = moneyAnchor(profile, y - profile.birthYear);
-      return `${y} (${y - profile.birthYear}): income ~${usd(a.income)}, median net worth ~${usd(a.netWorthMedian)}`;
+      const a = moneyAnchor(profile, y - profile.birthYear, here);
+      const f = laneFactors(spec.money, y);
+      const nw = Math.round((a.netWorthMedian * f.wealth) / 1000) * 1000;
+      return `${y} (${y - profile.birthYear}): income ~${usd(Math.round((a.income * f.income) / 500) * 500)}, net worth ~${usd(nw)}`;
     })
+    .join("\n");
+  const k = moneyAnchor(profile, first - profile.birthYear, here).placeScale;
+  const lane = [
+    laneLine(spec.money),
+    k !== 1
+      ? `They live in ${past.at(-1)?.place ?? here} now: the same work pays about ${Math.round(k * 100)}% of what it paid at home (in USD), and costs follow. The anchors below are local; savings grow only from what they earn and save here.`
+      : "",
+  ]
+    .filter(Boolean)
     .join("\n");
   // Biology: parents are ~30 years older unless known; past ~88 a parent is frail or gone (the
   // judge caught a mother "still on the veranda" at 98 in a branch).
   const pa = (y: number) => y - profile.birthYear + 30;
-  const anchorsWithAges = `${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.`;
+  const anchorsWithAges = `${lane ? `${lane}\n` : ""}${anchors}\nTheir parents, if alive: about ${pa(first)}-${pa(last)} in this stretch (assume ~30 years older than them unless told). Frail by the late 80s; very few live past ~92. Their children age one year per year.`;
   const focus = spec.focusQuoteIds
     .map((id) => profile.quotes.find((q) => q.id === id))
     .filter(Boolean)
@@ -378,9 +394,10 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
       raw = {};
     }
     const { draft, schemaOk } = coerceYear(raw, prev);
+    const back3 = [...past, ...lastEmitted].find((x) => x.year === year - 3) ?? null;
     const ctx = {
       profile, expectedYear: year, prev, ledger, world: env.world, span: env.span, idPrefix: spec.idPrefix,
-      coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year),
+      coarse: spec.coarse, decisionIds: spec.decisionIdsFor(year), netWorth3YearsAgo: back3?.money.netWorth ?? null,
     };
     // rule checks (validate.ts) + life checks against the ledger (people, ages, duplicates, date)
     const both = (d: YearDraft, r: unknown) => {
