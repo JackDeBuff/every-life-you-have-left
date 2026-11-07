@@ -160,3 +160,18 @@
   .share-done { grid-template-columns: 1fr; justify-items: start; }
   .share-qr { width: 200px; height: 200px; }
 }
+
+/* "You at 60 is writing…" while a reply is on its way */
+.t-writing { border-style: dashed; }
+.t-writing-line { display: flex; align-items: center; gap: var(--s3); color: var(--ink-2); }
+.t-writing-line .voice { font-size: 16px; }
+.t-writing .pen { flex: none; overflow: visible; }
+.t-writing .pen path { fill: none; stroke: var(--sun); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: pen-write 2.2s var(--e-tide) infinite; }
+@keyframes pen-write {
+  0% { stroke-dashoffset: 1; opacity: 1; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-writing .pen path { animation: none; stroke-dashoffset: 0; }
+}

@@ -302,9 +302,18 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
   const lifeObj = lives.find((l) => l.id === life) ?? lives[0]!;
   const minAge = life === "chosen" ? startAge + 1 : startAge + 1;
 
+  // Waiting on them: your message is the last word, or their reply has started but has no words yet.
+  const last = thread[thread.length - 1];
+  const writing = !!last && (last.role === "you" || (last.role === "future" && last.streaming && !last.text.trim()));
+  // The voice for a reply is fetched the moment its text is complete, so "Read it aloud" starts at once.
+  const doneReply = last && last.role === "future" && !last.streaming && last.text.length > 1 ? last.text : "";
+  useEffect(() => {
+    if (doneReply) warmVoice(doneReply, sessionId);
+  }, [doneReply, sessionId]);
+
   useEffect(() => {
     box.current?.scrollTo({ top: box.current.scrollHeight, behavior: "smooth" });
-  }, [thread.length, thread[thread.length - 1]?.text]);
+  }, [thread.length, thread[thread.length - 1]?.text, writing]);
 
   const send = (t?: string) => {
     const msg = (t ?? text).trim();
@@ -341,7 +350,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
           </p>
         )}
         {thread.map((c) =>
-          c.role === "you" ? (
+          c.role === "future" && c.streaming && !c.text.trim() ? null : c.role === "you" ? (
             <div key={c.id} className="t-you">
               <span className="label">You, now</span>
               <p className="voice">{c.text}</p>
@@ -363,6 +372,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
             </div>
           ),
         )}
+        {writing && <Writing age={age} letter={!twin} where={lifeObj.id === "chosen" ? "your life" : lifeObj.title} />}
       </div>
       {!twin && !thread.length && (
         <div className="chips starters">
@@ -391,6 +401,30 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
           <Icon name={twin ? "send" : "letter"} size={14} />
         </button>
       </div>
+    </div>
+  );
+}
+
+/** "You at 60 is writing…": a pen line writes itself while the reply is on its way. */
+function Writing({ age, letter, where }: { age: number; letter: boolean; where: string }) {
+  return (
+    <div className={`t-future t-writing ${letter ? "letter" : "message"}`} role="status">
+      <span className="label">
+        You at {age} · {where}
+      </span>
+      <p className="t-writing-line">
+        <svg className="pen" width="64" height="18" viewBox="0 0 64 18" aria-hidden="true">
+          <path d="M2 12 C8 3, 12 3, 14 10 S20 16, 24 8 S31 2, 34 10 S41 15, 45 8 S52 4, 55 11 L62 9" pathLength={1} />
+        </svg>
+        <span className="voice">
+          You at {age} {letter ? "is writing you a letter" : "is writing"}
+          <span className="dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </span>
+      </p>
     </div>
   );
 }

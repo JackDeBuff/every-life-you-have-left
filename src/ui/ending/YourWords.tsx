@@ -47,17 +47,17 @@ export function YourWords({ label }: { label: string }) {
       tl.fromTo(q(".word-head-sub"), { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "sine.inOut" });
       q(".word").forEach((row, i) => {
         const r = gsap.utils.selector(row);
-        const at = i === 0 ? 0.25 : ">-0.35";
+        const at = i === 0 ? 0.2 : ">-0.55";
         const ws = r(".ww");
-        tl!.fromTo(ws, { opacity: 0, y: 7, filter: "blur(3px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.55, ease: "expo.out", stagger: Math.min(0.07, 1.4 / Math.max(1, ws.length)) }, at);
+        tl!.fromTo(ws, { opacity: 0, y: 7, filter: "blur(3px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: Math.min(0.06, 0.8 / Math.max(1, ws.length)) }, at);
         tl!.fromTo(r(".word-mark"), { backgroundSize: "0% 34%" }, { backgroundSize: "100% 34%", duration: 0.7, ease: "expo.out" }, "-=0.25");
         tl!.fromTo(r(".word-when"), { opacity: 0 }, { opacity: 1, duration: 0.4 }, "<");
         const threads = r(".thread");
         const ends = r(".thread-end");
         const cons = r(".con");
         threads.forEach((t, k) => {
-          const pos = k === 0 ? "-=0.2" : "<0.16";
-          tl!.fromTo(t, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.75, ease: "sine.inOut" }, pos);
+          const pos = k === 0 ? "-=0.35" : "<0.12";
+          tl!.fromTo(t, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.6, ease: "sine.inOut" }, pos);
           if (ends[k]) tl!.fromTo(ends[k], { opacity: 0, scale: 0.4, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, "-=0.12");
           if (cons[k]) tl!.fromTo(cons[k], { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.5, ease: "expo.out" }, "<");
         });
@@ -164,14 +164,13 @@ function WordRow({ w }: { w: Influence }) {
       <figure className="word-fig">
         <blockquote className="word-q voice" ref={quoteRef}>
           <span className="word-mark">
-            {"“"}
             {words.map((x, i) => (
               <span key={i} className="ww">
+                {i === 0 ? "“" : ""}
                 {x}
-                {i < words.length - 1 ? " " : ""}
+                {i < words.length - 1 ? " " : "”"}
               </span>
             ))}
-            {"”"}
           </span>
         </blockquote>
         <figcaption className="word-when small faint">
