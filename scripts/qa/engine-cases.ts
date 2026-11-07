@@ -258,7 +258,10 @@ export const KIDS_CASES: CodeCase[] = [
     run: () => {
       const a = kidsQuestionOpen(withQuote(riley, "I want kids someday, just not yet."));
       const b = kidsQuestionOpen(withQuote(riley, "Honestly no kids for me, I like my freedom."));
-      return { pass: !a && !b, detail: `open: ${a}, ${b}` };
+      const fact = (value: string): Profile => ({ ...riley, facts: [...riley.facts, { id: "f9", key: "children", label: "Kids", value, source: "answer", quoteIds: [], confidence: 0.8 }] });
+      const c = kidsQuestionOpen(fact("No kids yet"));
+      const d = kidsQuestionOpen(fact("Doesn't want children"));
+      return { pass: !a && !b && c && !d, detail: `said yes: ${a}, said no: ${b}, fact 'No kids yet': ${c} (still asked), fact 'Doesn't want children': ${d}` };
     },
   },
   {

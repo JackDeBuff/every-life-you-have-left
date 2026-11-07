@@ -26,6 +26,8 @@ const NO =
   /\b(?:(?:don'?t|do not|doesn'?t|never|won'?t|not)\s+(?:\w+\s+){0,2}(?:want|have|having|see (?:myself|us)|planning|interested)|no (?:kids|children|baby|babies)|child-?free|without (?:kids|children)|not for me)\b/i;
 // "I don't know if I want kids", "maybe", "only if": undecided, so the door stays shut.
 const HEDGE = /\b(?:not sure|unsure|don'?t know|no idea|maybe|might|undecided|on the fence|torn|if|whether)\b/i;
+/** A stated no to wanting kids (not just "no kids yet"). */
+const DONT_WANT = /\b(?:(?:don'?t|do not|doesn'?t|never|won'?t)\s+(?:\w+\s+){0,2}want|child-?free|not (?:planning|interested)|no plans? (?:for|to have))\b/i;
 const HAS_KIDS = /\b(?:(?:my|our) (?:son|daughter|kids?|children|baby|toddler|stepson|stepdaughter)|(?:have|has|raising) (?:a |an |one |two |three |\d+ )?(?:kids?|children|sons?|daughters?|baby|toddler)|(?:\d+|one|two|three|four) (?:kids?|children|sons?|daughters?)|mom of|dad of|father of|mother of|single (?:mom|dad|parent))\b/i;
 const CHILD_REL = /\b(son|daughter|child|kid|baby|stepson|stepdaughter|toddler)\b/i;
 
@@ -91,8 +93,13 @@ export function kidsDoorFor(state: Pick<SessionState, "profile" | "decisions" | 
 export function kidsQuestionOpen(profile: Profile, state?: Pick<SessionState, "decisions" | "answers" | "playhead">): boolean {
   const age = (state?.playhead?.year ?? profile.startYear) - profile.birthYear;
   if (age < 22 || age > 45) return false;
-  if (hasKids(profile) || profile.facts.some((f) => f.key === "children")) return false;
-  if (profile.quotes.some((q) => /\b(kids?|children|a baby|start(?:ing)? a family|child-?free)\b/i.test(q.text))) return false;
+  if (hasKids(profile)) return false;
+  // A fact that only states the status ("No kids yet") doesn't answer whether they want them.
+  const fact = profile.facts.find((f) => f.key === "children")?.value ?? "";
+  if (wants(fact) || DONT_WANT.test(fact) || HEDGE.test(fact)) return false;
+  // Their words already said it: yes, no, or "I don't know if I want kids" (not "I teach children").
+  const said = (t: string) => wants(t) || DONT_WANT.test(t) || NO.test(t) || (/\b(kids?|children|a baby|a family)\b/i.test(t) && /\b(want|have|start)\b/i.test(t) && HEDGE.test(t));
+  if (profile.quotes.some((q) => /\b(kids?|children|bab(?:y|ies)|famil(?:y|ies)|child-?free)\b/i.test(q.text) && said(q.text))) return false;
   if (state?.decisions.some((d) => d.status === "answered" && d.domains.includes("children"))) return false;
   return true;
 }
