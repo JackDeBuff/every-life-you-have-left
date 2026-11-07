@@ -1,0 +1,646 @@
+<title>Every Life Build Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working ledger. Sticky clock bar, then "pick the look" as the hero, then decisions as a ledger, then flow, build and pitch. Four life inks are the only color, used as markers. */
+:root{
+  --bg:#EEF0EC; --surface:#FAFBF8; --ink:#16191D; --muted:#59616A; --rule:#D3D8D2; --accent:#1F3A8A;
+  --path:#2A4AA0; --leap:#B4432A; --careful:#56672F; --unjudged:#8E3F7C;
+  --locked:#16191D; --default:#9A6A12; --open:#1F3A8A; --ok:#2F6B45; --warn:#9A3B1F;
+  --display:"Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body:"Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px; --s7:56px;
+  --t-xs:12px; --t-sm:13.5px; --t-md:15.5px; --t-lg:19px; --t-xl:clamp(26px,3.4vw,40px); --t-xxl:clamp(34px,5.4vw,64px);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111418; --surface:#181C21; --ink:#E8EBEE; --muted:#9BA5AF; --rule:#2B323A; --accent:#9DB1FF;
+  --path:#8BA6FF; --leap:#FF8E73; --careful:#B5C77F; --unjudged:#E39BD2;
+  --locked:#E8EBEE; --default:#E7B65A; --open:#9DB1FF; --ok:#7CC798; --warn:#FF9A7A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111418; --surface:#181C21; --ink:#E8EBEE; --muted:#9BA5AF; --rule:#2B323A; --accent:#9DB1FF;
+  --path:#8BA6FF; --leap:#FF8E73; --careful:#B5C77F; --unjudged:#E39BD2;
+  --locked:#E8EBEE; --default:#E7B65A; --open:#9DB1FF; --ok:#7CC798; --warn:#FF9A7A; color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:var(--t-md);line-height:1.55;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mono{font-family:var(--mono);font-size:var(--t-xs);letter-spacing:.02em}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.015em}
+h2{font-size:var(--t-xl);font-weight:700;line-height:1.1}
+h3{font-size:var(--t-lg);font-weight:600}
+p{margin:0}
+.lede{color:var(--muted);max-width:64ch}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--rule)}
+.bar .wrap{display:flex;align-items:center;gap:var(--s4);padding-block:10px;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:-.01em;font-size:15px;white-space:nowrap}
+.clock{display:flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.clock b{color:var(--ink);font-weight:500}
+nav.jump{display:flex;gap:var(--s3);margin-left:auto;flex-wrap:wrap}
+nav.jump a{font-size:13px;color:var(--muted);text-decoration:none;padding:2px 0;border-bottom:1px solid transparent}
+nav.jump a:hover{color:var(--ink);border-color:var(--ink)}
+
+section{padding-block:var(--s7) 0}
+.sechead{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s2);margin-bottom:var(--s5)}
+
+/* hero */
+.hero{padding-block:var(--s6) var(--s2)}
+.hero h1{font-size:var(--t-xxl);font-weight:800;line-height:.98;letter-spacing:-.03em;max-width:15ch}
+.hero .sub{margin-top:var(--s4);font-size:var(--t-lg);color:var(--muted);max-width:56ch}
+.inks{display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s5)}
+.ink{display:flex;align-items:center;gap:8px;font-size:var(--t-sm)}
+.ink i{width:22px;height:3px;border-radius:2px;display:block}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:var(--s6)}
+.facts div{background:var(--surface);padding:var(--s4);display:grid;gap:4px;min-width:0}
+.facts b{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.facts span{font-size:var(--t-sm);color:var(--muted)}
+
+/* look picker */
+.look{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--s5);align-items:start}
+.tabs{display:flex;gap:0;border:1px solid var(--rule);width:max-content;max-width:100%;background:var(--surface)}
+.tabs button{appearance:none;border:0;background:transparent;color:var(--muted);font:600 14px var(--body);padding:10px 16px;cursor:pointer;border-right:1px solid var(--rule)}
+.tabs button:last-child{border-right:0}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.stage{margin-top:var(--s3);border:1px solid var(--rule);background:var(--surface);position:relative}
+.stage iframe{display:block;width:100%;aspect-ratio:16/10;border:0;background:var(--surface)}
+.stage .cap{display:flex;justify-content:space-between;gap:var(--s3);padding:8px 12px;border-top:1px solid var(--rule);flex-wrap:wrap}
+.stage .cap a{font-size:var(--t-sm)}
+.vote{background:var(--surface);border:1px solid var(--rule);padding:var(--s4);display:grid;gap:var(--s4);position:sticky;top:76px}
+.q{display:grid;gap:8px}
+.q legend{padding:0;margin-bottom:6px;font-weight:600;font-size:14px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg span{display:block;padding:7px 11px;border:1px solid var(--rule);font-size:13.5px;background:var(--bg);color:var(--ink);cursor:pointer}
+.seg input:checked + span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+textarea,input[type=text]{width:100%;font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--rule);padding:8px 10px;resize:vertical}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{appearance:none;font:600 14px var(--body);padding:9px 14px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn:disabled{opacity:.45;cursor:default}
+.status{font-size:var(--t-sm);color:var(--muted);min-height:1.4em}
+.status.ok{color:var(--ok)} .status.err{color:var(--warn)}
+.team{border-top:1px solid var(--rule);padding-top:var(--s3);display:grid;gap:8px}
+.who{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;align-items:start;font-size:13.5px}
+.who img{width:22px;height:22px;border-radius:50%}
+.who .m{color:var(--muted)}
+
+/* ledger */
+.ledger{display:grid;gap:var(--s6)}
+.group h3{display:flex;align-items:baseline;gap:var(--s3);padding-bottom:8px;border-bottom:2px solid var(--ink)}
+.group h3 .mono{color:var(--muted);font-weight:400}
+.row{display:grid;grid-template-columns:64px minmax(0,1fr) 112px;gap:var(--s4);padding:14px 0;border-bottom:1px solid var(--rule);align-items:start}
+.row .id{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:3px}
+.row .txt{min-width:0}
+.row .txt strong{font-weight:600}
+.row .side{display:grid;gap:6px;justify-items:end}
+.pill{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border:1px solid currentColor;white-space:nowrap}
+.pill.locked{color:var(--locked)} .pill.default{color:var(--default);border-style:dashed} .pill.open{color:var(--bg);background:var(--open);border-color:var(--open)}
+.flag{appearance:none;background:none;border:0;color:var(--muted);font:500 12.5px var(--body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}
+.flag[aria-pressed="true"]{color:var(--warn)}
+.flagbox{grid-column:2 / 4;display:grid;gap:6px}
+.legend{display:flex;gap:var(--s4);flex-wrap:wrap;align-items:center;font-size:var(--t-sm);color:var(--muted)}
+
+/* lives */
+.lives{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4)}
+.life{border-top:4px solid var(--c);background:var(--surface);padding:var(--s4);display:grid;gap:8px;align-content:start}
+.life h3{color:var(--c)}
+.life p{font-size:var(--t-sm);color:var(--muted)}
+.life .v{font-style:italic;color:var(--ink);font-size:var(--t-sm)}
+
+/* flow */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);counter-reset:step}
+.flow li{list-style:none;background:var(--surface);padding:var(--s4);display:grid;gap:6px;align-content:start;counter-increment:step}
+.flow li::before{content:counter(step,decimal-leading-zero);font-family:var(--mono);font-size:12px;color:var(--muted)}
+.flow b{font-size:14.5px}
+.flow span{font-size:13px;color:var(--muted)}
+ol.flow{margin:0;padding:0}
+.paths{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4);margin-top:var(--s4)}
+.paths div{border:1px solid var(--rule);padding:var(--s4);background:var(--surface);display:grid;gap:6px}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:680px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* timeline */
+.time{display:grid;gap:0;border-left:2px solid var(--rule);margin-left:6px}
+.slot{display:grid;grid-template-columns:150px minmax(0,1fr);gap:var(--s4);padding:10px 0 10px 18px;position:relative}
+.slot::before{content:"";position:absolute;left:-7px;top:16px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--muted)}
+.slot.now::before{background:var(--accent);border-color:var(--accent)}
+.slot.now .when{color:var(--accent);font-weight:500}
+.slot .when{font-family:var(--mono);font-size:12.5px;color:var(--muted);padding-top:2px}
+
+/* pitch */
+.pitch{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:var(--s5)}
+blockquote{margin:0;padding:var(--s5);background:var(--surface);border:1px solid var(--rule);font-size:var(--t-lg);line-height:1.5}
+blockquote .label{display:block;margin-bottom:var(--s3)}
+.qa{display:grid;gap:var(--s3)}
+.qa div{border-bottom:1px solid var(--rule);padding-bottom:var(--s3)}
+.qa b{display:block;margin-bottom:4px}
+.qa span{color:var(--muted);font-size:var(--t-sm)}
+.cross{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin-top:var(--s4)}
+.cross div{padding:var(--s3);border:1px solid var(--rule);background:var(--surface);display:grid;gap:4px}
+.cross div:first-child{border-color:var(--ink);border-width:2px}
+
+.lib{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s3)}
+.lib a{display:grid;gap:4px;padding:var(--s4);border:1px solid var(--rule);background:var(--surface);text-decoration:none;color:var(--ink)}
+.lib a:hover{border-color:var(--ink)}
+.lib span{font-size:var(--t-sm);color:var(--muted)}
+footer{padding-block:var(--s7);color:var(--muted);font-size:var(--t-sm)}
+
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--ink);color:var(--bg);padding-bottom:env(safe-area-inset-bottom,0px)}
+.savebar .wrap{display:flex;align-items:center;gap:var(--s4);padding-block:10px;flex-wrap:wrap}
+.savebar .btn{background:var(--bg);color:var(--ink);border-color:var(--bg)}
+.savebar .btn.ghost{background:transparent;color:var(--bg);border-color:color-mix(in srgb,var(--bg) 40%,transparent)}
+.savebar span{font-size:14px}
+
+@media (max-width:900px){
+  .look{grid-template-columns:minmax(0,1fr)} .vote{position:static}
+  .lives,.cross{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pitch{grid-template-columns:minmax(0,1fr)}
+  nav.jump{display:none}
+}
+@media (max-width:520px){
+  .lives,.cross,.paths{grid-template-columns:minmax(0,1fr)}
+  .row{grid-template-columns:minmax(0,1fr);gap:6px}
+  .row .side{justify-items:start;grid-auto-flow:column;justify-content:start;align-items:center}
+  .flagbox{grid-column:1}
+  .slot{grid-template-columns:minmax(0,1fr);gap:2px}
+  .stage iframe{aspect-ratio:3/4}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="brand">Every Life You Have Left</span>
+    <span class="clock" aria-live="polite"><span>Devpost closes in</span> <b id="countdown">–</b></span>
+    <nav class="jump" aria-label="Sections">
+      <a href="#look">Pick the look</a><a href="#decisions">Decisions</a><a href="#flow">How it works</a><a href="#build">Tonight</a><a href="#pitch">Pitch</a><a href="#research">Research</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <p class="label">Build plan · Triangle AI Hackathon · Social Impact &amp; Education</p>
+    <h1>Four lives you could still live, played to 70.</h1>
+    <p class="sub">This page is the plan Supawich and Paul sign off on before the agents start building tonight. Play the two prototypes, pick the look, flag any default you disagree with, then save. Claude reads your picks and starts.</p>
+    <div class="inks" aria-label="The four lives">
+      <span class="ink"><i style="background:var(--path)"></i>Your Path</span>
+      <span class="ink"><i style="background:var(--leap)"></i>The Leap</span>
+      <span class="ink"><i style="background:var(--careful)"></i>The Careful Life</span>
+      <span class="ink"><i style="background:var(--unjudged)"></i>The Unjudged Life</span>
+    </div>
+    <div class="facts">
+      <div><b>$100.00</b><span>Google Cloud credit, live on project triangle-ai-hack-2026</span></div>
+      <div><b>2.4 s</b><span>first streamed token, gemini-3.8-flash, tested tonight</span></div>
+      <div><b>7.0 s</b><span>20 schema-valid life years from one call</span></div>
+      <div><b>~$0.25</b><span>per judge session (est.), so roughly 300 sessions on the credit</span></div>
+    </div>
+  </div>
+
+  <section id="look" aria-labelledby="look-h">
+    <div class="sechead">
+      <p class="label">Open decision · D-051, D-052</p>
+      <h2 id="look-h">Pick the look</h2>
+      <p class="lede">Both prototypes play the same made-up person, Alex (25, Durham, data analyst who paints at night), through all four lives. No AI runs here. Use the theme and font switches inside each prototype, then vote on the right.</p>
+    </div>
+    <div class="look">
+      <div style="min-width:0">
+        <div class="tabs" role="tablist" aria-label="Prototype">
+          <button role="tab" id="tab-delta" aria-selected="true" aria-controls="stage" data-src="delta.html" data-name="The Delta">The Delta</button>
+          <button role="tab" id="tab-horizons" aria-selected="false" aria-controls="stage" data-src="horizons.html" data-name="Four Horizons">Four Horizons</button>
+        </div>
+        <div class="stage" id="stage" role="tabpanel" aria-labelledby="tab-delta">
+          <iframe id="proto" src="delta.html" title="The Delta prototype" loading="lazy"></iframe>
+          <div class="cap">
+            <span class="mono" id="protoNote">The Delta: your past is one pencil line that splits into four ink rivers at today.</span>
+            <a id="protoOpen" href="delta.html" target="_blank" rel="noopener">Open full screen</a>
+          </div>
+        </div>
+      </div>
+
+      <form class="vote" id="vote" autocomplete="off">
+        <fieldset class="q">
+          <legend>Concept</legend>
+          <div class="seg">
+            <label><input type="radio" name="concept" id="c-delta" value="delta"><span>The Delta</span></label>
+            <label><input type="radio" name="concept" id="c-horizons" value="horizons"><span>Four Horizons</span></label>
+            <label><input type="radio" name="concept" id="c-mix" value="mix"><span>Mix the two</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="q">
+          <legend>Theme</legend>
+          <div class="seg">
+            <label><input type="radio" name="theme" id="t-paper" value="paper"><span>Paper</span></label>
+            <label><input type="radio" name="theme" id="t-night" value="night"><span>Night</span></label>
+            <label><input type="radio" name="theme" id="t-wild" value="wild"><span>Riso / Woodcut</span></label>
+            <label><input type="radio" name="theme" id="t-two" value="paper+night"><span>Paper + Night toggle</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="q">
+          <legend>Fonts</legend>
+          <div class="seg">
+            <label><input type="radio" name="font" id="f-a" value="a"><span id="fontA">Newsreader + Plex Mono</span></label>
+            <label><input type="radio" name="font" id="f-b" value="b"><span id="fontB">Fraunces + JetBrains Mono</span></label>
+          </div>
+        </fieldset>
+        <div class="q">
+          <label for="notes" style="font-weight:600;font-size:14px">What would you change?</label>
+          <textarea id="notes" rows="4" placeholder="e.g. Delta's rivers, but Horizons' walking people at the pause. Less text on screen."></textarea>
+        </div>
+        <div class="btns">
+          <button class="btn" type="submit" id="saveBtn">Save my picks</button>
+          <button class="btn ghost" type="button" id="copyBtn">Copy my picks</button>
+        </div>
+        <p class="status" id="status" role="status"></p>
+        <textarea id="copyFallback" rows="5" hidden aria-label="Your picks as text"></textarea>
+        <div class="team" id="team" aria-live="polite">
+          <p class="label">Team picks</p>
+          <p class="m" id="teamEmpty" style="font-size:13.5px;color:var(--muted)">No picks saved yet. Yours will appear here, and so will Paul's once he saves.</p>
+          <div id="teamList" style="display:grid;gap:10px"></div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="decisions" aria-labelledby="dec-h">
+    <div class="sechead">
+      <p class="label">The ledger · full text in DECISIONS.md</p>
+      <h2 id="dec-h">What's decided</h2>
+      <p class="lede">Locked means one of you decided it. Default means Claude picked it and you can flip it: press "Disagree", say why, and save. Open is waiting on this page.</p>
+      <div class="legend"><span class="pill locked">Locked</span><span class="pill default">Default</span><span class="pill open">Open</span></div>
+    </div>
+    <div class="ledger" id="ledger"></div>
+  </section>
+
+  <section id="flow" aria-labelledby="flow-h">
+    <div class="sechead">
+      <p class="label">How it works</p>
+      <h2 id="flow-h">One person, four lives, about three minutes</h2>
+      <p class="lede">The judge's path takes about three minutes. The deep path has no limit: more questions, more pauses, uploads, and a digital twin to talk to at the end.</p>
+    </div>
+    <ol class="flow">
+      <li><b>Explainer</b><span>What you'll see and what happens to your data</span></li>
+      <li><b>Consent</b><span>We save your data to improve it. 18+.</span></li>
+      <li><b>Setup</b><span>Quick or Deep. Voice or text.</span></li>
+      <li><b>Uploads</b><span>CV, LinkedIn PDF, your AI's export. Optional.</span></li>
+      <li><b>What I learned</b><span>Editable cards about you</span></li>
+      <li><b>Questions</b><span>5 for Quick. Adaptive and unlimited for Deep.</span></li>
+      <li><b>Four lives play</b><span>Drawn while they stream in</span></li>
+      <li><b>Pause</b><span>Your answer re-tunes all four lives</span></li>
+      <li><b>At 70</b><span>Four verdicts side by side</span></li>
+      <li><b>Postcards</b><span>Download, or share a link</span></li>
+      <li><b>Talk to future you</b><span>Letters, or your digital twin</span></li>
+    </ol>
+    <div class="paths">
+      <div><p class="label">Quick · the judge</p><p>5 open questions, 1 pause, letters read aloud in an older voice. About 2.5 to 3 minutes.</p></div>
+      <div><p class="label">Deep · as long as you want</p><p>Uploads, adaptive questions aimed at what you worry about, 4–5 pauses, and a twin that writes the way you do.</p></div>
+    </div>
+    <div class="sechead" style="margin-top:var(--s6)">
+      <p class="label">The four lives · two axes: bold or safe, for others or for yourself</p>
+    </div>
+    <div class="lives">
+      <div class="life" style="--c:var(--path)"><h3>Your Path</h3><p>If nothing changes. Your pause answers steer it.</p><p class="v">"Steady, and quieter than you planned."</p></div>
+      <div class="life" style="--c:var(--leap)"><h3>The Leap</h3><p>Says yes to the big decision you keep coming back to.</p><p class="v">"Louder than you planned."</p></div>
+      <div class="life" style="--c:var(--careful)"><h3>The Careful Life</h3><p>Fear wins. The most money, and the boldness and connection regrets.</p><p class="v">"Safe, and you know exactly what it cost."</p></div>
+      <div class="life" style="--c:var(--unjudged)"><h3>The Unjudged Life</h3><p>What you said you'd do if nobody judged you.</p><p class="v">"Poorer on paper, richer every Tuesday."</p></div>
+    </div>
+    <div class="sechead" style="margin-top:var(--s6)">
+      <p class="label">Under the hood · code owns the odds, Gemini owns the story</p>
+    </div>
+    <div class="tbl">
+<pre class="mermaid">
+flowchart LR
+  U[Answers, voice, PDFs, AI export] --> P[Profile + quotes with ids]
+  P --> PL[Plan: 4 life arcs]
+  PL --> L1[Life stream: Your Path]
+  PL --> L2[Life stream: The Leap]
+  PL --> L3[Life stream: Careful]
+  PL --> L4[Life stream: Unjudged]
+  L1 & L2 & L3 & L4 --> V{Validator: quotes cited, event budgets, no repeated catastrophes}
+  V -->|fails| R[One repair call]
+  V --> UI[Story view draws as JSON arrives]
+  UI -->|pause answer| RT[Re-tune all 4 from the pause year]
+  RT --> V
+  B[(US base-rate table)] --> PL
+  B --> V
+</pre>
+    </div>
+  </section>
+
+  <section id="build" aria-labelledby="build-h">
+    <div class="sechead">
+      <p class="label">Tonight · Opus 5.5 agents in parallel, each on its own branch</p>
+      <h2 id="build-h">Who builds what, and when</h2>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Package</th><th>Scope</th><th>Done when</th></tr></thead>
+        <tbody>
+          <tr><td><b>WP0 Scaffold</b><br><span class="mono">lead</span></td><td>React + Hono Worker, D1 + R2, shared schemas and demo data, deploy hello-world</td><td>Deployed URL serves the app, contracts compile</td></tr>
+          <tr><td><b>WP1 AI engine</b><br><span class="mono">agent</span></td><td>Gemini client with retries and fallback, all prompts, validator + repair, base rates, safety screen, eval runner on 10 synthetic people</td><td>10 personas each get 4 valid lives; every turning point cites a real quote</td></tr>
+          <tr><td><b>WP2 Story view</b><br><span class="mono">agent</span></td><td>The chosen prototype rebuilt in React + GSAP from live data: turning points, why cards, pause and re-route, lenses, year card, reduced-motion view</td><td>Plays streamed lives smoothly at 60fps</td></tr>
+          <tr><td><b>WP3 Onboarding</b><br><span class="mono">agent</span></td><td>Explainer, consent, setup, uploads (pdf.js, AI-export prompt), profile cards, questions with hold-to-talk</td><td>Landing to profile works in Quick and Deep, voice or text</td></tr>
+          <tr><td><b>WP4 Data, letters, voice, share</b><br><span class="mono">agent</span></td><td>D1 schema and saves, R2 uploads, letters and twin chat, Gemini TTS, postcard image, share link, /admin for tuning</td><td>A full session shows up in /admin; a letter is read aloud</td></tr>
+          <tr><td><b>WP5 Integration</b><br><span class="mono">lead</span></td><td>Wire everything, deploy, test on desktop and phone</td><td>The Quick path runs on the live URL in under 3 minutes</td></tr>
+          <tr><td><b>WP6 Quality</b><br><span class="mono">agents, morning</span></td><td>Realism evals, prompt tuning, speed, accessibility, error states, offline fallback</td><td>Scores go up, no console errors</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sechead" style="margin-top:var(--s6)"><p class="label">Timeline · Eastern time</p></div>
+    <div class="time" id="timeline">
+      <div class="slot" data-start="2026-11-06T23:00:00-05:00" data-end="2026-11-07T00:15:00-05:00"><span class="when">Fri 11:00pm</span><span>You and Paul pick the look on this page. Claude scaffolds the repo (WP0).</span></div>
+      <div class="slot" data-start="2026-11-07T00:15:00-05:00" data-end="2026-11-07T05:00:00-05:00"><span class="when">Sat 12:15am</span><span>WP1 to WP4 build in parallel overnight. Commits, pushes and deploys run on their own.</span></div>
+      <div class="slot" data-start="2026-11-07T05:00:00-05:00" data-end="2026-11-07T07:00:00-05:00"><span class="when">Sat 5:00am</span><span>Integration, deploy, end-to-end test in a real browser.</span></div>
+      <div class="slot" data-start="2026-11-07T07:00:00-05:00" data-end="2026-11-07T09:00:00-05:00"><span class="when">Sat 7:00am</span><span>Quality pass. Your own life is generated for you and Paul to review, and only you two.</span></div>
+      <div class="slot" data-start="2026-11-07T09:00:00-05:00" data-end="2026-11-07T18:00:00-05:00"><span class="when">Sat 9:00am</span><span>Paul tests with real people and tunes from /admin. Before/after study plus a ChatGPT control group. Credit check in Billing.</span></div>
+      <div class="slot" data-start="2026-11-07T18:00:00-05:00" data-end="2026-11-08T00:00:00-05:00"><span class="when">Sat 6:00pm</span><span>Pitch: Devpost page, 2-minute video, stage deck, table rehearsal, choose the showcase life.</span></div>
+      <div class="slot" data-start="2026-11-08T07:00:00-05:00" data-end="2026-11-08T09:30:00-05:00"><span class="when">Sun 7:00am</span><span>Freeze, final deploy, submit by 9:30am.</span></div>
+      <div class="slot" data-start="2026-11-08T10:00:00-05:00" data-end="2026-11-08T12:15:00-05:00"><span class="when">Sun 10:00am</span><span>Expo judging. The judge is the demo.</span></div>
+    </div>
+  </section>
+
+  <section id="pitch" aria-labelledby="pitch-h">
+    <div class="sechead">
+      <p class="label">Pitch · full scripts and Q&amp;A in research/05</p>
+      <h2 id="pitch-h">How we hook the judge</h2>
+    </div>
+    <div class="pitch">
+      <blockquote><span class="label">30-second version</span>Your brain thinks about your future self the way it thinks about a stranger, and people don't plan for strangers. Every Life You Have Left plays out four lives you could still live, year by year, from what you tell it. Every turning point is traced to your own words and a real-world statistic, so it's not a horoscope. Students use it free; career centers license it. Give me 90 seconds and I'll show you yours.</blockquote>
+      <div class="qa">
+        <div><b>"Isn't this just ChatGPT?"</b><span>ChatGPT tells one flattering story. We hold four lives consistent for 45 years, and each turn links to what you said. Saturday's ChatGPT control group turns this answer into data.</span></div>
+        <div><b>"Isn't this a horoscope?"</b><span>Every turn shows your sentence and a cited base rate. We claim vividness, not prediction.</span></div>
+        <div><b>"Who pays?"</b><span>Free for students, licensed by career centers at about $3 per student a year, then the next crossroads.</span></div>
+        <div><b>"You save my data?"</b><span>Yes, and the consent screen says so in one plain sentence. It's used to make the lives more realistic.</span></div>
+      </div>
+    </div>
+    <div class="cross" aria-label="Four crossroads">
+      <div><p class="label">Now</p><b>Graduation</b><span class="mono">career centers</span></div>
+      <div><p class="label">Next</p><b>Layoff</b><span class="mono">outplacement</span></div>
+      <div><p class="label">Then</p><b>Midlife</b><span class="mono">coaching, benefits</span></div>
+      <div><p class="label">Later</p><b>Retirement</b><span class="mono">banks, insurers</span></div>
+    </div>
+    <p class="lede" style="margin-top:var(--s4)">On stage, cite MIT's 2025 multi-future papers before a judge does. What is ours: lives played year by year to 70, the "why" traced to your words, re-tuning mid-story, and a profile built from your own documents.</p>
+  </section>
+
+  <section id="research" aria-labelledby="res-h">
+    <div class="sechead">
+      <p class="label">Research library · on GitHub</p>
+      <h2 id="res-h">Everything behind these calls</h2>
+    </div>
+    <div class="lib">
+      <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/research/01-inspirations-science-naming.md" target="_blank" rel="noopener"><b>01 Science, inspirations, naming</b><span>Future You numbers, Hershfield, regret research, 1 in 8 Billion teardown</span></a>
+      <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/research/02-ui-visual-concepts.md" target="_blank" rel="noopener"><b>02 Visual concepts</b><span>The four concepts, signature moves, motion stack, anti-patterns</span></a>
+      <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/research/03-questions-life-model.md" target="_blank" rel="noopener"><b>03 Questions and life model</b><span>Question bank, schemas, about 25 sourced base rates, safety</span></a>
+      <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/research/04-tech-stack.md" target="_blank" rel="noopener"><b>04 Tech stack</b><span>Gemini on Agent Platform, streaming, Workers layout, costs</span></a>
+      <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/research/05-commercial-pitch.md" target="_blank" rel="noopener"><b>05 Commercial and pitch</b><span>13 segments scored, pitch scripts, judge Q&amp;A, Devpost tips</span></a>
+      <a href="https://github.com/JackDeBuff/every-life-you-have-left/blob/main/DECISIONS.md" target="_blank" rel="noopener"><b>DECISIONS.md</b><span>The full ledger, which wins over IDEA.md</span></a>
+    </div>
+  </section>
+
+  <footer>Repository: <a href="https://github.com/JackDeBuff/every-life-you-have-left" target="_blank" rel="noopener">github.com/JackDeBuff/every-life-you-have-left</a> · Plan written Fri Nov 6, 11pm.</footer>
+</main>
+
+<div class="savebar" id="savebar" hidden>
+  <div class="wrap">
+    <span id="dirtyText">You have unsaved picks.</span>
+    <button class="btn" type="button" id="saveBar">Save my picks</button>
+  </div>
+</div>
+
+<script>
+const DECISIONS = [
+  {g:"Product", items:[
+    ["D-001","locked","<strong>Name: Every Life You Have Left.</strong> The full name is the brand."],
+    ["D-002","locked","<strong>Track: Social Impact &amp; Education.</strong>"],
+    ["D-003","locked","<strong>Lead customer: college students and new grads.</strong> Career centers pay about $3 per student a year. Banks and insurers come last in the story."],
+    ["D-004","locked","<strong>The four lives:</strong> Your Path, The Leap, The Careful Life, The Unjudged Life."],
+    ["D-005","locked","<strong>Personal over global.</strong> Career, family, love, kids, money, mind, goals and personal risk. At most 2 world events per life, and catastrophes never repeat."],
+    ["D-006","locked","<strong>Worry weighting.</strong> The areas you worry about get more story time, never worse odds."],
+    ["D-007","locked","<strong>Hard events, handled gently.</strong> Divorce, layoffs, burnout, debt and caring for a parent are allowed, and a parent's old-age death once, offscreen. Never your own death or serious illness, or a partner's or child's death."],
+    ["D-008","locked","<strong>Money in real dollars,</strong> with a small note: projection, not prediction."],
+    ["D-009","locked","<strong>Lives end at 70,</strong> or 15 years ahead for anyone over 55."],
+    ["D-010","default","<strong>No life is ranked best.</strong> Research shows balanced futures help people think and one-sided ones persuade."],
+    ["D-012","default","<strong>18+ only,</strong> because we save data."],
+    ["D-013","locked","<strong>Every turning point has a why:</strong> your exact sentence plus a real statistic, checked in code."]
+  ]},
+  {g:"Flow", items:[
+    ["D-021","locked","<strong>Judge path: 5 questions + 1 pause,</strong> about 2.5 to 3 minutes."],
+    ["D-022","locked","<strong>Deep path has no limit:</strong> adaptive questions and 4–5 pauses."],
+    ["D-023","locked","<strong>A pause answer re-tunes all four lives</strong> from that year on, and shows what changed in each."],
+    ["D-024","locked","<strong>Uploads are optional:</strong> a CV, a LinkedIn PDF, or an export from your own AI. LinkedIn is never scraped."],
+    ["D-025","locked","<strong>Voice in and out,</strong> with a switch for people who prefer text."],
+    ["D-026","locked","<strong>Letters for people we know little about.</strong> People we know well get a digital twin that chats the way they write."],
+    ["D-027","default","<strong>Before/after measure:</strong> how connected you feel to yourself at 70, on a 1–7 scale."]
+  ]},
+  {g:"Data and demo", items:[
+    ["D-030","locked","<strong>Save all the data.</strong> The consent screen says so plainly. This replaces IDEA.md's \"never saved\"."],
+    ["D-031","locked","<strong>Sharing: both.</strong> Download a postcard, or share an opt-in link."],
+    ["D-032","locked","<strong>No passcode and no rate limit.</strong> A hidden off switch plus budget alerts at $50, $90 and $100."],
+    ["D-033","default","<strong>/admin page</strong> so you and Paul can read real sessions and tune from them."],
+    ["D-040","locked","<strong>Supawich's life is the first test life,</strong> for the two of you only. The showcase life gets picked from testers later."],
+    ["D-041","locked","<strong>Paul owns testing and tuning</strong> once the first version works. The pitch owner is decided later."],
+    ["D-044","default","<strong>Saturday study:</strong> about 15 hackers do the before/after, plus a small ChatGPT control group."]
+  ]},
+  {g:"Visual", items:[
+    ["D-050","locked","<strong>Nothing from 1 in 8 Billion's look:</strong> no bar meters, no year grid, no charcoal with pink and mint."],
+    ["D-051","open","<strong>Core visual: The Delta or Four Horizons.</strong> Pick above. The Book That Splits is the reduced-motion fallback either way."],
+    ["D-052","open","<strong>Theme and fonts.</strong> Pick above."],
+    ["D-053","locked","<strong>No emoji as interface.</strong> Real icons, editorial type, motion that feels like time passing."]
+  ]},
+  {g:"Tech", items:[
+    ["D-060","locked","<strong>Cloudflare Workers</strong> on workers.dev. One Worker serves the app and the API."],
+    ["D-061","locked","<strong>Gemini on Google Cloud Agent Platform</strong> with a service-account API key, verified working tonight."],
+    ["D-062","default","<strong>Models:</strong> gemini-3.8-flash for lives, 3.5-flash-lite for fast work, gemini-4-argon to A/B for quality, 3.6-flash as fallback."],
+    ["D-063","default","<strong>Generation:</strong> a plan, then 4 parallel streams, a code validator and one repair call. Base rates come from a hand-checked US table."],
+    ["D-065","default","<strong>Storage:</strong> D1 for sessions and lives, R2 for uploaded files."],
+    ["D-067","default","<strong>Front end:</strong> React, GSAP for the playback clock, Motion for cards, d3 for path math."],
+    ["D-068","locked","<strong>Public repo</strong> on GitHub, with Paul added as a collaborator. Built from scratch this weekend."],
+    ["D-069","locked","<strong>Agents build, commit, push and deploy overnight.</strong> You review in the morning."]
+  ]}
+];
+
+const state = {concept:null, theme:null, font:null, notes:"", flags:{}};
+let saved = JSON.stringify(state);
+let dbRef = null, uid = null, userNs = null, canWrite = true;
+const $ = s => document.querySelector(s);
+const statusEl = $("#status");
+
+function setStatus(msg, kind){ statusEl.textContent = msg; statusEl.className = "status" + (kind ? " " + kind : ""); }
+function dirty(){ return JSON.stringify(state) !== saved; }
+function refreshDirty(){ const d = dirty(); $("#savebar").hidden = !d; }
+
+/* ledger */
+function renderLedger(){
+  const root = $("#ledger"); root.innerHTML = "";
+  for (const grp of DECISIONS){
+    const g = document.createElement("div"); g.className = "group";
+    const h = document.createElement("h3"); h.innerHTML = grp.g + ' <span class="mono">' + grp.items.length + " decisions</span>";
+    g.appendChild(h);
+    for (const [id, st, html] of grp.items){
+      const row = document.createElement("div"); row.className = "row";
+      row.innerHTML = '<span class="id">' + id + '</span><div class="txt">' + html + '</div><div class="side"><span class="pill ' + st + '">' + st + '</span></div>';
+      if (st === "default"){
+        const b = document.createElement("button"); b.type = "button"; b.className = "flag"; b.id = "flag-" + id;
+        const on = Object.prototype.hasOwnProperty.call(state.flags, id);
+        b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = on ? "Disagreeing" : "Disagree";
+        row.querySelector(".side").appendChild(b);
+        const box = document.createElement("div"); box.className = "flagbox"; box.hidden = !on;
+        box.innerHTML = '<label class="label" for="why-' + id + '">Why, and what instead?</label><input type="text" id="why-' + id + '">';
+        const inp = box.querySelector("input"); inp.value = state.flags[id] || "";
+        inp.addEventListener("input", () => { state.flags[id] = inp.value; refreshDirty(); });
+        b.addEventListener("click", () => {
+          const now = b.getAttribute("aria-pressed") !== "true";
+          b.setAttribute("aria-pressed", now ? "true" : "false"); b.textContent = now ? "Disagreeing" : "Disagree";
+          box.hidden = !now;
+          if (now){ state.flags[id] = inp.value; inp.focus(); } else { delete state.flags[id]; }
+          refreshDirty();
+        });
+        row.appendChild(box);
+      }
+      g.appendChild(row);
+    }
+    root.appendChild(g);
+  }
+}
+
+/* prototype tabs */
+const notes = {"delta.html":"The Delta: your past is one pencil line that splits into four ink rivers at today.","horizons.html":"Four Horizons: four of you walk on through four stacked landscapes to 70."};
+document.querySelectorAll('.tabs button').forEach(btn => btn.addEventListener("click", () => {
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute("aria-selected", b === btn ? "true" : "false"));
+  const src = btn.dataset.src; const f = $("#proto");
+  f.src = src; f.title = btn.dataset.name + " prototype";
+  $("#protoOpen").href = src; $("#protoNote").textContent = notes[src];
+  $("#stage").setAttribute("aria-labelledby", btn.id);
+}));
+
+/* form */
+const form = $("#vote");
+function writeForm(){
+  for (const k of ["concept","theme","font"]){
+    form.querySelectorAll('input[name="' + k + '"]').forEach(i => { i.checked = i.value === state[k]; });
+  }
+  $("#notes").value = state.notes || "";
+}
+form.addEventListener("change", e => {
+  const t = e.target; if (t.name && ["concept","theme","font"].includes(t.name)){ state[t.name] = t.value; refreshDirty(); }
+});
+$("#notes").addEventListener("input", e => { state.notes = e.target.value; refreshDirty(); });
+
+function picksText(){
+  const lab = {delta:"The Delta",horizons:"Four Horizons",mix:"Mix the two",paper:"Paper",night:"Night",wild:"Riso (Delta) or Woodcut (Horizons)","paper+night":"Paper + Night toggle",a:$("#fontA").textContent,b:$("#fontB").textContent};
+  const lines = ["Every Life picks",
+    "Concept: " + (lab[state.concept] || "not picked"),
+    "Theme: " + (lab[state.theme] || "not picked"),
+    "Fonts: " + (lab[state.font] || "not picked")];
+  if (state.notes) lines.push("Notes: " + state.notes);
+  for (const [id, why] of Object.entries(state.flags)) lines.push("Disagree " + id + ": " + (why || "(no reason given)"));
+  return lines.join("\n");
+}
+$("#copyBtn").addEventListener("click", () => {
+  const txt = picksText(); const fb = $("#copyFallback");
+  const show = () => { fb.hidden = false; fb.value = txt; fb.focus(); fb.select(); setStatus("Select all and copy, then send it to Supawich."); };
+  try {
+    navigator.clipboard.writeText(txt).then(() => setStatus("Copied. Paste it to Supawich or straight to Claude.", "ok"), show);
+  } catch(e){ show(); }
+});
+
+async function save(){
+  if (!dbRef){ setStatus("Saving needs a signed-in Claude account with edit access. Use Copy my picks instead.", "err"); return; }
+  $("#saveBtn").disabled = true; $("#saveBar").disabled = true; setStatus("Saving…");
+  try {
+    await dbRef.set({concept:state.concept, theme:state.theme, font:state.font, notes:state.notes || "", flags:state.flags, updatedAt:new Date().toISOString()});
+    saved = JSON.stringify(state); refreshDirty();
+    setStatus("Saved. Claude can read your picks now.", "ok");
+  } catch(e){
+    const code = e && e.code;
+    if (code === "invalid_argument" || code === "not_granted"){ canWrite = false; setStatus("This view can read but not save. Use Copy my picks and send them to Supawich.", "err"); }
+    else if (code === "unavailable"){ setStatus("Couldn't reach storage. Try Save again in a moment.", "err"); }
+    else { setStatus("Save failed (" + (code || "unknown") + "). Use Copy my picks instead.", "err"); }
+  } finally { $("#saveBtn").disabled = false; $("#saveBar").disabled = false; }
+}
+form.addEventListener("submit", e => { e.preventDefault(); save(); });
+$("#saveBar").addEventListener("click", save);
+
+/* team picks */
+const LAB = {delta:"The Delta",horizons:"Four Horizons",mix:"Mix",paper:"Paper",night:"Night",wild:"Riso/Woodcut","paper+night":"Paper + Night",a:"Fonts A",b:"Fonts B"};
+async function renderTeam(docs){
+  const list = $("#teamList"); list.innerHTML = "";
+  $("#teamEmpty").hidden = docs.length > 0;
+  const ids = docs.map(d => d.id);
+  const ps = userNs ? await userNs.profiles(ids) : {};
+  for (const d of docs){
+    const v = d.data() || {}; const p = ps[d.id] || {};
+    const row = document.createElement("div"); row.className = "who";
+    const img = document.createElement("img"); img.alt = ""; if (p.avatarUrl) img.src = p.avatarUrl;
+    const body = document.createElement("div");
+    const name = document.createElement("b"); name.textContent = (p.isMe ? "You" : (p.name || "A teammate"));
+    const what = document.createElement("div"); what.className = "m";
+    what.textContent = [LAB[v.concept], LAB[v.theme], LAB[v.font]].filter(Boolean).join(" · ") || "No look picked yet";
+    body.appendChild(name); body.appendChild(what);
+    const flags = v.flags ? Object.keys(v.flags) : [];
+    if (v.notes){ const n = document.createElement("div"); n.className = "m"; n.textContent = "“" + v.notes + "”"; body.appendChild(n); }
+    if (flags.length){ const f = document.createElement("div"); f.className = "m"; f.textContent = "Disagrees with " + flags.join(", "); body.appendChild(f); }
+    row.appendChild(img); row.appendChild(body); list.appendChild(row);
+  }
+}
+
+async function boot(){
+  renderLedger(); writeForm();
+  if (!window.claude || !window.claude.use){ setStatus("Saving works when this page is opened on claude.ai. Copy my picks works anywhere."); return; }
+  try {
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    userNs = user;
+    if (!db || !user){ setStatus("Sign in to Claude to save picks here, or use Copy my picks."); return; }
+    uid = await user.id();
+    if (!uid){ setStatus("Sign in to Claude to save picks here, or use Copy my picks."); return; }
+    dbRef = db.doc("picks/" + uid);
+    const mine = await dbRef.get().catch(() => null);
+    if (mine && mine.exists){
+      const v = mine.data();
+      state.concept = v.concept || null; state.theme = v.theme || null; state.font = v.font || null;
+      state.notes = v.notes || ""; state.flags = Object.assign({}, v.flags || {});
+      saved = JSON.stringify(state); writeForm(); renderLedger(); refreshDirty();
+    }
+    const can = await user.can("data.write");
+    if (can === false){ setStatus("You can view everyone's picks. Saving yours needs edit access, so use Copy my picks."); }
+    let timer = setTimeout(() => { $("#teamEmpty").textContent = "Team picks can't be reached yet."; }, 10000);
+    db.collection("picks").onSnapshot(snap => {
+      if (!snap.metadata.fromCache){ clearTimeout(timer); }
+      renderTeam(snap.docs);
+    }, () => { clearTimeout(timer); $("#teamEmpty").textContent = "Team picks are unavailable in this view."; });
+  } catch(e){ setStatus("Saving is unavailable here. Use Copy my picks."); }
+}
+
+/* countdown + timeline "now" */
+const deadline = new Date("2026-11-08T09:30:00-05:00").getTime();
+function tick(){
+  const ms = deadline - Date.now();
+  if (ms <= 0){ $("#countdown").textContent = "closed"; }
+  else { const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); $("#countdown").textContent = h + "h " + String(m).padStart(2,"0") + "m"; }
+  const now = Date.now();
+  document.querySelectorAll("#timeline .slot").forEach(s => {
+    const a = Date.parse(s.dataset.start), b = Date.parse(s.dataset.end);
+    s.classList.toggle("now", now >= a && now < b);
+  });
+}
+tick(); setInterval(tick, 30000);
+boot();
+</script>

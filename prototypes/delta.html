@@ -1,0 +1,1674 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Delta</title>
+<meta name="description" content="Prototype of The Delta: four lives drawn as ink rivers from one moment.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap">
+<style>
+/* Layout: one full-bleed river stage. "Your Words" rail pinned left, the mouths at 70 on the right, transport at the foot. */
+:root{
+  --paper:#F2ECDF; --paper-2:#E9E1D0; --card:#F7F2E7; --rule:#CFC6B2;
+  --ink:#1D1B17; --ink-2:#5A554B; --ink-3:#8C8576; --pencil:#8F8878;
+  --path:#4D5256; --leap:#2E4A9E; --careful:#2F7D78; --unjudged:#C2412D; --amber:#B5660E;
+  --murk:#3B2E1E; --fleck:#FAF5EA; --veil:rgba(232,224,207,.88); --shadow:rgba(70,52,22,.2);
+  --vignette:rgba(125,98,52,.12);
+  --grain-op:.55; --grain-blend:multiply; --blend:multiply; --halftone-op:0; --mis:none;
+  --glow-path:none; --glow-leap:none; --glow-careful:none; --glow-unjudged:none;
+  --serif:'Newsreader','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --ease-draw:cubic-bezier(.22,.61,.36,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-look]){
+    --paper:#0D1424; --paper-2:#131C31; --card:#151F37; --rule:#283554;
+    --ink:#ECE6D8; --ink-2:#A9AEBD; --ink-3:#717A93; --pencil:#7C8499;
+    --path:#C3C7CC; --leap:#8FA9FF; --careful:#5ED3C5; --unjudged:#FF8B6A; --amber:#F0AE55;
+    --murk:#03060D; --fleck:#E8EEFF; --veil:rgba(8,12,23,.86); --shadow:rgba(0,0,0,.5);
+    --vignette:rgba(0,0,0,.4);
+    --grain-op:.2; --grain-blend:screen; --blend:screen; --halftone-op:0; --mis:none;
+    --glow-path:drop-shadow(0 0 5px rgba(195,199,204,.28)); --glow-leap:drop-shadow(0 0 7px rgba(143,169,255,.45));
+    --glow-careful:drop-shadow(0 0 7px rgba(94,211,197,.4)); --glow-unjudged:drop-shadow(0 0 7px rgba(255,139,106,.45));
+    color-scheme:dark;
+  }
+}
+:root[data-look="night"], :root[data-theme="dark"]:not([data-look]){
+  --paper:#0D1424; --paper-2:#131C31; --card:#151F37; --rule:#283554;
+  --ink:#ECE6D8; --ink-2:#A9AEBD; --ink-3:#717A93; --pencil:#7C8499;
+  --path:#C3C7CC; --leap:#8FA9FF; --careful:#5ED3C5; --unjudged:#FF8B6A; --amber:#F0AE55;
+  --murk:#03060D; --fleck:#E8EEFF; --veil:rgba(8,12,23,.86); --shadow:rgba(0,0,0,.5);
+  --vignette:rgba(0,0,0,.4);
+  --grain-op:.2; --grain-blend:screen; --blend:screen; --halftone-op:0; --mis:none;
+  --glow-path:drop-shadow(0 0 5px rgba(195,199,204,.28)); --glow-leap:drop-shadow(0 0 7px rgba(143,169,255,.45));
+  --glow-careful:drop-shadow(0 0 7px rgba(94,211,197,.4)); --glow-unjudged:drop-shadow(0 0 7px rgba(255,139,106,.45));
+  color-scheme:dark;
+}
+:root[data-look="paper"]{color-scheme:light}
+/* Riso: a two-drum risograph print. Federal-blue key, fluorescent inks, slight misregistration. */
+:root[data-look="riso"]{
+  --paper:#F4F2EC; --paper-2:#EAE6DC; --card:#F9F7F2; --rule:#C9C4B8;
+  --ink:#232B5C; --ink-2:#4F5679; --ink-3:#8A8FA8; --pencil:#8C90A6;
+  --path:#3D5588; --leap:#FF48B0; --careful:#00A95C; --unjudged:#FF6C2F; --amber:#FFB511;
+  --murk:#232B5C; --fleck:#F4F2EC; --veil:rgba(244,242,236,.9); --shadow:rgba(35,43,92,.18);
+  --vignette:rgba(35,43,92,.05);
+  --grain-op:.42; --grain-blend:multiply; --blend:multiply; --halftone-op:.11; --mis:1.2px .8px 0 rgba(255,72,176,.55);
+  --glow-path:none; --glow-leap:none; --glow-careful:none; --glow-unjudged:none;
+  color-scheme:light;
+}
+:root[data-type="b"]{
+  --serif:'Fraunces','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;overflow:hidden;background-color:var(--paper);background-image:radial-gradient(130% 95% at 55% 45%,transparent 58%,var(--vignette) 100%);color:var(--ink);font-family:var(--serif);font-size:15px;-webkit-font-smoothing:antialiased;transition:background-color .6s,color .6s}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:1.5px solid var(--ink-2);outline-offset:3px}
+.k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+#grain{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:var(--grain-op);mix-blend-mode:var(--grain-blend);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .42  0 0 0 0 .36  0 0 0 0 .27  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");transition:opacity .6s}
+#halftone{position:fixed;inset:0;pointer-events:none;z-index:39;opacity:var(--halftone-op);mix-blend-mode:multiply;background-image:radial-gradient(circle,var(--ink) .6px,transparent .95px);background-size:3.4px 3.4px;transition:opacity .6s}
+
+/* SVG ink */
+.summer{stroke:var(--rule);stroke-width:1;opacity:.55;transition:opacity .8s,stroke .6s}
+.summer.spent{opacity:.32}
+.axis{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;fill:var(--ink-3);transition:fill .6s}
+.axis.it{font-family:var(--serif);font-style:italic;font-size:12px;letter-spacing:0}
+.pencil{fill:none;stroke:var(--pencil);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:stroke .6s}
+.pencil2{fill:none;stroke:var(--pencil);stroke-width:.6;opacity:.55;transition:stroke .6s}
+.fam-past,.fam{fill:none;stroke:var(--amber);stroke-width:1.1;stroke-dasharray:1 3.2;stroke-linecap:round;transition:stroke .6s}
+.pmark{fill:var(--paper);stroke:var(--pencil);stroke-width:1.1}
+.pmark-l{font-family:var(--mono);font-size:9.5px;fill:var(--ink-2);letter-spacing:.04em}
+.pmark-ln{stroke:var(--pencil);stroke-width:.6}
+#pencilTip{fill:var(--ink-2)}
+.life{mix-blend-mode:var(--blend);transition:opacity .5s}
+.life-path{filter:var(--glow-path)} .life-leap{filter:var(--glow-leap)} .life-careful{filter:var(--glow-careful)} .life-unjudged{filter:var(--glow-unjudged)}
+:root[data-look="riso"] .life-leap{transform:translate(1.3px,-.9px)}
+:root[data-look="riso"] .life-unjudged{transform:translate(-1px,1.1px)}
+:root[data-look="riso"] .life-careful{transform:translate(.8px,1px)}
+.band{cursor:crosshair}
+.st-path{stop-color:var(--path)} .st-leap{stop-color:var(--leap)} .st-careful{stop-color:var(--careful)} .st-unjudged{stop-color:var(--unjudged)}
+.st-ink2{stop-color:var(--ink-2)} .st-white{stop-color:#fff}
+.st-path,.st-leap,.st-careful,.st-unjudged,.st-ink2{transition:stop-color .6s}
+.murk-dot{fill:var(--murk)}
+.murk{pointer-events:none}
+.fleck{fill:none;stroke:var(--fleck);stroke-width:1;stroke-linecap:round;opacity:.9;pointer-events:none}
+.strand{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.partner{stroke-width:1.15}
+.child{stroke-width:1.05}
+.paint{stroke-width:1.3}
+.channel{fill:none;stroke-width:1;stroke-linecap:round}
+.c-path{stroke:var(--path)} .c-leap{stroke:var(--leap)} .c-careful{stroke:var(--careful)} .c-unjudged{stroke:var(--unjudged)}
+.f-path{fill:var(--path)} .f-leap{fill:var(--leap)} .f-careful{fill:var(--careful)} .f-unjudged{fill:var(--unjudged)}
+.bead{fill:var(--paper);stroke-width:1.25;transition:fill .6s}
+.beadg{cursor:pointer}
+.beadg .hit{fill:transparent}
+.beadg:hover .bead{fill:var(--ink)}
+.leader{stroke:var(--ink-3);stroke-width:.7}
+.mleader{stroke:var(--ink-3);stroke-width:.6;fill:none;opacity:.8}
+.thread{fill:none;stroke-width:.9;pointer-events:none}
+.thread-end{pointer-events:none}
+#playhead{stroke:var(--ink-2);stroke-width:.8;transition:stroke .6s}
+#phHit{stroke:transparent;stroke-width:16;cursor:ew-resize}
+.head{stroke:var(--paper);stroke-width:1.6}
+.ring{fill:none;stroke-width:1}
+#knot{fill:var(--ink)} #knotRing{fill:none;stroke:var(--ink);stroke-width:1}
+.ghost{fill:none;stroke:var(--ink-3);stroke-width:1.2;stroke-dasharray:5 5;opacity:0}
+.forecast{fill:none;stroke:var(--path);stroke-width:1.4;stroke-dasharray:2 4;stroke-linecap:round;opacity:0}
+.ripple{fill:none;stroke-width:1}
+.petals path{fill:var(--c);fill-opacity:.5;stroke:var(--c);stroke-width:.7}
+.petal-ring{fill:none;stroke:var(--rule);stroke-dasharray:1 3}
+.petal-core{fill:var(--c)}
+
+/* focus dimming */
+.Lx{transition:opacity .5s}
+body[data-focus="path"] .Lx:not(.L-path),body[data-focus="leap"] .Lx:not(.L-leap),body[data-focus="careful"] .Lx:not(.L-careful),body[data-focus="unjudged"] .Lx:not(.L-unjudged){opacity:.17}
+
+/* header */
+#top{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;
+  padding-block:calc(12px + env(safe-area-inset-top,0px)) 10px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;min-width:0}
+.bt{font-size:19px;font-weight:450;letter-spacing:-.005em}
+.bt em{font-style:italic;font-weight:400}
+.bs{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase}
+.switches{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.sw{display:flex;align-items:center;gap:8px}
+.seg{display:flex;border:1px solid var(--rule);border-radius:3px;background:var(--card);overflow:hidden;transition:background-color .6s,border-color .6s}
+.seg button{padding:6px 11px;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--ink-2);display:flex;align-items:center;gap:7px;border-left:1px solid var(--rule);transition:background-color .25s,color .25s}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg button:hover:not([aria-pressed="true"]){background:var(--paper-2)}
+.seg.big button{padding:7px 12px;font-size:11px}
+.sv{display:inline-block;width:26px;height:14px;border-radius:2px;border:1px solid rgba(128,120,100,.45);
+  background:radial-gradient(circle at 26% 50%,var(--s1) 0 2.7px,transparent 3.1px),radial-gradient(circle at 50% 50%,var(--s2) 0 2.7px,transparent 3.1px),radial-gradient(circle at 74% 50%,var(--s3) 0 2.7px,transparent 3.1px),var(--s0)}
+#types button[data-type="a"]{font-family:'Newsreader',Georgia,serif;font-size:13px;letter-spacing:0}
+#types button[data-type="b"]{font-family:'Fraunces',Georgia,serif;font-size:13px;letter-spacing:0}
+#types button small{font-family:'IBM Plex Mono',monospace;font-size:9.5px;opacity:.75}
+#types button[data-type="b"] small{font-family:'JetBrains Mono',monospace}
+
+/* your words rail */
+#rail{position:fixed;left:max(24px,env(safe-area-inset-left,0px));top:84px;bottom:46px;width:clamp(200px,16.5vw,262px);z-index:8;display:flex;flex-direction:column;gap:10px;min-width:0}
+#rail h2{margin:0;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+#rail .rail-sub{margin:0;font-size:13px;font-style:italic;color:var(--ink-3);line-height:1.35;max-width:30ch}
+#notes{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;overflow:auto;scrollbar-width:none}
+.note{position:relative;padding:11px 10px 11px 14px;border-top:1px solid var(--rule);cursor:default;transition:border-color .6s}
+.note:last-child{border-bottom:1px solid var(--rule)}
+.note::before{content:"";position:absolute;left:0;top:17px;width:5px;height:5px;border-radius:50%;background:var(--pencil);transition:background-color .4s,transform .4s}
+.nq{margin:0;font-size:15.5px;line-height:1.3;font-style:italic;color:var(--ink);text-wrap:pretty}
+.nq span.hl{background-image:linear-gradient(color-mix(in srgb,var(--c,var(--ink)) 20%,transparent),color-mix(in srgb,var(--c,var(--ink)) 20%,transparent));background-repeat:no-repeat;background-size:0% 100%;transition:background-size .7s var(--ease-draw);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.note.lit .nq span.hl{background-size:100% 100%}
+.note.lit::before{background:var(--c);transform:scale(1.5)}
+.note.lit .nq{color:var(--ink)}
+.nm{margin:5px 0 0;display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--ink-3)}
+.tally{white-space:nowrap}
+.tally b{font-weight:500;color:var(--ink-2)}
+.note.yours .nq{font-style:normal}
+.note.yours .nm span:first-child{color:var(--ink-2)}
+
+/* legend + lens */
+#legend{position:fixed;z-index:9;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;max-width:calc(100vw - 32px)}
+.lens{display:flex;align-items:center;gap:10px}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chips button{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;padding:5px 10px;border:1px solid var(--rule);border-radius:999px;color:var(--ink-2);background:var(--card);transition:background-color .25s,color .25s,border-color .25s}
+.chips button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chips button:hover:not([aria-pressed="true"]){border-color:var(--ink-3)}
+.enc{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.enc span.e{display:flex;align-items:center;gap:6px;font-size:13px;font-style:italic;color:var(--ink-2)}
+.enc svg{display:block;overflow:visible}
+.enc svg *{fill:none;stroke:var(--ink-2);stroke-width:1}
+.enc svg .fl{fill:var(--ink-2);stroke:none}
+
+/* captions + labels */
+#captions,#labels{position:fixed;inset:0;pointer-events:none;z-index:3}
+#labels{z-index:4}
+.cap{position:absolute;left:0;top:0;width:max-content;max-width:150px;font-size:13.5px;line-height:1.22;color:var(--ink);
+  text-shadow:0 0 2px var(--paper),0 0 4px var(--paper),0 0 7px var(--paper);will-change:transform}
+.cap.r{text-align:right}
+.cap .yr{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;color:var(--c);margin-bottom:2px}
+.cap.gone,.leader.gone{opacity:0!important;visibility:hidden}
+.cap.settled{opacity:.86}
+.w{display:inline-block}
+.ll{position:absolute;left:0;top:0;width:var(--lw,200px);color:var(--c);will-change:transform}
+.ll.mouth{transition:left .9s var(--ease-draw),top .9s var(--ease-draw)}
+.ll-name{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;text-shadow:0 0 3px var(--paper),0 0 6px var(--paper)}
+.ll-meta,.ll-verdict{display:none}
+.ll.mouth .ll-name{font-family:var(--serif);font-size:17px;letter-spacing:-.005em;text-transform:none;font-weight:500;white-space:normal}
+.ll.mouth .ll-meta{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase;margin-top:2px}
+.ll.mouth .ll-verdict{display:block;font-style:italic;font-size:15px;line-height:1.25;margin-top:4px;text-wrap:balance}
+#labels .ll.mouth{pointer-events:auto;cursor:default}
+
+/* playhead handle */
+#ph{position:fixed;left:0;top:0;z-index:12;font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:3px 7px;border:1px solid var(--ink-2);border-radius:2px;background:var(--paper);color:var(--ink);cursor:ew-resize;touch-action:none;user-select:none;white-space:nowrap;transition:background-color .6s,border-color .6s}
+#ph::after{content:"";position:absolute;left:50%;bottom:-5px;width:1px;height:5px;background:var(--ink-2)}
+
+/* opening */
+#opening{position:fixed;z-index:6;pointer-events:none;max-width:min(860px,calc(100vw - 40px))}
+#opening p{margin:0;font-weight:300;font-size:clamp(30px,3.7vw,60px);line-height:1.08;letter-spacing:-.018em;text-wrap:balance;text-shadow:var(--mis)}
+#opening p + p{margin-top:.18em}
+#opening em{font-style:italic;font-weight:300}
+#skip{position:fixed;z-index:31;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:6px 8px;border-bottom:1px solid var(--rule)}
+#skip:hover{color:var(--ink)}
+
+/* cards */
+.card{position:fixed;z-index:14;background:var(--card);border:1px solid var(--rule);border-radius:2px;box-shadow:0 1px 0 var(--rule),0 18px 40px -22px var(--shadow);transition:background-color .6s,border-color .6s}
+#why{width:min(318px,calc(100vw - 32px));padding:14px 16px 12px}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+.card-h .k b{font-weight:500;color:var(--c)}
+.why-row{padding:10px 0 9px;border-bottom:1px solid var(--rule)}
+.why-row:last-child{border-bottom:0;padding-bottom:2px}
+.why-row p{margin:4px 0 0;font-size:15px;line-height:1.32;text-wrap:pretty}
+.why-row p.q{font-style:italic;font-size:16px}
+.why-row .src{display:block;margin-top:4px;font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.03em}
+.xbtn{color:var(--ink-3);display:grid;place-items:center;width:22px;height:22px;margin:-4px -6px 0 0}
+.xbtn:hover{color:var(--ink)}
+#tip{position:fixed;z-index:15;pointer-events:none;max-width:240px;padding:8px 10px;background:var(--card);border:1px solid var(--rule);border-radius:2px;font-size:13.5px;line-height:1.3;box-shadow:0 10px 24px -18px var(--shadow)}
+#tip .k{display:block;margin-bottom:3px}
+#tip .q{display:block;margin-top:5px;font-style:italic;color:var(--ink-2);font-size:12.5px}
+#summary{position:fixed;z-index:13;display:flex;align-items:baseline;gap:12px;padding:8px 14px;background:var(--card);border:1px solid var(--rule);border-radius:2px;max-width:calc(100vw - 32px);box-shadow:0 12px 30px -24px var(--shadow)}
+#summary p{margin:0;font-size:15px;line-height:1.3}
+#summary .k{white-space:nowrap;color:var(--path)}
+#endnote{position:fixed;z-index:9;font-size:13.5px;font-style:italic;color:var(--ink-2)}
+
+/* pause */
+#veil{position:fixed;inset:0;z-index:16;background:var(--veil);transition:background-color .6s}
+#waiting{position:fixed;inset:0;z-index:17;pointer-events:none}
+.wait{position:absolute;left:0;top:0;display:flex;align-items:center;gap:8px}
+.wait i{display:block;width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 18%,transparent)}
+.wait span{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+#pause{position:fixed;z-index:18;max-width:min(920px,calc(100vw - 40px))}
+#pause .k{display:block;margin-bottom:14px}
+#q{margin:0;font-weight:300;font-size:clamp(26px,3vw,46px);line-height:1.12;letter-spacing:-.016em;text-wrap:pretty;text-shadow:var(--mis)}
+.answer{position:relative;margin-top:30px}
+#answer{display:block;width:100%;background:transparent;border:0;outline:0;padding:0 0 8px;font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(20px,2.1vw,32px);color:var(--ink);caret-color:var(--unjudged)}
+#answer::placeholder{color:var(--ink-3);opacity:.7}
+.answer .rule{position:absolute;left:0;bottom:0;height:1px;width:100%;background:var(--ink-2);transform-origin:0 50%}
+.hint{margin:12px 0 0;display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-3)}
+.hint button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-2);border-bottom:1px solid var(--rule);padding-bottom:1px}
+.hint button:hover{color:var(--ink);border-color:var(--ink-2)}
+.flyer{position:fixed;z-index:25;left:0;top:0;transform-origin:0 0;font-family:var(--serif);font-style:italic;font-size:30px;line-height:1.3;color:var(--ink);pointer-events:none}
+
+/* slice */
+#slice{position:fixed;z-index:11}
+#slice .sh{display:flex;align-items:baseline;gap:10px;margin-bottom:7px}
+#slice .sh strong{font-weight:400;font-size:17px;font-style:italic}
+.scs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.sc{background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:9px 11px 10px;min-width:0;transition:background-color .6s}
+.sc .nm2{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+.sc .city{font-size:16px;margin-top:3px}
+.sc .who{font-size:12.5px;color:var(--ink-2);line-height:1.28;margin-top:2px}
+.sc .work{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:5px;letter-spacing:.02em}
+.sc .line{font-size:13.5px;font-style:italic;color:var(--c);margin-top:5px;line-height:1.25}
+
+/* year card */
+#yearcard{width:min(372px,calc(100vw - 32px));padding:14px 16px 14px;transform-origin:0 0}
+#yearcard h3{margin:12px 0 4px;font-weight:400;font-size:24px;letter-spacing:-.01em;line-height:1.1}
+#yearcard .tues{margin:0;font-size:15px;line-height:1.38;color:var(--ink);text-wrap:pretty}
+.yc-body{display:grid;grid-template-columns:86px 1fr;gap:14px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--rule)}
+.fam-list{display:grid;gap:5px;margin:0}
+.fam-list div{display:flex;justify-content:space-between;gap:8px;align-items:baseline;border-bottom:1px dotted var(--rule);padding-bottom:3px}
+.fam-list dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase}
+.fam-list dd{margin:0;font-size:13.5px;font-style:italic;color:var(--ink-2);text-align:right}
+.yc-meta{margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--ink-3);line-height:1.5}
+.write{margin-top:14px;display:flex;align-items:center;gap:8px;font-size:16px;font-style:italic;color:var(--c);border-bottom:1px solid currentColor;padding-bottom:2px}
+.write svg{transition:transform .3s}
+.write:hover svg{transform:translateX(3px)}
+
+/* letter */
+#letter{position:fixed;z-index:22;top:max(16px,env(safe-area-inset-top,0px));bottom:16px;right:max(16px,env(safe-area-inset-right,0px));width:min(500px,calc(100vw - 32px));overflow:auto;background:var(--card);border:1px solid var(--rule);border-radius:2px;box-shadow:0 30px 60px -30px var(--shadow);padding:30px 40px 34px}
+#letter .lt-top{display:flex;justify-content:space-between;align-items:baseline}
+.you-wrote{margin-top:22px;padding-bottom:14px;border-bottom:1px solid var(--rule)}
+#ask{display:block;width:100%;margin-top:6px;background:transparent;border:0;outline:0;font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink-2);caret-color:var(--c);padding:0}
+.dateline{margin-top:22px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--ink-3);text-align:right}
+.salut{margin:18px 0 10px;font-size:19px;font-style:italic}
+#lbody p{margin:0 0 12px;font-size:17.5px;line-height:1.55;text-wrap:pretty}
+.sign{margin-top:16px;font-size:19px;font-style:italic;color:var(--c)}
+.slips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;padding-top:16px;border-top:1px solid var(--rule)}
+.slips button{font-size:14px;font-style:italic;padding:6px 11px 7px;background:var(--paper);border:1px solid var(--rule);border-radius:1px;transform:rotate(var(--r,0deg));box-shadow:0 1px 0 var(--rule);transition:transform .25s}
+.slips button:hover{transform:rotate(0deg) translateY(-1px)}
+.slip-note{margin:10px 0 0;font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+
+/* transport */
+#transport{position:fixed;z-index:10;display:flex;align-items:center;gap:14px;bottom:calc(28px + env(safe-area-inset-bottom,0px))}
+.icon-btn{width:34px;height:34px;border:1px solid var(--ink-2);border-radius:50%;display:grid;place-items:center;color:var(--ink);transition:background-color .25s,color .25s,border-color .6s}
+.icon-btn:hover{background:var(--ink);color:var(--paper)}
+.icon-btn.ghosty{border-color:var(--rule)}
+.icon-btn svg{width:15px;height:15px}
+.scrubwrap{position:relative;flex:1;min-width:120px;height:26px;display:flex;align-items:center}
+#scrub{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;cursor:ew-resize}
+#scrub::-webkit-slider-runnable-track{height:1px;background:var(--ink-3)}
+#scrub::-moz-range-track{height:1px;background:var(--ink-3)}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--ink);margin-top:-5px;border:2px solid var(--paper)}
+#scrub::-moz-range-thumb{width:9px;height:9px;border-radius:50%;background:var(--ink);border:2px solid var(--paper)}
+.marks i{position:absolute;top:6px;width:1px;height:6px;background:var(--ink-2);pointer-events:none}
+.marks i::after{content:attr(data-l);position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-style:normal;font-size:8.5px;letter-spacing:.06em;color:var(--ink-3);white-space:nowrap}
+.odo-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:118px}
+.odo{display:flex;align-items:center;font-family:var(--mono);font-size:21px;font-weight:400;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.dg{display:inline-block;height:1.1em;overflow:hidden;width:.62em;position:relative}
+.dg .col{display:flex;flex-direction:column;transition:transform .22s cubic-bezier(.3,.7,.3,1)}
+.dg .col span{height:1.1em;line-height:1.1em;text-align:center}
+.odo .sep{margin:0 .35em;color:var(--ink-3);font-size:.8em}
+.sl{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase;font-variant-numeric:tabular-nums}
+
+#corner{position:fixed;z-index:41;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-3);padding:3px 7px;border:1px dashed var(--rule);border-radius:2px;background:var(--paper);pointer-events:none}
+
+/* phone */
+@media (max-width:759px){
+  #top{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));gap:8px}
+  .bt{font-size:16px} .bs{display:none}
+  .switches{gap:8px;width:100%;justify-content:space-between}
+  .sw .k{display:none}
+  .seg button{padding:5px 8px;font-size:10px}
+  .seg.big button{padding:5px 8px;font-size:10px}
+  #types button small{display:none}
+  #rail{left:0;right:0;width:auto;bottom:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;gap:4px}
+  #rail .rail-sub{display:none}
+  #notes{flex-direction:row;overflow-x:auto;gap:8px;margin:0}
+  .note{flex:0 0 200px;border:1px solid var(--rule);border-radius:2px;padding:7px 9px 7px 14px}
+  .note:last-child{border-bottom:1px solid var(--rule)}
+  .note::before{top:13px;left:5px}
+  .nq{font-size:13px}
+  .enc{display:none}
+  .chips button{padding:4px 8px;font-size:10px}
+  #transport{gap:8px 10px;flex-wrap:wrap}
+  .scrubwrap{order:5;flex-basis:100%}
+  .odo-wrap{margin-left:auto}
+  .ll.mouth .ll-name{font-size:13px}
+  .ll.mouth .ll-verdict{font-size:12px}
+  .ll.mouth .ll-meta{display:none}
+  .odo{font-size:16px} .odo-wrap{min-width:84px}
+  .seg#speed button{padding:5px 6px}
+  .icon-btn{width:30px;height:30px}
+  #corner{left:50%;transform:translateX(-50%);bottom:calc(4px + env(safe-area-inset-bottom,0px));white-space:nowrap;font-size:8.5px}
+  .scs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sc .who,.sc .work{display:none}
+  .cap{max-width:110px;font-size:12px}
+  #letter{padding:22px 22px 26px}
+  .marks i::after{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+  .dg .col,.ll.mouth,.nq span.hl{transition:none}
+}
+</style>
+
+<div id="grain" aria-hidden="true"></div>
+<div id="halftone" aria-hidden="true"></div>
+
+<svg id="stage" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Alex's past as a pencil line from 2001 to 2026, splitting into four ink rivers that run to 2071">
+  <defs id="defs">
+    <filter id="rough" x="-2%" y="-40%" width="104%" height="180%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <clipPath id="reveal" clipPathUnits="userSpaceOnUse"><rect id="revealRect" x="0" y="-100" width="0" height="5000"/></clipPath>
+    <clipPath id="pastClip" clipPathUnits="userSpaceOnUse"><rect id="pastRect" x="0" y="-100" width="0" height="5000"/></clipPath>
+    <pattern id="murkPat" patternUnits="userSpaceOnUse" width="16" height="16"></pattern>
+  </defs>
+  <g id="summersG"></g>
+  <g id="axisG"></g>
+  <g id="pastG">
+    <path id="famPast" class="fam-past" opacity="0"/>
+    <g clip-path="url(#pastClip)"><path id="pencil" class="pencil" filter="url(#rough)"/><path id="pencil2" class="pencil2"/></g>
+    <g id="pastMarks"></g>
+    <circle id="pencilTip" r="2.2" opacity="0"/>
+  </g>
+  <g id="ghostG"><path id="ghostOld" class="ghost"/><path id="forecast" class="forecast"/></g>
+  <g id="riversG" clip-path="url(#reveal)"></g>
+  <g id="leadersG"></g>
+  <g id="mouthG"></g>
+  <g id="beadsG"></g>
+  <g id="threadsG"></g>
+  <line id="playhead" opacity="0"/>
+  <line id="phHit"/>
+  <g id="ringsG"></g>
+  <g id="headsG"></g>
+  <g id="knotG" opacity="0"><circle id="knotRing" r="5"/><circle id="knot" r="4.6"/></g>
+  <g id="rippleG"></g>
+</svg>
+
+<div id="captions" aria-hidden="true"></div>
+<div id="labels"></div>
+
+<header id="top">
+  <div class="brand">
+    <span class="bt">Every Life You <em>Have Left</em></span>
+    <span class="bs">Alex · 25 · Durham, NC · today is 2026</span>
+  </div>
+  <div class="switches">
+    <div class="sw"><span class="k">Look</span>
+      <div class="seg big" id="looks" role="group" aria-label="Look">
+        <button data-look="paper" aria-pressed="false"><i class="sv" style="--s0:#F2ECDF;--s1:#2E4A9E;--s2:#2F7D78;--s3:#C2412D"></i>Paper</button>
+        <button data-look="night" aria-pressed="false"><i class="sv" style="--s0:#0D1424;--s1:#8FA9FF;--s2:#5ED3C5;--s3:#FF8B6A"></i>Night</button>
+        <button data-look="riso" aria-pressed="false"><i class="sv" style="--s0:#F4F2EC;--s1:#FF48B0;--s2:#00A95C;--s3:#FF6C2F"></i>Riso</button>
+      </div>
+    </div>
+    <div class="sw"><span class="k">Type</span>
+      <div class="seg" id="types" role="group" aria-label="Font pairing">
+        <button data-type="a" aria-pressed="true">Newsreader <small>+ Plex Mono</small></button>
+        <button data-type="b" aria-pressed="false">Fraunces <small>+ JetBrains</small></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<aside id="rail" aria-label="Your words">
+  <h2>Your words</h2>
+  <p class="rail-sub">What you told me. Every turn on the right points back to one of these.</p>
+  <ol id="notes"></ol>
+</aside>
+
+<div id="legend">
+  <div class="lens"><span class="k">Height</span>
+    <div class="chips" id="lenses" role="group" aria-label="What height shows">
+      <button data-lens="happiness" aria-pressed="true">Happiness</button>
+      <button data-lens="money" aria-pressed="false">Money</button>
+      <button data-lens="people" aria-pressed="false">People</button>
+      <button data-lens="work" aria-pressed="false">Work</button>
+      <button data-lens="mind" aria-pressed="false">Mind</button>
+    </div>
+  </div>
+  <div class="enc" aria-label="How to read the rivers">
+    <span class="e"><span class="k">Width</span><svg width="24" height="10" viewBox="0 0 24 10"><path class="fl" d="M0 5 C8 4.6 14 2 24 1 L24 9 C14 8 8 5.4 0 5Z"/></svg>money</span>
+    <span class="e"><span class="k">Murk</span><svg width="22" height="10" viewBox="0 0 22 10"><rect x="0.5" y="1.5" width="21" height="7"/><circle class="fl" cx="4" cy="4" r=".8"/><circle class="fl" cx="8" cy="6.5" r=".9"/><circle class="fl" cx="12" cy="3.6" r=".7"/><circle class="fl" cx="16" cy="6" r=".9"/><circle class="fl" cx="19" cy="3.8" r=".7"/></svg>heavy years</span>
+    <span class="e"><span class="k">Rapids</span><svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5 L3 2.5 L6 6.5 L9 2 L12 7 L15 2.6 L18 6.6 L21 3 L24 5"/></svg>risk</span>
+    <span class="e"><span class="k">Strands</span><svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5 C6 1 10 9 16 5 S22 2 24 4"/><path d="M0 5 C6 9 10 1 16 5"/><path d="M10 6.5 C16 7 20 9 24 9.5"/></svg>partner, child</span>
+  </div>
+</div>
+
+<div id="ph" role="slider" tabindex="0" aria-label="Playhead year" aria-valuemin="2026" aria-valuemax="2071" aria-valuenow="2026" hidden>2026</div>
+
+<div id="opening" aria-live="polite">
+  <p id="ol1"></p><p id="ol2"></p><p id="ol3"></p>
+</div>
+<button id="skip" hidden>Skip intro</button>
+
+<div id="why" class="card" role="dialog" aria-label="Why this happened" hidden>
+  <div class="card-h"><span class="k" id="why-h"></span><button class="xbtn" id="why-x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="why-row"><span class="k">What happened</span><p id="why-what"></p></div>
+  <div class="why-row" id="why-said-row"><span class="k">Because you said</span><p class="q" id="why-said"></p><span class="src" id="why-said-src"></span></div>
+  <div class="why-row" id="why-world-row"><span class="k">And the world says</span><p id="why-world"></p><span class="src" id="why-src"></span></div>
+</div>
+
+<div id="tip" hidden></div>
+<div id="summary" hidden><span class="k">Your answer moved 3 things</span><p id="summary-t"></p></div>
+<div id="endnote" hidden>Drag the playhead to meet the four of you at any age. Click any river to open that year.</div>
+
+<div id="veil" hidden></div>
+<div id="waiting" hidden></div>
+<div id="pause" hidden role="dialog" aria-labelledby="q">
+  <span class="k">A pause · 2031 · you're 30</span>
+  <p id="q"></p>
+  <div class="answer" id="answerWrap">
+    <input id="answer" type="text" autocomplete="off" spellcheck="false" aria-label="Your answer" placeholder="Write it the way you'd say it">
+    <span class="rule"></span>
+  </div>
+  <p class="hint" id="hint"><span>Press Enter to answer</span><button id="sample" type="button">Use a sample answer</button><button id="skipq" type="button">Skip this pause</button></p>
+</div>
+
+<div id="slice" hidden><div class="sh"><span class="k" id="slice-k"></span><strong id="slice-t"></strong></div><div class="scs" id="slice-cards"></div></div>
+<div id="yearcard" class="card" role="dialog" aria-label="A year in this life" hidden></div>
+
+<aside id="letter" role="dialog" aria-label="A letter from future you" hidden></aside>
+
+<footer id="transport">
+  <button id="play" class="icon-btn" aria-label="Pause"></button>
+  <button id="replay" class="icon-btn ghosty" aria-label="Replay from the start"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 9-9a9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></g></svg></button>
+  <div class="seg" id="speed" role="group" aria-label="Speed">
+    <button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button><button data-speed="4" aria-pressed="false">4×</button>
+  </div>
+  <div class="scrubwrap">
+    <input type="range" id="scrub" min="2026" max="2071" step="0.01" value="2026" aria-label="Year">
+    <div class="marks" aria-hidden="true"><i data-l="WHY" style="left:6.67%"></i><i data-l="PAUSE" style="left:11.11%"></i></div>
+  </div>
+  <div class="odo-wrap"><div class="odo" id="odo" aria-hidden="true"></div><div class="sl" id="sl">45 summers left</div></div>
+</footer>
+
+<div id="corner">Prototype · The Delta · sample person, no AI</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+(function(){
+'use strict';
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp = (a,b,t) => a+(b-a)*t;
+const smooth = (a,b,t) => { const x = clamp((t-a)/(b-a),0,1); return x*x*(3-2*x); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const P0=2001, Y0=2026, Y1=2071, SPY=10, N=(Y1-Y0)*SPY+1, YEAR_SEC=.6;
+const tAt = k => Y0 + k/SPY;
+const kOf = t => clamp(Math.round((t-Y0)*SPY), 0, N-1);
+const ageOf = y => Math.floor(y + 1e-6) - P0;
+function svg(tag, attrs, parent){ const e = document.createElementNS(NS, tag); if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+const K = s => { const a = s.trim().split(/\s+/).map(Number), o = []; for (let i=0;i<a.length;i+=2) o.push([a[i],a[i+1]]); return o; };
+const ICON = {
+  play:'<svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 5a2 2 0 0 1 3.008-1.728l9.997 6.998a2 2 0 0 1 .003 3.458l-10 7A2 2 0 0 1 6 19z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24"><g fill="currentColor"><rect width="4.5" height="16" x="14" y="4" rx="1"/><rect width="4.5" height="16" x="5.5" y="4" rx="1"/></g></svg>',
+  arrow:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 12h14m-7-7l7 7l-7 7"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg>'
+};
+
+/* ============================== DATA (from PERSONA.md) ============================== */
+const QUOTES = [
+  {id:'q1', text:"I can't say no to my mom.", from:'you, on family'},
+  {id:'q2', text:'Money scares me. I still have $28k in loans.', from:'you, on money'},
+  {id:'q3', text:"If nobody judged me, I'd go to art school and draw for a living.", from:'you, on what you want'},
+  {id:'q4', text:'My biggest fear is waking up at 40 in the same cubicle.', from:'you, on fear'},
+  {id:'q5', text:"Singapore offered me a transfer and I haven't answered.", from:"you, on what's undecided"},
+];
+const DOMAINS = ['happy','wealth','career','rel','fam','kids','mind','ach','goals','risk'];
+const DNAME = {happy:'Happiness',wealth:'Wealth',career:'Career',rel:'Partner',fam:'Mom and origin',kids:'Children',mind:'Mental health',ach:'Achievement',goals:'Life goals',risk:'Risk'};
+
+const LIVES = [
+{ id:'path', name:'Your Path', sub:'if nothing changes', phase:.3,
+  verdict:'Steady, and quieter than you planned.', altVerdict:'Steady, with color in it.',
+  keys:{
+    happy:K('2026 55 2028 54 2029 50 2030 52 2031 56 2033 63 2035 68 2037 70 2039 61 2041 36 2043 52 2046 58 2048 49 2050 53 2052 61 2055 60 2058 55 2061 58 2066 63 2071 61'),
+    wealth:K('2026 16 2029 22 2031 30 2035 40 2040 48 2043 43 2050 52 2058 58 2066 64 2071 62'),
+    career:K('2026 32 2031 46 2036 52 2040 54 2041 44 2043 46 2050 52 2060 55 2066 40 2071 34'),
+    rel:K('2026 22 2032 26 2033 52 2035 76 2040 66 2041 58 2045 70 2071 74'),
+    fam:K('2026 70 2029 74 2040 72 2048 88 2060 80 2071 72'),
+    kids:K('2026 0 2036.5 0 2037 58 2045 82 2057 74 2058 56 2071 62'),
+    mind:K('2026 54 2029 50 2031 55 2033 62 2037 60 2039 46 2041 24 2042 34 2043 52 2048 44 2052 62 2060 64 2071 66'),
+    ach:K('2026 22 2031 36 2040 44 2043 48 2066 56 2071 56'),
+    goals:K('2026 25 2035 36 2041 28 2052 42 2071 46'),
+    risk:K('2026 18 2029 14 2040 16 2041 38 2043 44 2045 18 2071 8')
+  },
+  alt:{ from:2031, keys:{
+    happy:K('2031 58 2033 65 2035 69 2037 71 2039 64 2041 50 2043 58 2044 65 2046 63 2048 57 2052 65 2058 62 2062 65 2066 68 2071 69'),
+    wealth:K('2031 28 2035 36 2040 43 2043 41 2050 48 2058 53 2066 58 2071 57'),
+    career:K('2031 42 2036 47 2040 49 2041 45 2043 47 2050 52 2060 54 2066 40 2071 34'),
+    mind:K('2031 58 2033 64 2037 63 2039 55 2041 42 2042 48 2043 58 2048 52 2052 66 2071 70'),
+    ach:K('2031 38 2044 56 2071 64'),
+    goals:K('2031 32 2044 52 2071 62'),
+    risk:K('2031 22 2041 30 2043 36 2045 16 2071 8')
+  }},
+  partner:{meet:2033, side:-1}, child:{born:2037, leaves:2058, side:1}, famSide:1, capSide:1,
+  city70:'Durham',
+  events:[
+    {y:2029, t:'You turn down Singapore.', lab:1, cite:['q1','q5'], turn:1,
+      why:{what:'You turn down the Singapore transfer and stay at the bank, twenty minutes from your mom.', world:'1 in 4 US adults is a family caregiver.', src:'AARP, 2025'}},
+    {y:2031, t:'Promoted to senior analyst.', cite:['q2']},
+    {y:2031.3, t:'You protect the painting.', lab:1, cite:['q6'], only:'alt', thread:1},
+    {y:2033, t:'Meets Sam.', lab:1},
+    {y:2035, t:'Marries Sam.'},
+    {y:2037, t:'First child.', lab:1},
+    {y:2041, t:'The burnout year.', lab:1, cite:['q4'], only:'orig',
+      why:{what:'Fifteen years at the same kind of desk. You stop sleeping well, and you stop making things.', world:'Life satisfaction dips on average around age 48.', src:'Blanchflower, 145 countries'}},
+    {y:2041, t:'A hard year, softer than it was going to be.', lab:1, cite:['q4','q6'], only:'alt'},
+    {y:2043, t:'Starts teaching data at a community college.', cite:['q4']},
+    {y:2044, t:'First small exhibition.', lab:1, cite:['q6'], only:'alt'},
+    {y:2048, t:'Mom moves in.', lab:1, cite:['q1'],
+      why:{what:'Mom moves into the room down the hall. You become her ride, her calendar and her company.', world:'1 in 4 US adults is a family caregiver.', src:'AARP, 2025'}},
+    {y:2052, t:'Paints again, on weekends.', lab:1, cite:['q3'], only:'orig'},
+    {y:2052, t:'Teaches a Saturday painting class.', cite:['q6'], only:'alt'},
+    {y:2058, t:'The kid leaves home.', lab:1},
+    {y:2066, t:'Retires.', lab:1}
+  ],
+  chapters:[
+    [2026,'Durham','Data analyst, regional bank','Mom, 20 minutes away','Saying “next year” about most things.','You open the same three dashboards at 8:50. At lunch you sketch a heron on a sticky note, then throw it away.'],
+    [2029,'Durham','Data analyst','Mom, 20 minutes away','You stayed. It felt like the kind thing.','Singapore hired someone else. You hear about it in a meeting and nod like it doesn’t matter.'],
+    [2031,'Durham','Senior analyst','Mom; college friends, thinning out','Good at a job you didn’t pick.','A promotion and a slightly bigger monitor. You stay until 7 and tell yourself it is temporary.'],
+    [2033,'Durham','Senior analyst','Sam; Mom nearby','Sam makes the weekends feel long.','Sam is cooking something with too much garlic. You fall asleep on the couch at 9:40 with your laptop open.'],
+    [2037,'Durham','Senior analyst','Sam, a toddler, Mom','Tired in the good way, mostly.','Daycare drop-off at 7:40, stand-up at 9, a report nobody reads. The kid calls every truck “big”.'],
+    [2040,'Durham','Senior analyst, running on empty','Sam, a kid in first grade, Mom','The year the cubicle caught up with you.','You sit in the parking deck for twenty minutes before going in. You can’t remember the last thing you made.'],
+    [2043,'Durham','Teaching data, community college','Sam, a kid, Mom','Less money. More eye contact.','Night class: twelve adults learning pivot tables. One thanks you like you saved her job. Maybe you did.'],
+    [2048,'Durham','Teaching data','Sam, a teenager, Mom down the hall','Mom has the room down the hall.','You drive Mom to the 10 a.m. appointment, grade quizzes in the waiting room, and burn the rice again.'],
+    [2052,'Durham','Teaching data','Sam, a teenager, Mom','Paint on your hands on Saturdays.','Tuesday is ordinary, but the easel is still up from Saturday. You look at it while the coffee brews.'],
+    [2058,'Durham','Teaching, part time','Sam; the kid in another city','The house is quiet and a little bigger.','The kid’s room is a guest room now. Sam reads the family chat out loud and you laugh at a photo from Asheville.'],
+    [2066,'Durham','Retired','Sam; the kid on Sundays','Steady, and quieter than you planned.','No alarm. A walk on the Eno with Sam, a long lunch, a small canvas that’s almost done.']
+  ],
+  altChapters:[
+    [2031,'Durham','Senior analyst, weekends kept','Mom; the people from painting class','You said no to the team and yes to the class.','Tuesday-night painting class. Your hands are blue to the wrist and you leave smiling.'],
+    [2033,'Durham','Senior analyst','Sam; Mom nearby','Sam makes the weekends feel long.','Sam sets up a second easel in the spare room without asking. You stay up too late mixing greens.'],
+    [2037,'Durham','Senior analyst','Sam, a toddler, Mom','Tired in the good way, mostly.','Daycare drop-off at 7:40, a report nobody reads, and twenty minutes of painting after bedtime.'],
+    [2040,'Durham','Senior analyst, stretched','Sam, a kid in first grade, Mom','A hard year, not a broken one.','Work is heavy, but a canvas is half-finished at home and you go back to it most nights.'],
+    [2043,'Durham','Teaching data, community college','Sam, a kid, Mom','Less money. More eye contact.','Night class: twelve adults learning pivot tables. On the drive home you plan a painting of the parking lot lights.'],
+    [2044,'Durham','Teaching data; painting','Sam, a kid, Mom','Your first small exhibition.','Someone you don’t know buys the little one by the window. You keep the receipt in your wallet.'],
+    [2048,'Durham','Teaching data','Sam, a teenager, Mom down the hall','Mom has the room down the hall.','Mom sits with you while you paint and tells you which ones are “too sad”. She’s usually right.'],
+    [2052,'Durham','Teaching, and a Saturday class','Sam, a teenager, Mom','Color in an ordinary week.','You teach eight retirees to mix a decent grey. One of them paints better than you, and you tell her.'],
+    [2058,'Durham','Teaching, part time','Sam; the kid in another city','The house is quiet and a little bigger.','The kid’s room is your studio now. Sam knocks before coming in, which you both find funny.'],
+    [2066,'Durham','Retired, painting','Sam; the kid on Sundays','Steady, with color in it.','No alarm. Coffee in the studio, a walk on the Eno, and a small show to hang on Friday.']
+  ],
+  letter:['You are going to keep saying “next year.” I know, because I said it for a long time.','The job is fine. Sam is better than fine. But the part of you that draws on sticky notes does not go away when you ignore it. It gets quiet, and then one year it gets loud all at once.','Buy the cheap paints this week. Not for a career. For Tuesdays.','Mom is okay, by the way. You can love her and still answer Singapore honestly.'],
+  altLetter:['You picked the class over the team. People told you it was a small choice. It was not.','When work got heavy around forty, there was a canvas at home waiting for me. That was the difference between a hard year and a broken one.','Keep the receipt from the first painting you sell. I still have mine.','Call Mom on Thursday. She likes Thursdays.']
+},
+{ id:'leap', name:'The Leap', sub:'you say yes', phase:1.7,
+  verdict:'Louder than you planned.',
+  keys:{
+    happy:K('2026 55 2027 61 2028 45 2029 42 2030 57 2031 56 2032 39 2033 47 2035 58 2036 66 2040 76 2045 80 2050 73 2055 75 2062 77 2071 74'),
+    wealth:K('2026 16 2027 28 2031 44 2032 24 2034 14 2036 20 2040 38 2045 58 2055 68 2071 70'),
+    career:K('2026 32 2027 44 2031 52 2032 18 2033 28 2036 40 2040 58 2045 72 2060 74 2071 60'),
+    rel:K('2026 22 2029 14 2030 56 2033 66 2036 76 2071 78'),
+    fam:K('2026 70 2027 42 2036 30 2071 30'),
+    kids:K('2026 0 2071 0'),
+    mind:K('2026 54 2027 58 2028 34 2029 33 2030 58 2032 40 2033 48 2036 64 2045 72 2071 70'),
+    ach:K('2026 22 2032 24 2040 62 2045 76 2071 82'),
+    goals:K('2026 25 2033 40 2040 62 2045 74 2071 78'),
+    risk:K('2026 18 2027 58 2029 42 2031 40 2032 88 2034 78 2036 62 2040 48 2045 52 2050 26 2071 14')
+  },
+  partner:{meet:2030, side:1}, famSide:-1, capSide:-1, city70:'Lisbon',
+  events:[
+    {y:2027, t:'Says yes to Singapore.', lab:1, cite:['q5'],
+      why:{what:'You take the transfer. Eighteen hours from Durham, and from Mom.', world:'People hold about 4.5 jobs between ages 25 and 34.', src:'BLS, NLSY'}},
+    {y:2028.5, t:'The lonely years.'},
+    {y:2030, t:'Meets a partner in Singapore.'},
+    {y:2032, t:'Laid off in a restructuring.', lab:1,
+      why:{what:'The Singapore office restructures, and your role goes with it.', world:'People hold about 4.5 jobs between ages 25 and 34.', src:'BLS, NLSY'}},
+    {y:2033, t:'Starts freelance illustration.', cite:['q3']},
+    {y:2036, t:'Moves to Lisbon.', lab:1},
+    {y:2040, t:'First show.', lab:1, cite:['q3']},
+    {y:2045, t:'Opens a studio.', lab:1},
+    {y:2052, t:'Mom visits, once a year.', cite:['q1']},
+    {y:2055, t:'Money stops swinging.', lab:1}
+  ],
+  chapters:[
+    [2026,'Durham','Data analyst, regional bank','Mom, 20 minutes away','About to say yes.','You open the Singapore email again at 11 p.m. and write “yes” before you can talk yourself out of it.'],
+    [2027,'Singapore','Analyst, Singapore office','Nobody yet; Mom on video','Everything new, nobody to tell.','Kopi at 7, a call with Durham at 9 p.m. You eat dinner standing up in a very clean apartment.'],
+    [2030,'Singapore','Analyst','A partner; Mom on video','Someone to show the city to.','You meet at a gallery opening and talk until the guards turn the lights off.'],
+    [2032,'Singapore','Laid off','Your partner; Mom, worried','The restructuring took the job.','No badge, no stand-up. You draw at the hawker centre from 10 to 2 and pretend it’s a plan.'],
+    [2033,'Singapore','Freelance illustrator','Your partner','Gigs, invoices, and nerve.','Three clients, one of them late paying. You draw a lantern for a hotel menu and it is genuinely good.'],
+    [2036,'Lisbon','Illustrator','Your partner; Mom once a year','Cheap rent, steep hills, real work.','You work by the window in Graça while the tram screams past. A publisher in Berlin says yes.'],
+    [2040,'Lisbon','Illustrator, first show','Your partner, a few close friends','People stand in front of your work.','The show’s second week. You go back just to watch strangers read the wall text.'],
+    [2045,'Lisbon','Studio owner, three people','Your partner; Mom on video','Louder than you planned.','You argue about paper stock with your assistant and win. Mom calls at dinner, four thousand miles away.'],
+    [2058,'Lisbon','Studio, half retired','Your partner, the studio crew','Still loud, a little slower.','You teach one class a week and paint the rest. Your partner grows tomatoes on the roof.'],
+    [2066,'Lisbon','Painting, mostly','Your partner; friends from three countries','Louder than you planned.','Lunch runs to four. Someone toasts your first show, thirty years ago, and you pretend to be embarrassed.']
+  ],
+  letter:['The first two years are lonely in a way nobody warns you about. Eat with people even when it is awkward.','You will lose the bank job, and it will feel like the end. It is the door.','Keep every sketchbook. Call Mom on Sundays, not only when something happens.','You were right that you would regret not going. You were wrong that going would fix everything.']
+},
+{ id:'careful', name:'The Careful Life', sub:'fear wins', phase:3.1,
+  verdict:'Safe, and you know exactly what it cost.',
+  keys:{
+    happy:K('2026 55 2028 52 2030 59 2033 60 2036 57 2038 52 2039 40 2041 33 2042 37 2045 49 2050 57 2058 55 2066 56 2071 54'),
+    wealth:K('2026 16 2030 34 2035 56 2039 48 2045 76 2055 88 2066 96 2071 97'),
+    career:K('2026 32 2030 46 2038 62 2045 86 2060 90 2066 64 2071 56'),
+    rel:K('2026 22 2031 24 2032 54 2034 72 2038 48 2039 18 2045 22 2050 46 2071 50'),
+    fam:K('2026 70 2071 66'),
+    kids:K('2026 0 2071 0'),
+    mind:K('2026 54 2030 58 2036 52 2039 34 2040 26 2041 24 2042 30 2044 48 2050 60 2071 62'),
+    ach:K('2026 22 2030 40 2045 72 2071 76'),
+    goals:K('2026 25 2030 48 2045 40 2071 38'),
+    risk:K('2026 18 2030 8 2039 26 2041 20 2071 6')
+  },
+  partner:{meet:2032, sep:2039, side:-1}, famSide:1, capSide:1, city70:'Raleigh',
+  events:[
+    {y:2030, t:'Pays off the last of the loans.', lab:1, cite:['q2'],
+      why:{what:'Four years of extra payments. The $28k is gone before you turn 30.', world:'Only about 35% of new businesses survive 10 years.', src:'BLS'}},
+    {y:2034, t:'Marries.'},
+    {y:2039, t:'The marriage ends.', lab:1},
+    {y:2041, t:'The heavy years.'},
+    {y:2045, t:'Vice president.', lab:1, cite:['q2']},
+    {y:2050, t:'Finds old friends again.', lab:1,
+      why:{what:'A friend’s 50th in Durham. You stay until 1 a.m. and start calling people back.', world:'Relationships at 50 predicted health at 80 better than cholesterol did.', src:'Harvard Study of Adult Development'}},
+    {y:2058, t:'The sketchbook stays in a drawer.', lab:1, cite:['q3']},
+    {y:2066, t:'Retires with the most money of the four.', lab:1}
+  ],
+  chapters:[
+    [2026,'Durham','Data analyst, regional bank','Mom, 20 minutes away','Every dollar has a job.','You move $600 to the loan before rent. You bring lunch from home. You feel safe and a little bored.'],
+    [2030,'Durham','Senior analyst, debt free','Mom; a few friends','The loans are gone.','The last payment clears at 3:12 p.m. You check the balance twice, then go back to work.'],
+    [2032,'Raleigh','Manager, credit risk','A partner; Mom','Married, mortgaged, careful.','Two commutes, one shared calendar. You plan the week on Sunday night and it holds.'],
+    [2039,'Raleigh','Manager, credit risk','Mom; nobody at home','The marriage ends quietly.','You sign the papers on your lunch break, then go back and finish the quarterly review.'],
+    [2040,'Raleigh','Senior manager','Mom on Sundays','The heavy years.','Dinner at the counter, email until 11, and three missed calls you mean to return.'],
+    [2045,'Raleigh','Vice president','Mom; colleagues','A corner office in the same kind of building.','Nine meetings, and you are good in every one. The cubicle is just bigger now.'],
+    [2050,'Raleigh','Vice president','Old friends, found again; Mom','The friends come back.','You drive to Durham for a friend’s 50th and stay until 1 a.m. for the first time in years.'],
+    [2058,'Raleigh','Vice president','Friends; Mom in assisted living nearby','The sketchbook is still in a drawer.','You find the sketchbook while looking for a passport. You put it back in the drawer.'],
+    [2066,'Raleigh','Retired','Friends; a neighbor you trust','Safe, and you know exactly what it cost.','You have more money than you will spend. You tidy a garage nobody uses and think about who to call.']
+  ],
+  letter:['The money works. I want you to hear that first, because you were so scared.','But the fear did not leave when the loans did. It found new things to guard.','Keep one thing that is not useful. A sketchbook. A friend you call for no reason. I dropped both, and getting them back took ten years.','You will be safe. Decide now what safe is for.']
+},
+{ id:'unjudged', name:'The Unjudged Life', sub:'the one you secretly want', phase:4.6,
+  verdict:'Poorer on paper, richer every Tuesday.',
+  keys:{
+    happy:K('2026 55 2027 64 2029 57 2031 52 2033 57 2034 66 2035 70 2038 75 2042 71 2046 64 2049 58 2050 77 2055 76 2060 76 2071 77'),
+    wealth:K('2026 16 2027 7 2030 5 2034 11 2038 19 2045 27 2050 35 2060 38 2071 38'),
+    career:K('2026 32 2027 20 2030 26 2035 46 2042 56 2050 72 2071 62'),
+    rel:K('2026 22 2033 22 2034 58 2036 76 2071 80'),
+    fam:K('2026 70 2030 84 2071 86'),
+    kids:K('2026 0 2037.5 0 2038 60 2048 86 2058 76 2059 58 2071 64'),
+    mind:K('2026 54 2027 62 2030 46 2033 54 2038 68 2046 58 2049 50 2050 72 2071 74'),
+    ach:K('2026 22 2035 46 2050 80 2071 84'),
+    goals:K('2026 25 2027 52 2035 66 2050 82 2071 86'),
+    risk:K('2026 18 2027 62 2030 58 2034 40 2036 30 2050 18 2071 12')
+  },
+  partner:{meet:2034, side:-1}, child:{born:2038, leaves:2059, side:1}, famSide:1, capSide:-1, city70:'Durham',
+  events:[
+    {y:2027, t:'Starts an MFA, on loans.', lab:1, cite:['q3'],
+      why:{what:'You quit the bank and start an MFA at Chapel Hill. The loans go up before anything else does.', world:'Only about 35% of new businesses survive 10 years.', src:'BLS'}},
+    {y:2030, t:'Money is tight. The work is yours.', cite:['q2']},
+    {y:2034, t:'Meets a partner at a print fair.', lab:1},
+    {y:2035, t:'Illustrates a first children’s book.', cite:['q3']},
+    {y:2038, t:'A child.', lab:1},
+    {y:2044, t:'Mom helps raise the kid.', lab:1, cite:['q1']},
+    {y:2049, t:'The dip at 48.',
+      why:{what:'Two projects fall through in one month. You wonder, honestly, whether it was a mistake.', world:'Life satisfaction dips on average around age 48.', src:'Blanchflower, 145 countries'}},
+    {y:2050, t:'A book of yours wins an award.', lab:1},
+    {y:2059, t:'The kid leaves home.', lab:1},
+    {y:2066, t:'Still drawing every morning.', lab:1}
+  ],
+  chapters:[
+    [2026,'Durham','Data analyst, about to quit','Mom, 20 minutes away','Applications at 2 a.m.','You fill in the MFA application on your lunch break and hide the tab when your manager walks by.'],
+    [2027,'Chapel Hill','MFA student, two part-time jobs','Mom; your cohort','Broke, and awake for once.','Studio critique at 2, a frame-shop shift at 6. Cereal for dinner and drawing until 1.'],
+    [2030,'Durham','Freelance; teaching kids’ art','Mom; studio friends','Money is tight. The work is yours.','You pay the loan minimum and buy good paper anyway. Mom drops off a casserole and pretends she was passing.'],
+    [2034,'Durham','Illustrator','A partner; Mom','Someone who likes the mess.','You meet at a print fair. They buy a zine and come back an hour later for your number.'],
+    [2035,'Durham','Children’s book illustrator','Your partner; Mom','Your drawings, in libraries.','You paint forty small foxes for a picture book and deliver them two days late.'],
+    [2038,'Durham','Illustrator','Your partner, a baby, Mom nearby','A kid, a small house, Mom nearby.','Grandma has pickup on Tuesdays. You get four clear hours at the drawing table and use all of them.'],
+    [2046,'Durham','Illustrator','Your partner, a kid, Mom','The dip in the middle.','Two projects fall through in one month. You wonder, honestly, whether it was a mistake.'],
+    [2050,'Durham','Illustrator, award winner','Your partner, a teenager, Mom','A book of yours wins an award.','A school in Ohio sends 200 letters about your fox. You read every one at the kitchen table.'],
+    [2059,'Durham','Illustrator','Your partner; the kid in Baltimore','The kid is off making their own mess.','Your kid sends a photo of their first apartment. One of your prints is on the wall.'],
+    [2066,'Durham','Still drawing','Your partner; the kid on holidays','Poorer on paper, richer every Tuesday.','Morning at the drawing table, a nap you do not apologize for, dinner with friends who stayed.']
+  ],
+  letter:['You will be broke for a while, and it will be fine, mostly. Some months it will not be.','Say yes to the small jobs. One of them becomes a book.','Mom will see you more than she ever would have, and she will brag about you to the cashier at Harris Teeter.','Nobody is judging you as hard as you are.']
+}];
+const LIFE = {}; LIVES.forEach(l => LIFE[l.id] = l);
+const PAST = { keys:K('2001 60 2005 68 2009 56 2013 46 2016 42 2019 62 2023 70 2024 64 2026 55'),
+  marks:[{y:2001,t:"2001 · born",dy:26,a:"start"},{y:2019,t:"2019 · moved to Durham",dy:-34,a:"end"},{y:2023,t:"2023 · graduated",dy:34,a:"start"},{y:2024,t:"2024 · first job",dy:-58,a:"start"}] };
+const QUESTION = "It's 2031. You're 30. Your manager asks if you want to lead the new team, but it means weekends. Sam just asked you to take a painting class together. What do you protect first?";
+const ENDNOTE = "Drag the playhead to meet the four of you at any age. Click any river to open that year.";
+const SAMPLE = 'The painting. Weekends are the only part of the week that is mine.';
+
+/* ============================== INTERPOLATION ============================== */
+function mono(keys){
+  const n = keys.length, xs = keys.map(k=>k[0]), ys = keys.map(k=>k[1]);
+  if (n === 1) return () => ys[0];
+  const d = [], m = new Array(n);
+  for (let i=0;i<n-1;i++) d.push((ys[i+1]-ys[i])/(xs[i+1]-xs[i]));
+  m[0] = d[0]; m[n-1] = d[n-2];
+  for (let i=1;i<n-1;i++) m[i] = d[i-1]*d[i] <= 0 ? 0 : (d[i-1]+d[i])/2;
+  for (let i=0;i<n-1;i++){
+    if (d[i] === 0){ m[i] = 0; m[i+1] = 0; continue; }
+    const a = m[i]/d[i], b = m[i+1]/d[i], s = a*a+b*b;
+    if (s > 9){ const t = 3/Math.sqrt(s); m[i] = t*a*d[i]; m[i+1] = t*b*d[i]; }
+  }
+  return t => {
+    if (t <= xs[0]) return ys[0];
+    if (t >= xs[n-1]) return ys[n-1];
+    let i = 0; while (t > xs[i+1]) i++;
+    const h = xs[i+1]-xs[i], s = (t-xs[i])/h, s2 = s*s, s3 = s2*s;
+    return (2*s3-3*s2+1)*ys[i] + (s3-2*s2+s)*h*m[i] + (-2*s3+3*s2)*ys[i+1] + (s3-s2)*h*m[i+1];
+  };
+}
+function sampleKeys(keys){ const o = {}; DOMAINS.forEach(d => { const f = mono(keys[d]); const a = new Float32Array(N); for (let k=0;k<N;k++) a[k] = f(tAt(k)); o[d] = a; }); return o; }
+LIVES.forEach(l => {
+  l.s0 = sampleKeys(l.keys);
+  if (l.alt){ const mk = {}; DOMAINS.forEach(d => { mk[d] = l.alt.keys[d] ? l.keys[d].filter(p=>p[0] < l.alt.from).concat(l.alt.keys[d]) : l.keys[d]; }); l.s1 = sampleKeys(mk); }
+  else l.s1 = l.s0;
+  l.events.forEach(e => { e.life = l; });
+});
+const KEEP = {path:[2029,2041,2044], leap:[2032,2040], careful:[2039,2045], unjudged:[2027,2050]};
+LIVES.forEach(l => l.events.forEach(e => { if (e.lab && KEEP[l.id].includes(Math.floor(e.y))) e.keep = true; }));
+const pastFn = mono(PAST.keys);
+const LENS = {
+  happiness:{label:'happiness', v:(s,k)=>s.happy[k]},
+  money:{label:'money', v:(s,k)=>s.wealth[k]},
+  people:{label:'people', v:(s,k)=>.5*s.rel[k]+.3*s.fam[k]+.2*s.kids[k]},
+  work:{label:'work', v:(s,k)=>s.career[k]},
+  mind:{label:'mind', v:(s,k)=>s.mind[k]}
+};
+const R = {};
+for (const ln in LENS){ let lo=1e9, hi=-1e9; LIVES.forEach(l => [l.s0,l.s1].forEach(s => { for (let k=0;k<N;k++){ const v = LENS[ln].v(s,k); if (v<lo) lo=v; if (v>hi) hi=v; } })); if (ln==='happiness'){ lo = Math.min(lo, 43); hi = Math.max(hi, 67); } const pad = (hi-lo)*.04; R[ln] = {lo:lo-pad, hi:hi+pad}; }
+
+/* ============================== STATE ============================== */
+const st = { mode:'idle', year:P0, prev:P0, playing:false, speed:1, rate:1,
+  lens:'happiness', fromLens:'happiness', lensT:1, fromLo:R.happiness.lo, fromHi:R.happiness.hi, curLo:R.happiness.lo, curHi:R.happiness.hi,
+  alt:0, famOp:0, answered:false, pauseSkipped:false, turnDone:false, everEnded:false, split:false, scrubbing:false, moment:null,
+  slice:false, sliceYear:null, lastInt:null, dirty:true, capDirty:true, answerText:'' };
+const L = {};
+const G = {}; LIVES.forEach(l => G[l.id] = {v:new Float32Array(N), cy:new Float32Array(N), hw:new Float32Array(N), risk:new Float32Array(N), fromV:null});
+const mixOf = l => l.id==='path' ? st.alt : 0;
+function dom(l, d, k){ const m = mixOf(l); return m ? lerp(l.s0[d][k], l.s1[d][k], m) : l.s0[d][k]; }
+function domAt(l, d, t){ const f = clamp((t-Y0)*SPY,0,N-1), i = Math.floor(f), j = Math.min(N-1,i+1); return lerp(dom(l,d,i), dom(l,d,j), f-i); }
+function lv(l, ln, k){ const m = mixOf(l), a = LENS[ln].v(l.s0,k); return m ? lerp(a, LENS[ln].v(l.s1,k), m) : a; }
+const knotV = ln => LENS[ln].v(LIVES[0].s0, 0);
+function pastVal(ln, t){ return knotV(ln) + (pastFn(t)-55)*.42; }
+function heavy(l, t){ return clamp((46 - domAt(l,'mind',t))/18, 0, 1); }
+function cyAt(l, t){ const g = G[l.id], f = clamp((t-Y0)*SPY,0,N-1), i = Math.floor(f), j = Math.min(N-1,i+1); return lerp(g.cy[i], g.cy[j], f-i); }
+function hwAt(l, t){ const g = G[l.id], f = clamp((t-Y0)*SPY,0,N-1), i = Math.floor(f), j = Math.min(N-1,i+1); return lerp(g.hw[i], g.hw[j], f-i); }
+function chapterAt(l, y){ let list = l.chapters; if (l.altChapters && st.alt > .5) list = l.chapters.filter(c=>c[0] < 2031).concat(l.altChapters); let c = list[0]; for (const x of list) if (x[0] <= y) c = x; return {city:c[1], work:c[2], who:c[3], line:c[4], tues:c[5]}; }
+const isActive = e => !e.only || (e.only==='alt' ? st.alt >= .5 : st.alt < .5);
+
+/* ============================== LAYOUT ============================== */
+const stage = $('#stage'), defs = $('#defs');
+function X(t){ if (t <= Y0) return L.x0 + (t-P0)/(Y0-P0)*(L.xT-L.x0); return L.xT + (t-Y0)/(Y1-Y0)*(L.xE-L.xT); }
+function Xinv(x){ if (x <= L.xT) return P0 + (x-L.x0)/(L.xT-L.x0)*(Y0-P0); return Y0 + (x-L.xT)/(L.xE-L.xT)*(Y1-Y0); }
+function yOf(v){ return L.yB - L.hwMax - (v-st.curLo)/(st.curHi-st.curLo)*(L.yB - L.yT - 2*L.hwMax); }
+
+function layout(){
+  const W = innerWidth, H = innerHeight; L.W = W; L.H = H; L.narrow = W < 760;
+  stage.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const top = $('#top').getBoundingClientRect().bottom;
+  const rail = $('#rail');
+  rail.style.top = (top + (L.narrow ? 4 : 14)) + 'px';
+  let railR = 0, below = top;
+  if (L.narrow){ below = rail.getBoundingClientRect().bottom; } else { railR = rail.getBoundingClientRect().right; }
+  L.x0 = L.narrow ? 14 : railR + 46;
+  L.lw = L.narrow ? 70 : clamp(W*.14, 172, 220);
+  L.xE = W - (L.narrow ? 8 : 22) - L.lw - (L.narrow ? 16 : 26);
+  L.xT = L.x0 + (L.xE - L.x0) * (L.narrow ? .12 : .17);
+  const lg = $('#legend'); lg.style.left = L.x0 + 'px'; lg.style.top = (below + (L.narrow ? 8 : 16)) + 'px';
+  const lgB = lg.getBoundingClientRect().bottom;
+  const tr = $('#transport');
+  tr.style.left = (L.narrow ? 16 : L.x0) + 'px';
+  tr.style.right = (L.narrow ? 16 : 24) + 'px';
+  if (L.narrow) tr.style.bottom = 'calc(24px + env(safe-area-inset-bottom, 0px))'; else tr.style.bottom = '';
+  const trT = tr.getBoundingClientRect().top;
+  L.legendB = lgB;
+  L.yT = lgB + (L.narrow ? 44 : 66);
+  L.yB = trT - (L.narrow ? 38 : 48);
+  L.hwMax = clamp((L.yB-L.yT)*.042, 5, 20);
+  L.capTop = lgB + 6; L.capBot = trT - 6;
+  document.documentElement.style.setProperty('--lw', L.lw + 'px');
+  // gradients follow the future axis
+  $$('linearGradient.fx', defs).forEach(g => { g.setAttribute('x1', L.xT); g.setAttribute('x2', L.xE); });
+  $$('mask rect', defs).forEach(r => { r.setAttribute('width', W); r.setAttribute('height', H); });
+  buildSummers(); buildAxis(); positionStatic();
+  st.dirty = true; st.capDirty = true;
+  LIVES.forEach(l => l.llH = null);
+}
+
+/* ============================== BUILD SVG ============================== */
+const riversG = $('#riversG'), beadsG = $('#beadsG'), leadersG = $('#leadersG'), headsG = $('#headsG'), threadsG = $('#threadsG'), ringsG = $('#ringsG'), mouthG = $('#mouthG');
+function makeGrad(id, cls, opFn){
+  const g = svg('linearGradient', {id, class:'fx', gradientUnits:'userSpaceOnUse', x1:0, y1:0, x2:1, y2:0}, defs);
+  const stops = [];
+  for (let y=Y0; y<=Y1+1e-9; y+=.5){ stops.push(svg('stop', {offset:((y-Y0)/(Y1-Y0)).toFixed(4), class:cls, 'stop-opacity':opFn(y).toFixed(3)}, g)); }
+  return {g, stops, opFn, set(fn){ stops.forEach((s,i) => s.setAttribute('stop-opacity', fn(Y0 + i*.5).toFixed(3))); }};
+}
+function buildMurk(){
+  const p = $('#murkPat'); let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+  for (let i=0;i<20;i++) svg('circle', {class:'murk-dot', cx:(rnd()*16).toFixed(2), cy:(rnd()*16).toFixed(2), r:(.45+rnd()*.75).toFixed(2), opacity:(.45+rnd()*.5).toFixed(2)}, p);
+  for (let i=0;i<4;i++){ const x = rnd()*16, y = rnd()*16; svg('path', {class:'murk-dot', d:`M${x.toFixed(1)},${y.toFixed(1)}l${(1.5+rnd()*2).toFixed(1)},${(rnd()-.5).toFixed(1)}`, style:'stroke:var(--murk);stroke-width:.6;fill:none', opacity:.6}, p);
+  }
+}
+function buildRivers(){
+  LIVES.forEach(l => {
+    const id = l.id;
+    l.bg = makeGrad('bg-'+id, 'st-'+id, y => .9 - .42*heavy(l,y));
+    l.mg = makeGrad('mg-'+id, 'st-white', y => .95*heavy(l,y));
+    const mask = svg('mask', {id:'mm-'+id, maskUnits:'userSpaceOnUse', x:0, y:0, width:5000, height:5000}, defs);
+    svg('rect', {x:0, y:0, width:5000, height:5000, fill:`url(#mg-${id})`}, mask);
+    if (l.partner){ const p = l.partner; l.pg = makeGrad('pg-'+id, 'st-ink2', y => y < p.meet-1.6 ? 0 : y < p.meet ? smooth(p.meet-1.6, p.meet-.6, y) : (p.sep && y > p.sep+.5 ? 1 - smooth(p.sep+.5, p.sep+2.4, y) : 1)); }
+    if (l.child){ const c = l.child; l.cg = makeGrad('cg-'+id, 'st-'+id, y => y < c.born ? 0 : y < c.leaves+1 ? smooth(c.born, c.born+.6, y) : lerp(1, .45, smooth(c.leaves+1, c.leaves+3, y))); }
+    if (l.alt){ l.ag = makeGrad('ag-'+id, 'st-unjudged', y => smooth(2031, 2032.4, y)*.95); }
+    const g = svg('g', {class:`life life-${id} Lx L-${id}`}, riversG);
+    l.fam = svg('path', {class:'strand fam'}, g);
+    l.band = svg('path', {class:'band', fill:`url(#bg-${id})`, 'data-life':id}, g);
+    l.murk = svg('path', {class:'murk', fill:'url(#murkPat)', mask:`url(#mm-${id})`}, g);
+    l.flecks = svg('path', {class:'fleck'}, g);
+    if (l.partner) l.pEl = svg('path', {class:'strand partner', stroke:`url(#pg-${id})`}, g);
+    if (l.child) l.cEl = svg('path', {class:'strand child', stroke:`url(#cg-${id})`}, g);
+    if (l.alt) l.aEl = svg('path', {class:'strand paint', stroke:`url(#ag-${id})`, opacity:0}, g);
+    l.chan = svg('path', {class:`channel c-${id}`}, g);
+    l.g = g;
+    l.head = svg('circle', {class:`head f-${id} Lx L-${id}`, r:4.4, opacity:0}, headsG);
+    l.ring = svg('circle', {class:`ring c-${id} Lx L-${id}`, r:6, opacity:0}, ringsG);
+    l.mleader = svg('path', {class:`mleader Lx L-${id}`, opacity:0}, mouthG);
+    l.band.addEventListener("click", ev => onRiverClick(l, ev));
+    l.band.addEventListener("pointerenter", () => { if (st.everEnded && !st.moment && yc.hidden) setFocus(l.id); });
+    l.band.addEventListener("pointerleave", () => { if (st.everEnded && !st.moment && yc.hidden) setFocus(null); });
+  });
+}
+function buildEvents(){
+  const capBox = $('#captions');
+  LIVES.forEach(l => l.events.forEach(e => {
+    const g = svg('g', {class:`beadg Lx L-${l.id}`, opacity:0}, beadsG);
+    svg('circle', {class:'hit', r:9}, g);
+    e.beadEl = svg('circle', {class:`bead c-${l.id}`, r:e.lab ? 3.3 : 2.6}, g);
+    e.g = g; e.shown = false;
+    g.addEventListener('pointerenter', ev => showTip(e, ev));
+    g.addEventListener('pointerleave', hideTip);
+    g.addEventListener('click', ev => { ev.stopPropagation(); hideTip(); if (e.why || e.cite) openWhy(e, false); else openYearCard(l, e.y, ev.clientX, ev.clientY); });
+    if (e.lab){
+      const c = document.createElement('div');
+      c.className = `cap Lx L-${l.id}`; c.style.setProperty('--c', `var(--${l.id})`); c.hidden = true;
+      c.innerHTML = `<span class="yr">${Math.floor(e.y)} · ${ageOf(e.y)}</span><span class="tx">${wrapWords(e.t)}</span>`;
+      capBox.appendChild(c); e.cap = c;
+      e.leader = svg('line', {class:`leader Lx L-${l.id}`, opacity:0}, leadersG);
+    }
+  }));
+}
+function buildLabels(){
+  const box = $('#labels');
+  LIVES.forEach(l => {
+    const d = document.createElement('div');
+    d.className = `ll Lx L-${l.id}`; d.style.setProperty('--c', `var(--${l.id})`); d.style.opacity = 0;
+    d.innerHTML = `<div class="ll-name">${l.name}</div><div class="ll-meta">${l.sub} · ${l.city70} at 70</div><div class="ll-verdict"></div>`;
+    box.appendChild(d); l.ll = d; l.llV = $('.ll-verdict', d);
+    d.addEventListener("pointerenter", () => { if (st.everEnded && !st.moment) setFocus(l.id); });
+    d.addEventListener("pointerleave", () => { if (!st.moment && st.everEnded) setFocus(null); });
+  });
+}
+function buildPastMarks(){
+  const g = $('#pastMarks'); g.innerHTML = '';
+  PAST.marks.forEach(m => {
+    const mg = svg('g', {class:'pm', opacity:0}, g);
+    m.ln = svg('line', {class:'pmark-ln'}, mg);
+    m.dot = svg('circle', {class:'pmark', r:2.4}, mg);
+    m.tx = svg('text', {class:'pmark-l', 'text-anchor':m.a}, mg); m.tx.textContent = m.t;
+    m.g = mg;
+  });
+}
+function buildSummers(){
+  const g = $('#summersG'); g.innerHTML = '';
+  for (let y=Y0+1; y<=Y1; y++){ svg('line', {class:'summer', x1:X(y), x2:X(y), y1:L.yT-14, y2:L.yB+8, 'data-y':y, opacity: st.split || st.summersOn ? null : 0}, g); }
+  if (!(st.split || st.summersOn)) $$('.summer', g).forEach(s => s.style.opacity = 0);
+  markSpent(Math.floor(st.year));
+}
+function buildAxis(){
+  const g = $('#axisG'); g.innerHTML = '';
+  const y = L.yB + 26;
+  if (!L.narrow){ const a1 = svg("text", {class:"axis", x:L.x0, y, "text-anchor":"start"}, g); a1.textContent = "2001"; }
+  const a2 = svg("text", {class:"axis", x:L.xT, y, "text-anchor":L.narrow ? "start" : "middle"}, g); a2.textContent = L.narrow ? "TODAY · 25" : "TODAY · 2026 · 25";
+  const a3 = svg('text', {class:'axis', x:L.xE, y, 'text-anchor':'end'}, g); a3.textContent = '2071 · 70';
+  if (!L.narrow){
+    const a4 = svg('text', {class:'axis it', x:(L.x0+L.xT)/2 + 6, y:y+16, 'text-anchor':'middle'}, g); a4.textContent = 'the past, compressed';
+    const a5 = svg("text", {class:"axis it", id:"axisNote", x:(L.xT+L.xE)/2, y:y+16, "text-anchor":"middle"}, g); a5.textContent = st.everEnded ? ENDNOTE : "forty-five summers, one hairline each";
+  }
+  svg('line', {x1:L.xT, x2:L.xT, y1:L.yB+10, y2:L.yB+16, style:'stroke:var(--ink-3);stroke-width:.8'}, g);
+}
+function positionStatic(){
+  const op = $('#opening');
+  if (L.narrow){ op.style.left = '20px'; op.style.top = (L.yT - 10) + 'px'; }
+  else { op.style.left = (L.xT + 52) + 'px'; op.style.top = (L.yT - 6) + 'px'; op.style.maxWidth = Math.min(880, L.W - L.xT - 120) + 'px'; }
+  const sk = $('#skip'); sk.style.right = '24px'; sk.style.top = (L.legendB + 8) + 'px';
+  const pz = $("#pause"), pl = L.narrow ? 20 : Math.max(L.x0, X(2031) + 170); pz.style.left = pl + "px"; pz.style.top = (L.narrow ? 120 : Math.max(110, L.yT - 30)) + "px";
+  pz.style.maxWidth = Math.min(900, L.W - pl - (L.narrow ? 20 : 60)) + "px";
+  const en = $("#endnote"); en.style.left = L.x0 + "px"; en.style.top = (L.legendB + 12) + "px";
+  if (L.narrow) en.hidden = true;
+  const sm = $('#summary'); sm.style.left = L.x0 + 'px'; sm.style.top = (L.legendB + 10) + 'px';
+  const sl = $('#slice'); sl.style.left = L.x0 + 'px'; sl.style.width = (L.xE - L.x0 + (L.narrow ? L.lw : 0)) + 'px';
+  sl.style.bottom = (L.H - L.capBot + 4) + 'px';
+}
+
+/* ============================== GEOMETRY ============================== */
+const noise = (t, p) => Math.sin(t*8.6 + p)*.6 + Math.sin(t*19.9 + p*1.7)*.4;
+const turbA = (g, k) => Math.pow(clamp((g.risk[k]-30)/58, 0, 1), 1.25) * (2.2 + g.hw[k]*.45);
+const f1 = v => (Math.round(v*10)/10);
+function bandD(l, g, k0, k1){
+  const top = [], bot = [];
+  for (let k=k0; k<=k1; k++){
+    const t = tAt(k), x = f1(X(t)), A = turbA(g,k);
+    const yt = g.cy[k] - Math.max(.3, g.hw[k] + A*noise(t, l.phase));
+    const yb = g.cy[k] + Math.max(.3, g.hw[k] + A*noise(t, l.phase+2.1));
+    top.push(x+','+f1(yt)); bot.push(x+','+f1(yb));
+  }
+  return 'M' + top.join('L') + 'L' + bot.reverse().join('L') + 'Z';
+}
+function strandD(g, k0, k1, off){
+  const pts = []; k0 = Math.max(0,k0); k1 = Math.min(N-1,k1);
+  for (let k=k0; k<=k1; k++){ const t = tAt(k); pts.push(f1(X(t))+','+f1(g.cy[k] + off(t,k))); }
+  return pts.length > 1 ? 'M' + pts.join('L') : '';
+}
+function computeGeom(){
+  const e = st.lensT, ln = st.lens;
+  st.curLo = lerp(st.fromLo, R[ln].lo, e); st.curHi = lerp(st.fromHi, R[ln].hi, e);
+  LIVES.forEach(l => {
+    const g = G[l.id];
+    for (let k=0; k<N; k++){
+      const t = tAt(k), tv = lv(l, ln, k);
+      const v = g.fromV ? lerp(g.fromV[k], tv, e) : tv;
+      g.v[k] = v; g.cy[k] = yOf(v);
+      const w = dom(l,'wealth',k);
+      g.hw[k] = (1.5 + Math.pow(w/100,.85)*L.hwMax) * (.12 + .88*smooth(Y0, Y0+2.4, t)) * (1 + .5*smooth(Y1-2.4, Y1, t));
+      g.risk[k] = dom(l,'risk',k);
+    }
+    const d = bandD(l, g, 0, N-1);
+    l.band.setAttribute('d', d); l.murk.setAttribute('d', d);
+    let fl = '';
+    for (let k=0; k<N; k+=3){ const A = turbA(g,k); if (A < 2.6) continue; const t = tAt(k), x = X(t);
+      fl += `M${f1(x)},${f1(g.cy[k]-g.hw[k]*.55 + noise(t,l.phase+4)*1.4)}l3.4,-.7`;
+      if (g.hw[k] > 4) fl += `M${f1(x+1.6)},${f1(g.cy[k]+g.hw[k]*.5)}l2.8,.6`; }
+    l.flecks.setAttribute('d', fl);
+    if (l.partner){ const p = l.partner;
+      l.pEl.setAttribute('d', strandD(g, kOf(p.meet-1.6), p.sep ? kOf(p.sep+2.6) : N-1, (t,k) => {
+        const s = p.side, amp = Math.max(g.hw[k]*.62, 3.2);
+        if (t < p.meet){ const ee = smooth(p.meet-1.6, p.meet, t); return s*(amp + 44*(1-ee)); }
+        let o = s*amp*Math.cos((t-p.meet)*1.9);
+        if (p.sep && t > p.sep) o += s*52*smooth(p.sep, p.sep+2.2, t);
+        return o; })); }
+    if (l.child){ const c = l.child;
+      l.cEl.setAttribute('d', strandD(g, kOf(c.born), N-1, (t,k) => { const s = c.side; return s*(g.hw[k]+4.5)*smooth(c.born, c.born+1.2, t) + s*40*smooth(c.leaves, c.leaves+3, t); })); }
+    if (l.alt){ l.aEl.setAttribute('d', strandD(g, kOf(2031), N-1, (t,k) => Math.sin((t-2031)*1.25)*g.hw[k]*.42)); l.aEl.setAttribute('opacity', st.alt); }
+    l.fam.setAttribute('d', strandD(g, 0, N-1, (t,k) => l.famSide*(g.hw[k] + 7 + (100-dom(l,'fam',k))*.85)));
+    l.fam.setAttribute('opacity', st.famOp*.9);
+    const ye = g.cy[N-1], he = g.hw[N-1], xe = L.xE;
+    l.chan.setAttribute('d', [-1,0,1].map(j => `M${f1(xe-1)},${f1(ye+j*he*.55)}Q${f1(xe+7)},${f1(ye+j*(he*.6+2))} ${f1(xe+15)},${f1(ye+j*(he*.6+8))}`).join(''));
+    l.events.forEach(ev => { ev.g.setAttribute('transform', `translate(${f1(X(ev.y))},${f1(cyAt(l, ev.y))})`); });
+  });
+  // past
+  let pd = '', fp = ''; const e2 = st.lensT;
+  for (let t=P0; t<=Y0+1e-9; t+=.125){ const v = lerp(pastVal(st.fromLens,t), pastVal(st.lens,t), e2); const y = yOf(v) + Math.sin(t*7.3)*.45; pd += (pd?'L':'M') + f1(X(t)) + ',' + f1(y); fp += (fp?'L':'M') + f1(X(t)) + ',' + f1(y + 8 + Math.sin(t*2)*1.5); }
+  $('#pencil').setAttribute('d', pd);
+  $('#pencil2').setAttribute('d', pd);
+  $('#pencil2').setAttribute('transform', 'translate(.4,.7)');
+  $('#famPast').setAttribute('d', fp); $('#famPast').setAttribute('opacity', st.famOp*.9);
+  const ky = G.path.cy[0];
+  $('#knotG').setAttribute('transform', `translate(${f1(L.xT)},${f1(ky)})`);
+  PAST.marks.forEach(m => { const x = X(m.y), y = yOf(lerp(pastVal(st.fromLens,m.y), pastVal(st.lens,m.y), e2));
+    m.dot.setAttribute('cx', x); m.dot.setAttribute('cy', y);
+    m.ln.setAttribute('x1', x); m.ln.setAttribute('x2', x); m.ln.setAttribute('y1', y + Math.sign(m.dy)*3); m.ln.setAttribute('y2', y + m.dy - Math.sign(m.dy)*(m.dy<0?4:10));
+    const tx = m.a==='end' ? x - 3 : m.a==='start' ? x + (m.y===P0 ? -2 : 3) : x;
+    m.tx.style.display = L.narrow ? "none" : "";
+    m.tx.setAttribute('x', tx); m.tx.setAttribute('y', y + m.dy + (m.dy > 0 ? 0 : 0)); });
+  if (st.forecastOn) $("#forecast").setAttribute("d", strandD(G.path, kOf(2031), N-1, () => 0));
+}
+
+/* ============================== CAPTIONS + LABELS ============================== */
+function wrapWords(t){ return esc(t).split(/(\s+)/).map(p => /^\s+$/.test(p) ? p : (p ? `<span class="w">${p}</span>` : '')).join(''); }
+function reveal(el, o={}){
+  const ws = $$('.w', el); if (!ws.length) return;
+  const delay = o.delay||0, stagger = o.stagger ?? .035, dur = o.dur ?? .6;
+  if (RM){ return gsap.fromTo(ws, {opacity:0}, {opacity:1, duration:.25, delay}); }
+  return gsap.fromTo(ws, {opacity:0, filter:`blur(${o.blur ?? 6}px)`, y:o.y ?? 4}, {opacity:1, filter:'blur(0px)', y:0, duration:dur, stagger, delay, ease:'power2.out', clearProps:'filter'});
+}
+function layoutCaptions(){
+  st.capDirty = false;
+  const placed = [];
+  const evs = [];
+  LIVES.forEach(l => l.events.forEach(e => { if (!e.cap) return; const live = capLive(e); e.cap.classList.toggle("gone", !live); e.leader.classList.toggle("gone", !live); if (live) evs.push(e); }));
+  evs.sort((a,b) => a.y - b.y);
+  // keep mouth labels clear
+  LIVES.forEach(l => { if (st.everEnded && l.llBox) placed.push(l.llBox); });
+  for (const e of evs){
+    const l = e.life, bx = X(e.y), by = cyAt(l, e.y), hw = hwAt(l, e.y);
+    if (!e.cw){ e.cw = e.cap.offsetWidth; e.ch = e.cap.offsetHeight; }
+    const w = e.cw, h = e.ch;
+    const right = bx + w + 8 > L.xE + 30;
+    const left = right ? bx - w + 3 : bx - 3;
+    e.cap.classList.toggle('r', right);
+    const pref = l.capSide;
+    const cands = [];
+    for (const extra of [0, 18, 40, 64]) for (const s of [pref, -pref]) cands.push({s, extra});
+    let best = null;
+    for (const c of cands){
+      const top = c.s < 0 ? by - hw - 20 - c.extra - h : by + hw + 20 + c.extra;
+      const box = {x:left-4, y:top-3, w:w+8, h:h+6};
+      if (box.y < L.capTop || box.y + box.h > L.capBot) continue;
+      if (placed.some(p => !(box.x+box.w < p.x || p.x+p.w < box.x || box.y+box.h < p.y || p.y+p.h < box.y))) continue;
+      best = {top, s:c.s, box}; break;
+    }
+    if (!best){ const top = pref < 0 ? Math.max(L.capTop+3, by - hw - 20 - h) : Math.min(L.capBot - h - 3, by + hw + 20); best = {top, s:pref, box:{x:left-4,y:top-3,w:w+8,h:h+6}}; }
+    placed.push(best.box);
+    e.cap.style.transform = `translate(${f1(left)}px,${f1(best.top)}px)`;
+    const y1 = best.s < 0 ? by - hw - 1.5 : by + hw + 1.5;
+    const y2 = best.s < 0 ? best.top + h + 2 : best.top - 2;
+    e.leader.setAttribute('x1', f1(bx)); e.leader.setAttribute('x2', f1(bx)); e.leader.setAttribute('y1', f1(y1)); e.leader.setAttribute('y2', f1(y2));
+  }
+}
+function relax(items, gap, lo, hi){
+  items.forEach(i => i.yy = i.y);
+  for (let it=0; it<80; it++){
+    let moved = false;
+    for (let i=1;i<items.length;i++){ const a = items[i-1], b = items[i]; const need = a.h/2 + b.h/2 + gap - (b.yy - a.yy); if (need > .1){ a.yy -= need/2; b.yy += need/2; moved = true; } }
+    items.forEach(i => i.yy = clamp(i.yy, lo + i.h/2, hi - i.h/2));
+    if (!moved) break;
+  }
+}
+function layoutLabels(){
+  const mouth = st.everEnded;
+  const yr = Math.max(st.year, Y0);
+  const items = LIVES.map(l => {
+    if (mouth && !l.llH) l.llH = l.ll.offsetHeight;
+    return {l, y: mouth ? G[l.id].cy[N-1] : cyAt(l, yr), h: mouth ? l.llH : 14};
+  }).sort((a,b) => a.y - b.y);
+  relax(items, mouth ? 14 : 3, L.capTop + 4, L.capBot - 4);
+  const x = mouth ? L.xE + (L.narrow ? 18 : 30) : X(yr) + 12;
+  items.forEach(it => {
+    it.l.ll.style.left = f1(x) + "px"; it.l.ll.style.top = f1(it.yy - it.h/2) + "px";
+    if (mouth){
+      it.l.llBox = {x:x-6, y:it.yy-it.h/2-4, w:L.lw+8, h:it.h+8};
+      const ye = G[it.l.id].cy[N-1];
+      it.l.mleader.setAttribute('d', `M${f1(L.xE+18)},${f1(ye)}L${f1(x-6)},${f1(it.yy - it.h/2 + 10)}`);
+    }
+  });
+}
+
+/* ============================== FRAME ============================== */
+const revealRect = $('#revealRect'), pastRect = $('#pastRect'), playhead = $('#playhead'), phHit = $('#phHit'), phEl = $('#ph'), scrub = $('#scrub');
+function frame(){
+  if (st.dirty){ computeGeom(); st.dirty = false; st.capDirty = true; }
+  const yr = st.year;
+  const rev = st.everEnded ? Y1 : Math.max(Y0, yr);
+  revealRect.setAttribute('width', st.split ? X(rev) + (rev >= Y1-1e-6 ? 34 : 0) : 0);
+  pastRect.setAttribute('width', X(Math.min(yr, Y0)) + 3);
+  const tip = $('#pencilTip');
+  if (st.mode === 'opening' && yr < Y0 - .02){ tip.setAttribute('opacity', 1); tip.setAttribute('cx', X(yr)); tip.setAttribute('cy', yOf(pastFn(yr))); } else tip.setAttribute('opacity', 0);
+  const px = X(Math.max(yr, Y0));
+  if (st.split){
+    playhead.setAttribute('x1', px); playhead.setAttribute('x2', px); playhead.setAttribute('y1', L.yT - 22); playhead.setAttribute('y2', L.yB + 10);
+    phHit.setAttribute('x1', px); phHit.setAttribute('x2', px); phHit.setAttribute('y1', L.yT - 22); phHit.setAttribute('y2', L.yB + 10);
+    phEl.style.transform = `translate(${f1(px - phEl.offsetWidth/2)}px,${f1(L.yT - 46)}px)`;
+  }
+  LIVES.forEach(l => {
+    if (st.split && !st.everEnded){ l.head.setAttribute('cx', px); l.head.setAttribute('cy', cyAt(l, Math.max(yr,Y0))); }
+  });
+  updateEvents(rev);
+  if (st.capDirty) layoutCaptions();
+  if (st.split) layoutLabels();
+  const yi = Math.floor(yr + 1e-6);
+  if (yi !== st.lastInt){ st.lastInt = yi; setOdo(yi); markSpent(yi); ageCaptions(); if (st.slice) updateSlice(); phEl.textContent = Math.max(yi, Y0); phEl.setAttribute('aria-valuenow', Math.max(yi,Y0)); }
+  if (st.slice) positionRings(px);
+  if (!st.scrubDrag && st.split) scrub.value = Math.max(yr, Y0);
+}
+function updateEvents(rev){
+  let changed = false;
+  LIVES.forEach(l => l.events.forEach(e => {
+    const vis = st.split && isActive(e) && rev >= e.y - 1e-6;
+    if (vis && !e.shown){ e.shown = true; changed = true; showEvent(e); }
+    else if (!vis && e.shown){ e.shown = false; changed = true; hideEvent(e); }
+  }));
+  if (changed){ st.capDirty = true; updateTallies(); }
+}
+function showEvent(e){
+  const animate = st.mode === 'play' && !st.scrubbing && !RM;
+  gsap.killTweensOf(e.g); e.g.setAttribute('opacity', 1);
+  if (animate) gsap.fromTo(e.beadEl, {attr:{r:0}}, {attr:{r:e.lab ? 3.3 : 2.6}, duration:.5, ease:'power3.out'});
+  if (e.cap){
+    e.cap.hidden = false; e.cw = null;
+    if (animate){ reveal(e.cap, {delay:.05, stagger:.04}); gsap.fromTo(e.leader, {opacity:0}, {opacity:1, duration:.4}); }
+    else { $$('.w', e.cap).forEach(w => { w.style.opacity = 1; w.style.filter = ''; w.style.transform = ''; }); e.leader.setAttribute('opacity', 1); e.leader.style.opacity = 1; }
+  }
+  if (e.thread && animate) gsap.delayedCall(.35, () => quickThread(e));
+}
+function hideEvent(e){
+  gsap.killTweensOf(e.g); e.g.setAttribute('opacity', 0);
+  if (e.cap){ e.cap.hidden = true; gsap.killTweensOf($$('.w', e.cap)); e.leader.style.opacity = 0; }
+}
+function capLive(e){ if (!e.shown) return false; if (st.everEnded) return st.focus ? e.life.id === st.focus : !!e.keep; if (st.focus) return e.life.id === st.focus || e.y >= st.year - 7.5; return e.y >= st.year - 7.5; }
+function ageCaptions(){
+  LIVES.forEach(l => l.events.forEach(e => { if (e.cap) e.cap.classList.toggle("settled", st.everEnded); }));
+  st.capDirty = true;
+}
+function setFocus(id){ st.focus = id; if (id) document.body.dataset.focus = id; else delete document.body.dataset.focus; st.capDirty = true; }
+function markSpent(yi){ $$('.summer').forEach(s => s.classList.toggle('spent', +s.dataset.y <= yi && st.split)); const left = clamp(Y1 - Math.max(yi, Y0), 0, 45); $('#sl').textContent = `${left} summer${left===1?'':'s'} left`; }
+function updateTallies(){
+  const counts = {}; LIVES.forEach(l => l.events.forEach(e => { if (e.shown && e.cite) e.cite.forEach(q => counts[q] = (counts[q]||0) + 1); }));
+  $$('.tally').forEach(t => { const n = counts[t.dataset.q] || 0; t.innerHTML = n ? `shaped <b>${n}</b> turn${n>1?'s':''}` : 'not used yet'; });
+}
+
+/* ============================== ODOMETER ============================== */
+const odo = $('#odo');
+function buildOdo(){
+  const mk = () => { const d = document.createElement('span'); d.className = 'dg'; const c = document.createElement('span'); c.className = 'col'; for (let i=0;i<10;i++){ const s = document.createElement('span'); s.textContent = i; c.appendChild(s); } d.appendChild(c); return d; };
+  odo.innerHTML = '';
+  for (let i=0;i<4;i++) odo.appendChild(mk());
+  const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '·'; odo.appendChild(sep);
+  for (let i=0;i<2;i++) odo.appendChild(mk());
+}
+function setOdo(y){
+  const a = clamp(y - P0, 0, 99), s = String(y).padStart(4,'0') + String(a).padStart(2,'0');
+  $$('.col', odo).forEach((c,i) => c.style.transform = `translateY(${-(+s[i])*1.1}em)`);
+}
+
+/* ============================== WORDS RAIL ============================== */
+const notesEl = $('#notes');
+function addNote(q, yours){
+  const li = document.createElement('li'); li.className = 'note' + (yours ? ' yours' : ''); li.dataset.q = q.id;
+  li.innerHTML = `<p class="nq"><span class="hl">“${esc(q.text)}”</span></p><p class="nm"><span>${esc(q.from)}</span><span class="tally" data-q="${q.id}"></span></p>`;
+  li.addEventListener('pointerenter', () => hoverNote(q.id, true));
+  li.addEventListener('pointerleave', () => hoverNote(q.id, false));
+  notesEl.appendChild(li); return li;
+}
+function buildRail(){ notesEl.innerHTML = ''; QUOTES.forEach(q => addNote(q)); updateTallies(); }
+const noteEl = id => $(`.note[data-q="${id}"]`, notesEl);
+function lightNote(id, life, on){ const n = noteEl(id); if (!n) return; n.style.setProperty('--c', `var(--${life.id})`); n.classList.toggle('lit', on); if (on && L.narrow) n.scrollIntoView({block:'nearest', inline:'center', behavior: RM ? 'auto' : 'smooth'}); }
+function threadTarget(id){ const n = noteEl(id); if (!n) return null; const r = n.getBoundingClientRect(); return L.narrow ? [r.left + r.width/2, r.bottom] : [r.right + 3, r.top + Math.min(r.height/2, 22)]; }
+function drawThread(e, qid, dur){
+  const tg = threadTarget(qid); if (!tg) return null;
+  const l = e.life, bx = X(e.y), by = cyAt(l, e.y), [tx, ty] = tg;
+  const dx = Math.max(50, Math.abs(bx - tx)*.42);
+  const d = L.narrow ? `M${bx},${by} C${bx},${by-80} ${tx},${ty+80} ${tx},${ty}` : `M${bx},${by} C${bx-dx},${by} ${tx+dx},${ty} ${tx},${ty}`;
+  const g = svg('g', {class:`Lx L-${l.id}`}, threadsG);
+  const p = svg('path', {class:`thread c-${l.id}`, d}, g);
+  const dot = svg('circle', {class:`thread-end f-${l.id}`, cx:tx, cy:ty, r:2.2, opacity:0}, g);
+  const len = p.getTotalLength(); p.style.strokeDasharray = len; p.style.strokeDashoffset = len;
+  if (RM){ p.style.strokeDashoffset = 0; dot.setAttribute('opacity', 1); }
+  else { gsap.to(p, {strokeDashoffset:0, duration:dur, ease:'power2.inOut'}); gsap.to(dot, {attr:{opacity:1}, duration:.2, delay:dur*.9}); }
+  return g;
+}
+function fadeThread(g, delay=0){ if (!g) return; gsap.to(g, {opacity:0, duration:.6, delay, onComplete:() => g.remove()}); }
+let hoverThreads = [];
+function hoverNote(id, on){
+  hoverThreads.forEach(g => g.remove()); hoverThreads = [];
+  if (!on || st.mode === 'pause' || st.moment) return;
+  LIVES.forEach(l => l.events.forEach(e => { if (e.shown && e.cite && e.cite.includes(id)) { const g = drawThread(e, id, .45); if (g) hoverThreads.push(g); } }));
+}
+function quickThread(e){ const q = e.cite[0]; lightNote(q, e.life, true); const g = drawThread(e, q, .7); gsap.delayedCall(2.4, () => { fadeThread(g); lightNote(q, e.life, false); }); }
+
+/* ============================== WHY CARD + TIP ============================== */
+const whyEl = $('#why');
+function openWhy(e, scripted){
+  const l = e.life, q = e.cite ? (QUOTES.concat(st.yourQuote ? [st.yourQuote] : []).find(x => x.id === e.cite[0])) : null;
+  $('#why-h').innerHTML = `${Math.floor(e.y)} · <b style="--c:var(--${l.id})">${l.name}</b>${scripted ? ' · turning point' : ''}`;
+  $('#why-what').textContent = (e.why && e.why.what) || e.t;
+  $('#why-said-row').hidden = !q;
+  if (q){ $('#why-said').textContent = `“${q.text}”`; $('#why-said-src').textContent = q.from + (e.cite.length > 1 ? ` · also ${e.cite.slice(1).join(', ')}` : ''); }
+  $('#why-world-row').hidden = !(e.why && e.why.world);
+  if (e.why && e.why.world){ $('#why-world').textContent = e.why.world; $('#why-src').textContent = 'Source: ' + e.why.src; }
+  whyEl.hidden = false;
+  const bx = X(e.y), by = cyAt(l, e.y), w = whyEl.offsetWidth, h = whyEl.offsetHeight;
+  let x = bx + 26, y = by - h*.35;
+  if (x + w > L.W - 16) x = bx - 26 - w;
+  if (L.narrow){ x = 16; y = L.H - h - 120; }
+  y = clamp(y, L.legendB + 8, L.H - h - 16);
+  whyEl.style.left = x + 'px'; whyEl.style.top = y + 'px';
+  if (!RM) gsap.fromTo(whyEl, {opacity:0, y:6}, {opacity:1, y:0, duration:.45, ease:'power2.out'}); else whyEl.style.opacity = 1;
+  if (!scripted && q){ hoverThreads.forEach(g => g.remove()); hoverThreads = [drawThread(e, q.id, .5)].filter(Boolean); lightNote(q.id, l, true); st.whyQ = {q:q.id, l}; }
+}
+function closeWhy(){ if (whyEl.hidden) return; gsap.to(whyEl, {opacity:0, duration:.25, onComplete:() => whyEl.hidden = true}); if (st.whyQ){ lightNote(st.whyQ.q, st.whyQ.l, false); hoverThreads.forEach(g => g.remove()); hoverThreads = []; st.whyQ = null; } }
+$('#why-x').addEventListener('click', ev => { ev.stopPropagation(); if (st.moment === 'turn') endTurn(); else closeWhy(); });
+const tipEl = $('#tip');
+function showTip(e, ev){
+  const q = e.cite ? QUOTES.concat(st.yourQuote ? [st.yourQuote] : []).find(x => x.id === e.cite[0]) : null;
+  tipEl.innerHTML = `<span class="k">${Math.floor(e.y)} · age ${ageOf(e.y)} · ${e.life.name}</span>${esc(e.t)}${q ? `<span class="q">because you said “${esc(q.text)}”</span>` : ''}`;
+  tipEl.hidden = false;
+  const r = tipEl.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY - r.height - 12;
+  if (x + r.width > L.W - 10) x = ev.clientX - r.width - 14;
+  if (y < 8) y = ev.clientY + 16;
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+}
+function hideTip(){ tipEl.hidden = true; }
+
+/* ============================== OPENING ============================== */
+let opTL = null;
+function setOpeningText(){
+  $('#ol1').innerHTML = wrapWords("You're 25.");
+  $('#ol2').innerHTML = wrapWords('You have 45 summers left.').replace('<span class="w">45</span>', '<span class="w"><em>45</em></span>');
+  $('#ol3').innerHTML = wrapWords('Here are four ways to spend them.');
+  $$('#opening .w').forEach(w => w.style.opacity = 0);
+  $('#opening').style.opacity = 1; $('#opening').hidden = false;
+}
+function knotIn(){
+  const k = $('#knotG'); k.setAttribute('opacity', 1);
+  if (!RM){ gsap.fromTo('#knot', {attr:{r:0}}, {attr:{r:4.6}, duration:.35, ease:'power3.out'});
+    gsap.killTweensOf('#knotRing');
+    gsap.fromTo('#knotRing', {attr:{r:5}, opacity:.7}, {attr:{r:19}, opacity:0, duration:1.9, ease:'power1.out', repeat:-1, repeatDelay:.25}); }
+  else { $('#knotRing').setAttribute('r', 9); $('#knotRing').style.opacity = .4; }
+}
+function summersIn(){
+  st.summersOn = true;
+  const s = $$('.summer');
+  if (RM) s.forEach(x => x.style.opacity = ''); else gsap.fromTo(s, {opacity:0}, {opacity:.55, duration:.35, stagger:.017, ease:'power1.out', clearProps:'opacity'});
+}
+function pastMarkPop(m){
+  if (m.popped) return; m.popped = true;
+  if (RM){ m.g.setAttribute('opacity', .7); return; }
+  gsap.fromTo(m.g, {opacity:0}, {opacity:1, duration:.25});
+  gsap.to(m.g, {opacity:.6, duration:.8, delay:1});
+}
+function split(){
+  st.split = true;
+  $('#playhead').setAttribute('opacity', 1); phEl.hidden = false;
+  LIVES.forEach((l,i) => {
+    if (RM){ l.head.style.opacity = 1; l.ll.style.opacity = 1; return; }
+    gsap.fromTo(l.head, {attr:{r:0}, opacity:1}, {attr:{r:4.4}, duration:.5, delay:i*.14, ease:'power3.out'});
+    gsap.fromTo(l.ll, {opacity:0, x:-6}, {opacity:1, x:0, duration:.6, delay:.15 + i*.14, ease:'power2.out', clearProps:'x'});
+  });
+  markSpent(Y0);
+}
+function playOpening(){
+  resetAll();
+  st.mode = 'opening'; st.year = P0; st.prev = P0;
+  setOpeningText();
+  $('#skip').hidden = false;
+  if (RM){
+    st.year = Y0; PAST.marks.forEach(pastMarkPop); knotIn(); summersIn();
+    $$('#opening .w').forEach(w => w.style.opacity = 1);
+    st.waitBegin = true; syncPlay();
+    return;
+  }
+  opTL = gsap.timeline();
+  opTL.to(st, {year:Y0, duration:3.4, ease:'power1.in', onUpdate:() => { PAST.marks.forEach(m => { if (st.year >= m.y) pastMarkPop(m); }); }})
+    .add(knotIn, 3.42)
+    .add(() => reveal($('#ol1'), {stagger:.06, dur:.8, blur:8}), 3.95)
+    .add(summersIn, 4.55)
+    .add(() => reveal($('#ol2'), {stagger:.06, dur:.8, blur:8}), 5.25)
+    .add(() => reveal($('#ol3'), {stagger:.06, dur:.8, blur:8}), 6.45)
+    .add(split, 7.75)
+    .add(() => { hideOpening(); startPlay(true); }, 8.45);
+}
+function hideOpening(){
+  $('#skip').hidden = true;
+  const op = $('#opening');
+  if (RM){ op.hidden = true; return; }
+  gsap.to(op, {opacity:0, y:-10, duration:.9, ease:'power2.in', onComplete:() => { op.hidden = true; gsap.set(op, {y:0}); }});
+}
+function skipOpening(){
+  if (st.mode !== 'opening') return;
+  if (opTL){ opTL.kill(); opTL = null; }
+  st.year = Y0; PAST.marks.forEach(pastMarkPop);
+  if ($('#knotG').getAttribute('opacity') !== '1') knotIn();
+  if (!st.summersOn) summersIn();
+  if (!st.split) split();
+  hideOpening(); startPlay(true);
+}
+function startPlay(fromRest){
+  st.waitBegin = false;
+  st.mode = 'play'; st.playing = true; st.year = Math.max(st.year, Y0); st.prev = st.year;
+  if (fromRest && !RM){ st.rate = 0; gsap.to(st, {rate:1, duration:1.1, ease:'power1.inOut'}); } else st.rate = 1;
+  hideSlice(); syncPlay();
+}
+
+/* ============================== MOMENTS ============================== */
+let turnState = null;
+function runTurn(){
+  const e = LIFE.path.events.find(x => x.turn);
+  st.moment = 'turn';
+  gsap.to(st, {rate: .16/st.speed, duration:.6, ease:'power2.out'});
+  document.body.dataset.focus = 'path';
+  turnState = {e, calls:[]};
+  turnState.calls.push(gsap.delayedCall(.5, () => { turnState.thread = drawThread(e, 'q1', .9); }));
+  turnState.calls.push(gsap.delayedCall(.9, () => lightNote('q1', LIFE.path, true)));
+  turnState.calls.push(gsap.delayedCall(1.15, () => openWhy(e, true)));
+  turnState.calls.push(gsap.delayedCall(5.6, endTurn));
+}
+function endTurn(){
+  if (!turnState) return;
+  turnState.calls.forEach(c => c.kill());
+  closeWhy(); fadeThread(turnState.thread, .1); lightNote('q1', LIFE.path, false);
+  delete document.body.dataset.focus;
+  turnState = null; st.moment = null;
+  if (st.mode === 'play') gsap.to(st, {rate:1, duration:.9, ease:'power1.inOut'}); else st.rate = 1;
+}
+function runPause(){
+  st.mode = 'pause'; st.playing = false; st.year = 2031; gsap.killTweensOf(st, 'rate'); st.rate = 1; syncPlay();
+  hideSlice(); closeCards();
+  const veil = $('#veil'), pz = $('#pause'), wt = $('#waiting');
+  veil.hidden = false; gsap.fromTo(veil, {opacity:0}, {opacity:1, duration: RM ? .2 : .8});
+  wt.innerHTML = ''; wt.hidden = false;
+  LIVES.forEach((l,i) => {
+    const d = document.createElement('div'); d.className = 'wait'; d.style.setProperty('--c', `var(--${l.id})`);
+    d.innerHTML = '<i></i><span>waiting for you</span>';
+    wt.appendChild(d);
+    const x = X(2031) - 4.5, y = cyAt(l, 2031) - 4.5;
+    d.style.left = x + "px"; d.style.top = y + "px";
+    l.waitEl = d;
+  });
+  const ws = $$('.wait', wt);
+  // keep the four waiting labels from colliding
+  const items = LIVES.map((l,i) => ({l, el:ws[i], y:cyAt(l,2031), h:15})).sort((a,b) => a.y-b.y);
+  relax(items, 4, 0, L.H); items.forEach(it => { it.el.style.left = (X(2031) - 4.5) + "px"; it.el.style.top = (it.yy - 7.5) + "px"; });
+  if (!RM) gsap.fromTo(ws, {opacity:0, y:4}, {opacity:1, y:-4, duration:.8, stagger:.12, delay:.4, ease:'power2.out'});
+  $('#q').innerHTML = wrapWords(QUESTION);
+  pz.hidden = false; pz.style.opacity = 1;
+  const ans = $('#answer'); ans.value = ''; ans.disabled = false; $('#hint').style.opacity = 0; $('.answer .rule').style.transform = 'scaleX(0)';
+  $("#answerWrap").style.opacity = 0;
+  const words = $$('.w', $('#q'));
+  const total = RM ? .3 : .7 + words.length*.045;
+  reveal($('#q'), {delay:.7, stagger:.045, dur:.75, blur:8});
+  gsap.to("#answerWrap", {opacity:1, duration:.5, delay: total});
+  gsap.to('.answer .rule', {scaleX:1, duration: RM ? 0 : .9, delay: total, ease:'power2.inOut'});
+  gsap.to('#hint', {opacity:1, duration:.5, delay: total + .3});
+  gsap.delayedCall(total + .2, () => { if (st.mode === 'pause') ans.focus({preventScroll:true}); });
+}
+function submitAnswer(text){
+  text = text.trim(); if (!text || st.mode !== 'pause') return;
+  st.answered = true; st.mode = 'reroute'; st.answerText = text;
+  const ans = $('#answer'); ans.disabled = true;
+  st.yourQuote = {id:'q6', text, from:'you, at the 2031 pause'};
+  const li = addNote(st.yourQuote, true); li.style.opacity = 0; updateTallies();
+  const r0 = ans.getBoundingClientRect(), qEl = $('.nq', li), r1 = qEl.getBoundingClientRect();
+  const fl = document.createElement('div'); fl.className = 'flyer'; fl.textContent = `“${text}”`;
+  const fs = parseFloat(getComputedStyle(ans).fontSize), fs1 = parseFloat(getComputedStyle(qEl).fontSize), sc = fs1/fs;
+  fl.style.fontSize = fs + 'px'; fl.style.width = (r1.width/sc) + 'px'; fl.style.left = r0.left + 'px'; fl.style.top = (r0.top - fs*.12) + 'px';
+  document.body.appendChild(fl);
+  ans.style.opacity = 0;
+  const tl = gsap.timeline();
+  if (RM){ fl.remove(); li.style.opacity = 1; }
+  else {
+    tl.to(fl, {x: r1.left - r0.left, y: r1.top - r0.top + fs*.12, scale: sc, duration:1.15, ease:'power3.inOut'}, 0)
+      .add(() => { fl.remove(); li.style.opacity = 1; lightNote('q6', LIFE.path, true); gsap.delayedCall(2.2, () => lightNote('q6', LIFE.path, false)); }, 1.15);
+  }
+  gsap.to(['#pause', '#hint'], {opacity:0, duration:.45, delay:.15, onComplete:() => { $('#pause').hidden = true; ans.style.opacity = 1; }});
+  gsap.to('#veil', {opacity:0, duration:.7, delay:.35, onComplete:() => $('#veil').hidden = true});
+  gsap.to($$('.wait'), {opacity:0, duration:.4, delay:.2, onComplete:() => { $('#waiting').hidden = true; }});
+  // where it was heading, then the re-route
+  const fc = $('#forecast'), gh = $('#ghostOld');
+  st.forecastOn = true; st.dirty = true; computeGeom(); st.dirty = false;
+  gh.setAttribute('d', fc.getAttribute('d'));
+  const d0 = RM ? 0 : 1;
+  gsap.fromTo(fc, {opacity:0}, {opacity:.95, duration:.5*d0 + .01, delay:.8*d0});
+  gsap.delayedCall(1.7*d0, () => {
+    gh.style.opacity = .8;
+    gsap.to(st, {alt:1, duration: RM ? .01 : 1.3, ease:'power2.inOut', onUpdate:() => { st.dirty = true; }, onComplete:() => {
+      LIFE.path.bg.set(y => .9 - .42*heavy(LIFE.path,y)); LIFE.path.mg.set(y => .95*heavy(LIFE.path,y)); st.dirty = true; } });
+    gsap.to(gh, {opacity:0, duration: RM ? .2 : 3, delay: RM ? 0 : 1.3, ease:'power1.in'});
+  });
+  gsap.delayedCall(2.4*d0 + .05, showSummary);
+  gsap.delayedCall(3.9*d0 + .1, () => {
+    gsap.to(fc, {opacity:0, duration:1.2, onComplete:() => { st.forecastOn = false; }});
+    st.mode = 'play'; startPlay(true);
+  });
+}
+function skipPause(){
+  if (st.mode !== 'pause') return;
+  st.pauseSkipped = true;
+  gsap.to(['#pause'], {opacity:0, duration:.3, onComplete:() => $('#pause').hidden = true});
+  gsap.to('#veil', {opacity:0, duration:.5, onComplete:() => $('#veil').hidden = true});
+  $('#waiting').hidden = true;
+  startPlay(true);
+}
+function showSummary(){
+  const s = $('#summary');
+  $('#summary-t').innerHTML = 'On Your Path, the 2041 burnout is softer, a first small exhibition appears in 2044, and at 70 it reads <em>“Steady, with color in it.”</em>';
+  s.hidden = false;
+  if (RM) s.style.opacity = 1; else gsap.fromTo(s, {opacity:0, y:-6}, {opacity:1, y:0, duration:.6, ease:'power2.out'});
+  gsap.delayedCall(8, () => gsap.to(s, {opacity:0, duration:.8, onComplete:() => s.hidden = true}));
+}
+function runEnd(){
+  st.year = Y1; st.playing = false; st.mode = 'ended'; st.everEnded = true; syncPlay();
+  LIVES.forEach(l => { l.llV.innerHTML = wrapWords(l.id === 'path' && st.alt > .5 ? l.altVerdict : l.verdict); $$('.w', l.llV).forEach(w => w.style.opacity = 0); l.ll.classList.add("mouth"); l.llH = null; gsap.killTweensOf(l.head); l.head.style.opacity = 0; });
+  ageCaptions();
+  LIVES.forEach((l,i) => { gsap.fromTo(l.mleader, {opacity:0}, {opacity:1, duration:.6, delay:.6}); reveal(l.llV, {delay:.9 + i*.35, stagger:.05, dur:.7}); });
+  st.capDirty = true;
+  const an = $("#axisNote"); if (an){ gsap.to(an, {opacity:0, duration:.4, onComplete:() => { an.textContent = ENDNOTE; gsap.to(an, {opacity:1, duration:.8}); }}); }
+}
+
+/* ============================== SLICE ============================== */
+function showSlice(){ if (!st.split) return; if (!st.slice){ st.slice = true; $('#slice').hidden = false; LIVES.forEach(l => l.ring.setAttribute('opacity', 1)); } updateSlice(true); }
+function hideSlice(){ if (!st.slice) return; st.slice = false; $('#slice').hidden = true; LIVES.forEach(l => l.ring.setAttribute('opacity', 0)); }
+function updateSlice(force){
+  const y = clamp(Math.floor(st.year + 1e-6), Y0, Y1);
+  if (!force && y === st.sliceYear) return; st.sliceYear = y;
+  const a = y - P0;
+  $('#slice-k').textContent = `${y} · drag to move`;
+  $('#slice-t').textContent = `The four of you at ${a}`;
+  $('#slice-cards').innerHTML = LIVES.map(l => { const c = chapterAt(l, y); return `<div class="sc Lx L-${l.id}" style="--c:var(--${l.id})"><div class="nm2">${l.name}</div><div class="city">${esc(c.city)}</div><div class="who">${esc(c.who)}</div><div class="work">${esc(c.work)}</div><div class="line">${esc(c.line)}</div></div>`; }).join('');
+}
+function positionRings(px){ const yr = clamp(st.year, Y0, Y1); LIVES.forEach(l => { l.ring.setAttribute('cx', px); l.ring.setAttribute('cy', cyAt(l, yr)); l.ring.setAttribute('r', hwAt(l, yr) + 4); }); }
+
+/* ============================== YEAR CARD + LETTER ============================== */
+const yc = $('#yearcard');
+function petals(l, k){
+  let s = '';
+  DOMAINS.forEach((d,i) => { const v = dom(l,d,k), Lp = 8 + v/100*30;
+    s += `<path d="M0 0 C ${f1(Lp*.34)} ${f1(-Lp*.3)}, ${f1(Lp*.24)} ${f1(-Lp*.86)}, 0 ${f1(-Lp)} C ${f1(-Lp*.24)} ${f1(-Lp*.86)}, ${f1(-Lp*.34)} ${f1(-Lp*.3)}, 0 0Z" transform="rotate(${i*36})"><title>${DNAME[d]}</title></path>`; });
+  return `<svg class="petals" viewBox="-42 -42 84 84" width="86" height="86" style="--c:var(--${l.id})" role="img" aria-label="Ten domains of this year"><circle class="petal-ring" r="39"/>${s}<circle class="petal-core" r="2"/></svg>`;
+}
+function familyWords(l, k){
+  const g = d => dom(l,d,k);
+  const wm = (g('career') + g('wealth'))/2, pe = g('rel')*.5 + g('fam')*.3 + g('kids')*.2, inner = Math.min(g('mind'), g('happy')*1.1), dir = g('goals'), risk = g('risk');
+  return [['Work and money', wm<25?'thin':wm<45?'getting by':wm<65?'steady':'strong'],
+          ['People', pe<32?'alone a lot':pe<50?'a few close ones':pe<66?'held':'a full table'],
+          ['Inner life', inner<34?'the heavy years':inner<50?'uneven':inner<66?'steady':'bright'],
+          ['Direction', risk>60?'on the edge':dir<35?'drifting':dir<55?'searching':dir<75?'on course':'arrived']];
+}
+function onRiverClick(l, ev){
+  if (st.mode === 'pause' || st.mode === 'reroute' || st.mode === 'opening') return;
+  ev.stopPropagation();
+  const t = clamp(Xinv(ev.clientX), Y0, Y1);
+  // ripple
+  const rp = svg('circle', {class:`ripple c-${l.id}`, cx:ev.clientX, cy:ev.clientY, r:2}, $('#rippleG'));
+  if (RM) rp.remove(); else gsap.to(rp, {attr:{r:34}, opacity:0, duration:.9, ease:'power2.out', onComplete:() => rp.remove()});
+  openYearCard(l, t, ev.clientX, ev.clientY);
+}
+function openYearCard(l, t, cx, cy){
+  if (st.playing){ st.wasPlaying = true; st.playing = false; syncPlay(); if (st.moment === 'turn') endTurn(); }
+  closeWhy();
+  const y = Math.floor(t + 1e-6), a = y - P0, k = kOf(y), c = chapterAt(l, y);
+  yc.style.setProperty('--c', `var(--${l.id})`);
+  yc.innerHTML = `<div class="card-h"><span class="k"><b style="--c:var(--${l.id})">${l.name}</b> · ${y} · age ${a}</span><button class="xbtn" aria-label="Close">${ICON.x}</button></div>
+    <h3>A Tuesday in ${y}</h3><p class="tues">${esc(c.tues)}</p>
+    <div class="yc-body">${petals(l, k)}<dl class="fam-list">${familyWords(l,k).map(([kk,v]) => `<div><dt>${kk}</dt><dd>${v}</dd></div>`).join('')}</dl></div>
+    <div class="yc-meta">${esc(c.city)} · ${esc(c.work)}<br>${esc(c.who)}</div>
+    <button class="write" id="writeBtn">Write to yourself at ${a} ${ICON.arrow}</button>`;
+  yc.hidden = false;
+  const w = yc.offsetWidth, h = yc.offsetHeight;
+  let x = cx + 20, yy = cy - 70;
+  if (x + w > L.W - 16) x = cx - 20 - w;
+  if (L.narrow) x = (L.W - w)/2;
+  yy = clamp(yy, L.legendB + 6, L.H - h - 14);
+  yc.style.left = x + 'px'; yc.style.top = yy + 'px';
+  yc.style.transformOrigin = `${cx - x}px ${cy - yy}px`;
+  if (!RM) gsap.fromTo(yc, {opacity:0, scale:.94, filter:'blur(3px)'}, {opacity:1, scale:1, filter:'blur(0px)', duration:.5, ease:'power3.out', clearProps:'filter'}); else yc.style.opacity = 1;
+  $('.xbtn', yc).addEventListener('click', ev => { ev.stopPropagation(); closeCards(true); });
+  $('#writeBtn').addEventListener('click', ev => { ev.stopPropagation(); openLetter(l, y); });
+  yc.onclick = ev => ev.stopPropagation();
+}
+function closeCards(resume){
+  if (!yc.hidden){ yc.hidden = true; if (st.everEnded && !st.moment) setFocus(null); }
+  closeWhy();
+  if (resume && st.wasPlaying && st.mode === 'play'){ st.playing = true; syncPlay(); }
+  st.wasPlaying = false;
+}
+const letterEl = $('#letter');
+function openLetter(l, y){
+  const a = y - P0, c = chapterAt(l, y);
+  const paras = (l.id === 'path' && st.alt > .5) ? l.altLetter : l.letter;
+  const month = ['January','March','April','June','September','October','November'][y % 7];
+  letterEl.style.setProperty('--c', `var(--${l.id})`);
+  letterEl.innerHTML = `<div class="lt-top"><span class="k">${l.name} · a letter</span><button class="xbtn" id="letterX" aria-label="Close letter">${ICON.x}</button></div>
+    <div class="you-wrote"><span class="k">You wrote</span><input id="ask" value="Was it worth it?" aria-label="Your question to yourself at ${a}"></div>
+    <div class="dateline">${esc(c.city)}, ${month} ${y}</div>
+    <p class="salut">Dear 25-year-old me,</p>
+    <div id="lbody">${paras.map(p => `<p>${wrapWords(p)}</p>`).join('')}</div>
+    <p class="sign">Alex, ${a}</p>
+    <div class="slips" aria-label="Ask a follow-up"><button style="--r:-1.2deg">What did it cost?</button><button style="--r:.8deg">Was it worth it?</button><button style="--r:-.5deg">What should I start this week?</button></div>
+    <p class="slip-note" id="slipNote" hidden>In the real app, Alex at ${a} writes back to this. The prototype has one letter per life.</p>`;
+  letterEl.hidden = false; yc.hidden = true;
+  letterEl.style.top = ($("#top").getBoundingClientRect().bottom + 6) + "px";
+  if (!RM) gsap.fromTo(letterEl, {opacity:0, x:28}, {opacity:1, x:0, duration:.6, ease:'power3.out'}); else letterEl.style.opacity = 1;
+  reveal($('#lbody'), {delay:.45, stagger:.022, dur:.7, blur:5, y:0});
+  gsap.fromTo($('.sign', letterEl), {opacity:0}, {opacity:1, duration:.8, delay: RM ? 0 : .45 + $$('#lbody .w').length*.022});
+  $('#letterX').addEventListener('click', closeLetter);
+  $$('.slips button', letterEl).forEach(b => b.addEventListener('click', () => { $('#ask').value = b.textContent; $('#slipNote').hidden = false; reveal($('#lbody'), {stagger:.015, dur:.5, blur:4, y:0}); }));
+  $('#ask').addEventListener('keydown', ev => { if (ev.key === 'Enter'){ ev.preventDefault(); $('#slipNote').hidden = false; reveal($('#lbody'), {stagger:.015, dur:.5, blur:4, y:0}); } });
+  letterEl.onclick = ev => ev.stopPropagation();
+}
+function closeLetter(){ if (letterEl.hidden) return; if (st.everEnded && !st.moment) setFocus(null); gsap.to(letterEl, {opacity:0, x:20, duration:.3, onComplete:() => { letterEl.hidden = true; gsap.set(letterEl, {x:0}); }}); }
+
+/* ============================== CONTROLS ============================== */
+const playBtn = $('#play');
+function syncPlay(){
+  const on = st.playing && st.mode === 'play';
+  playBtn.innerHTML = on ? ICON.pause : ICON.play;
+  playBtn.setAttribute('aria-label', on ? 'Pause' : (st.everEnded ? 'Play again from 2026' : 'Play'));
+}
+function togglePlay(){
+  if (st.mode === 'opening'){ if (st.waitBegin){ split(); hideOpening(); startPlay(true); } else skipOpening(); return; }
+  if (st.mode === 'pause' || st.mode === 'reroute') return;
+  if (st.everEnded || st.year >= Y1 - 1e-6){ restartPlayback(); return; }
+  if (st.moment === 'turn') endTurn();
+  st.mode = 'play'; st.playing = !st.playing; st.prev = st.year;
+  if (st.playing){ hideSlice(); closeCards(); st.rate = 1; }
+  syncPlay();
+}
+function restartPlayback(){
+  st.everEnded = false; st.focus = null; const an0 = $("#axisNote"); if (an0) an0.textContent = "forty-five summers, one hairline each"; st.year = Y0; st.prev = Y0; st.lastInt = null;
+  LIVES.forEach(l => { l.ll.classList.remove('mouth'); l.llH = null; l.mleader.setAttribute('opacity', 0); gsap.killTweensOf(l.mleader); l.mleader.style.opacity = 0; l.head.style.opacity = 1; });
+  $('#endnote').hidden = true; delete document.body.dataset.focus;
+  st.capDirty = true; ageCaptions();
+  startPlay(true);
+}
+function resetAll(){
+  if (opTL){ opTL.kill(); opTL = null; }
+  if (turnState) endTurn();
+  gsap.killTweensOf(st); gsap.globalTimeline.getChildren(true, true, true).forEach(c => c.kill());
+  st.playing = false; st.rate = 1; st.alt = 0; st.answered = false; st.pauseSkipped = false; st.turnDone = false;
+  st.everEnded = false; st.focus = null; st.split = false; st.summersOn = false; st.moment = null; st.forecastOn = false; st.yourQuote = null;
+  { const an1 = $("#axisNote"); if (an1){ gsap.killTweensOf(an1); an1.textContent = "forty-five summers, one hairline each"; an1.style.opacity = 1; } }
+  st.lens = 'happiness'; st.fromLens = 'happiness'; st.lensT = 1; st.fromLo = R.happiness.lo; st.fromHi = R.happiness.hi; st.famOp = 0;
+  LIVES.forEach(l => { G[l.id].fromV = null; if (l.alt){ l.bg.set(y => .9 - .42*heavy(l,y)); l.mg.set(y => .95*heavy(l,y)); } });
+  syncLensChips();
+  ['#veil','#pause','#waiting','#summary','#endnote','#why','#yearcard','#letter','#slice','#tip'].forEach(s => $(s).hidden = true);
+  st.slice = false;
+  $('#pause').style.opacity = 1;
+  $('#veil').style.opacity = 1;
+  delete document.body.dataset.focus;
+  buildRail();
+  threadsG.innerHTML = ''; hoverThreads = [];
+  $('#playhead').setAttribute('opacity', 0); phEl.hidden = true;
+  $('#knotG').setAttribute('opacity', 0);
+  $('#ghostOld').style.opacity = 0; $('#forecast').style.opacity = 0;
+  PAST.marks.forEach(m => { m.popped = false; m.g.setAttribute('opacity', 0); gsap.killTweensOf(m.g); m.g.style.opacity = ''; });
+  LIVES.forEach(l => { gsap.killTweensOf(l.head); l.head.style.opacity = 0; l.ll.style.opacity = 0; l.ll.classList.remove('mouth'); l.mleader.setAttribute('opacity', 0); l.mleader.style.opacity = 0; l.ring.setAttribute('opacity', 0); l.events.forEach(e => { if (e.shown){ e.shown = false; hideEvent(e); } }); });
+  $$('.summer').forEach(s => { s.style.opacity = 0; s.classList.remove('spent'); });
+  st.lastInt = null; st.dirty = true;
+}
+function setSpeed(s){ st.speed = s; $$('#speed button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.speed === s))); }
+function syncLensChips(){ $$('#lenses button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lens === st.lens))); }
+function setLens(ln){
+  if (ln === st.lens && st.lensT >= 1) return;
+  LIVES.forEach(l => { G[l.id].fromV = Float32Array.from(G[l.id].v); });
+  st.fromLo = st.curLo; st.fromHi = st.curHi; st.fromLens = st.lens; st.lens = ln; st.lensT = 0;
+  syncLensChips();
+  gsap.killTweensOf(st, 'lensT,famOp');
+  gsap.to(st, {lensT:1, duration: RM ? .01 : 1.15, ease:'power2.inOut', onUpdate:() => { st.dirty = true; }, onComplete:() => { st.fromLens = st.lens; st.dirty = true; }});
+  gsap.to(st, {famOp: ln === 'people' ? 1 : 0, duration: RM ? .01 : .9, onUpdate:() => { st.dirty = true; }});
+  LIVES.forEach(l => l.events.forEach(e => e.cw = null));
+}
+function setLook(look){
+  document.documentElement.setAttribute('data-look', look);
+  try { localStorage.setItem('delta-look', look); } catch(e){}
+  syncLook();
+}
+function currentLook(){
+  const a = document.documentElement.getAttribute('data-look'); if (a) return a;
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'dark') return 'night'; if (t === 'light') return 'paper';
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'paper';
+}
+function syncLook(){ const c = currentLook(); $$('#looks button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.look === c))); }
+function setType(t){
+  if (t === 'b') document.documentElement.setAttribute('data-type', 'b'); else document.documentElement.removeAttribute('data-type');
+  try { localStorage.setItem('delta-type', t); } catch(e){}
+  $$('#types button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === t)));
+  const re = () => { LIVES.forEach(l => { l.llH = null; l.events.forEach(e => e.cw = null); }); layout(); };
+  requestAnimationFrame(re); if (document.fonts) document.fonts.ready.then(re);
+}
+function scrubTo(y, fromRange){
+  if (!st.split || st.mode === 'pause' || st.mode === 'reroute' || st.mode === 'opening') return;
+  if (st.moment === 'turn') endTurn();
+  st.playing = false; if (st.mode !== 'ended') st.mode = 'play'; syncPlay();
+  st.year = clamp(y, Y0, Y1); st.prev = st.year;
+  showSlice(); closeCards();
+  if (!st.everEnded && st.year >= Y1 - 1e-6) runEnd();
+}
+
+/* events */
+$('#skip').addEventListener('click', skipOpening);
+playBtn.addEventListener('click', ev => { ev.stopPropagation(); togglePlay(); });
+$('#replay').addEventListener('click', ev => { ev.stopPropagation(); playOpening(); });
+$$('#speed button').forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.speed)));
+$$('#lenses button').forEach(b => b.addEventListener('click', () => setLens(b.dataset.lens)));
+$$('#looks button').forEach(b => b.addEventListener('click', () => setLook(b.dataset.look)));
+$$('#types button').forEach(b => b.addEventListener('click', () => setType(b.dataset.type)));
+scrub.addEventListener('pointerdown', () => { st.scrubDrag = true; st.scrubbing = true; });
+scrub.addEventListener('input', () => scrubTo(+scrub.value, true));
+window.addEventListener('pointerup', () => { st.scrubDrag = false; st.scrubbing = false; });
+function phDrag(ev){
+  if (!st.split || st.mode === 'pause' || st.mode === 'reroute') return;
+  ev.preventDefault(); ev.stopPropagation();
+  st.scrubbing = true;
+  const move = e => scrubTo(Xinv(e.clientX));
+  const up = () => { st.scrubbing = false; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  move(ev);
+}
+phEl.addEventListener('pointerdown', phDrag);
+phHit.addEventListener('pointerdown', phDrag);
+phEl.addEventListener('keydown', ev => { if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft'){ ev.preventDefault(); scrubTo(Math.floor(st.year) + (ev.key === 'ArrowRight' ? 1 : -1)); } });
+$('#answer').addEventListener('keydown', ev => { if (ev.key === 'Enter'){ ev.preventDefault(); submitAnswer(ev.target.value); } });
+$('#sample').addEventListener('click', () => { const a = $('#answer'); a.value = SAMPLE; a.focus(); gsap.delayedCall(RM ? .1 : .8, () => submitAnswer(a.value)); });
+$('#skipq').addEventListener('click', skipPause);
+document.addEventListener('click', () => { if (!yc.hidden || (!whyEl.hidden && st.moment !== 'turn')) closeCards(true); });
+document.addEventListener('keydown', ev => {
+  const typing = ev.target && (ev.target.tagName === 'INPUT' && ev.target.type === 'text');
+  if (ev.key === 'Escape'){ if (!letterEl.hidden) closeLetter(); else closeCards(true); }
+  if (ev.key === ' ' && !typing && ev.target.tagName !== 'BUTTON'){ ev.preventDefault(); togglePlay(); }
+});
+let rz = null;
+window.addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(layout); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncLook);
+
+/* ============================== TICK ============================== */
+let lastT = performance.now();
+gsap.ticker.add(() => {
+  const now = performance.now(), dt = Math.min(now - lastT, 50)/1000; lastT = now;
+  if (st.mode === 'play' && st.playing && !st.scrubbing){
+    const prev = st.year;
+    st.year += dt * st.speed * st.rate / YEAR_SEC;
+    if (!st.turnDone && prev < 2029 && st.year >= 2029){ st.turnDone = true; runTurn(); }
+    if (!st.answered && !st.pauseSkipped && !st.moment && prev < 2031 && st.year >= 2031){ runPause(); }
+    else if (!st.answered && !st.pauseSkipped && st.moment && st.year >= 2031 && prev < 2031){ st.year = 2030.99; }
+    if (st.year >= Y1){ runEnd(); }
+  }
+  frame();
+});
+
+/* ============================== INIT ============================== */
+try { const lk = localStorage.getItem('delta-look'); if (lk) document.documentElement.setAttribute('data-look', lk); const ty = localStorage.getItem('delta-type'); if (ty === 'b') document.documentElement.setAttribute('data-type','b'); } catch(e){}
+$$('#types button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.type === (document.documentElement.getAttribute('data-type') === 'b' ? 'b' : 'a'))));
+syncLook();
+buildMurk(); buildRivers(); buildEvents(); buildLabels(); buildPastMarks(); buildOdo(); buildRail();
+layout(); setOdo(P0); syncPlay();
+const go = () => { layout(); playOpening(); };
+if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 900))]).then(go); else go();
+window.__delta = {st, skipOpening, setLens, setLook, runEnd, scrubTo};
+})();
+</script>

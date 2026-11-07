@@ -1,0 +1,1085 @@
+<title>Four Horizons</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&display=swap">
+<style>
+/* Layout: one framed plate of four stacked horizons (canvas), a "Your Words" rail on the left,
+   a transport bar under the plate. Three looks (paper / night / woodcut) recolor every token live. */
+:root{
+  --bg:#F2ECDF; --bg-2:#E8E0CF; --card:#F7F2E7; --rule:#CFC6B2;
+  --ink:#1D1B17; --ink-2:#5A554B; --pencil:#9A9384;
+  --l0:#50545A; --l1:#2E4A9E; --l2:#2F7D78; --l3:#C2412D;
+  --sky-a:#F4EEE2; --sky-b:#EBDDC4; --storm:#B7B1A4; --sun:#E7B45C; --window:#E2A13A; --accent:#C98A1E;
+  --serif:'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --mono:'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  color-scheme: light;
+}
+:root[data-look="night"]{
+  --bg:#0D1221; --bg-2:#141A2D; --card:#141B30; --rule:#2B3452;
+  --ink:#ECE5D6; --ink-2:#9EA5BA; --pencil:#59617E;
+  --l0:#B4BAC4; --l1:#93A8F2; --l2:#62C3B8; --l3:#F2826A;
+  --sky-a:#0F1630; --sky-b:#2A3557; --storm:#3B4560; --sun:#F3E6BE; --window:#F7C46A; --accent:#F0B34A;
+  color-scheme: dark;
+}
+:root[data-look="wood"]{
+  --bg:#EEE6D3; --bg-2:#E3D8C0; --card:#F3ECDC; --rule:#1C1813;
+  --ink:#1C1813; --ink-2:#4B4337; --pencil:#857B6A;
+  --l0:#1C1813; --l1:#22306E; --l2:#1D4C45; --l3:#A12C1C;
+  --sky-a:#EEE6D3; --sky-b:#EEE6D3; --storm:#1C1813; --sun:#1C1813; --window:#EEE6D3; --accent:#A12C1C;
+  color-scheme: light;
+}
+:root[data-font="b"]{
+  --serif:'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --mono:'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible{outline:1.5px solid var(--ink);outline-offset:3px}
+
+#app{height:100%;display:grid;grid-template-columns:clamp(220px,19vw,290px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;column-gap:22px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 12px}
+
+/* header */
+#top{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:12px}
+.brand{display:flex;align-items:baseline;gap:14px;min-width:0;flex-wrap:wrap}
+.brand h1{margin:0;font:400 20px/1.1 var(--serif);letter-spacing:-.005em}
+.brand h1 em{font-style:italic}
+.brand span{font:500 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.switches{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.sw-label{font:500 10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin-right:6px}
+.seg{display:inline-flex;align-items:center;border:1px solid var(--rule);border-radius:2px;background:var(--card)}
+.seg button{white-space:nowrap;border:0;background:transparent;cursor:pointer;padding:8px 12px;display:inline-flex;align-items:center;gap:8px;font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.seg button + button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.dot{width:11px;height:11px;border-radius:50%;border:1px solid currentColor;flex:none}
+.d-paper{background:#F2ECDF;box-shadow:inset -3px -3px 0 #50545A}
+.d-night{background:#0D1221;box-shadow:inset -3px -3px 0 #F3E6BE}
+.d-wood{background:repeating-linear-gradient(0deg,#1C1813 0 1px,#EEE6D3 1px 3px)}
+.f-a{font-family:'Newsreader',Georgia,serif;text-transform:none;letter-spacing:0;font-size:13px}
+.f-b{font-family:'Fraunces',Georgia,serif;text-transform:none;letter-spacing:0;font-size:13px}
+
+/* rail */
+#rail{grid-column:1;grid-row:2/4;overflow:auto;padding-block:6px 64px;display:flex;flex-direction:column;gap:0;min-width:0;scrollbar-width:thin}
+.rail-h{font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);display:flex;justify-content:space-between;padding-bottom:8px}
+.rail-sub{font:italic 400 14px/1.4 var(--serif);color:var(--ink-2);margin:0 0 14px;text-wrap:pretty}
+.note{position:relative;padding:12px 16px 12px 0;border-top:1px solid var(--rule);transition:background .4s}
+.note q{display:block;font:italic 400 16.5px/1.36 var(--serif);quotes:"\201C" "\201D";color:var(--ink)}
+.note .meta{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font:500 10px/1.2 var(--mono);letter-spacing:.05em;color:var(--ink-2)}
+.note .pin{position:absolute;right:0;top:22px;width:7px;height:7px;border-radius:50%;border:1px solid var(--ink-2);background:var(--bg);transition:background .3s,border-color .3s,transform .3s}
+.note.lit q{color:var(--hl)}
+.note.lit .pin{background:var(--hl);border-color:var(--hl);transform:scale(1.5)}
+.note.lit .meta b{color:var(--hl)}
+.note.mine q{font-style:normal}
+.note .meta b{font-weight:500}
+.corner{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;font:500 9.5px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);background:var(--bg);border:1px solid var(--rule);padding:6px 8px;max-width:calc(clamp(220px,19vw,290px) - 4px)}
+
+/* stage */
+#stage{grid-column:2;grid-row:2;position:relative;overflow:hidden;border:1px solid var(--rule);background:var(--bg-2);min-height:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+#ov{position:absolute;inset:0;pointer-events:none}
+.blabel{position:absolute;left:0;top:0;display:flex;align-items:center;gap:9px;white-space:nowrap;will-change:transform}
+.blabel::before{content:"";width:18px;height:2px;background:var(--c)}
+.blabel b{font:500 15px/1 var(--serif);color:var(--c);letter-spacing:.005em}
+.blabel i{font:500 9.5px/1 var(--mono);font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.cap,.verdict{position:absolute;left:0;top:0;max-width:min(300px,52%);will-change:transform;visibility:hidden;opacity:0}
+.cap{font:italic 400 16px/1.3 var(--serif);color:var(--ink);text-wrap:balance;background:color-mix(in srgb,var(--bg) 78%,transparent);padding:4px 8px 5px;margin-left:-8px;border-radius:1px}
+.cap small,.verdict small{display:block;font:500 9.5px/1 var(--mono);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--c);margin-bottom:5px}
+.verdict{font:italic 300 clamp(18px,1.75vw,25px)/1.2 var(--serif);color:var(--ink);max-width:min(420px,60%);text-wrap:balance;background:color-mix(in srgb,var(--bg) 80%,transparent);padding:5px 9px 7px;margin-left:-9px}
+#open{position:absolute;left:6%;right:6%;top:12%;text-align:center;color:var(--ink)}
+#open p{margin:0;font-weight:300;font-size:clamp(28px,3.9vw,56px);line-height:1.12;letter-spacing:-.01em;font-variation-settings:'opsz' 72}
+#open p + p{margin-top:.18em}
+#open p.l3{font-style:italic;font-size:clamp(22px,2.5vw,36px);margin-top:.5em;color:var(--ink-2)}
+.w{display:inline-block;white-space:pre}
+#skip{position:absolute;right:14px;bottom:12px;pointer-events:auto;background:none;border:0;cursor:pointer;font:500 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);padding:8px}
+#hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font:500 10.5px/1.4 var(--mono);letter-spacing:.06em;color:var(--ink-2);background:var(--card);border:1px solid var(--rule);padding:7px 10px;white-space:nowrap;visibility:hidden;opacity:0;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#summary{position:absolute;right:14px;top:10px;max-width:calc(100% - 330px);display:flex;gap:10px;align-items:baseline;justify-content:flex-end;flex-wrap:wrap;visibility:hidden;opacity:0;text-align:right}
+#summary b{font:500 9.5px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--l0);border:1px solid var(--l0);padding:4px 6px}
+#summary span{font:italic 400 16px/1.35 var(--serif);color:var(--ink);background:var(--card);padding:3px 8px}
+#slice{position:absolute;bottom:10px;left:0;transform:translateX(-50%);font:500 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--bg);background:var(--ink);padding:5px 8px;white-space:nowrap;visibility:hidden;opacity:0}
+
+.card{position:absolute;background:var(--card);border:1px solid var(--rule);border-radius:2px;pointer-events:auto;visibility:hidden;opacity:0;box-shadow:0 10px 30px -18px rgba(0,0,0,.35)}
+#why{width:min(370px,calc(100% - 24px));padding:14px 18px 12px}
+.card .k{font:500 9.5px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.card .row{display:grid;gap:5px;padding:10px 0;border-top:1px solid var(--rule)}
+.card .row:first-of-type{border-top:0;padding-top:4px}
+.card .v{font:400 16px/1.35 var(--serif);color:var(--ink);text-wrap:pretty}
+.card .v.q{font-style:italic;color:var(--l0)}
+.card .src{font:500 10px/1.3 var(--mono);color:var(--ink-2)}
+.card .foot{display:flex;align-items:center;gap:12px;border-top:1px solid var(--rule);padding-top:10px}
+.tbtn{background:none;border:0;cursor:pointer;padding:6px 0;font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+.tbtn:hover{text-decoration:underline;text-underline-offset:4px}
+.timer{flex:1;height:1px;background:var(--rule);position:relative;overflow:hidden}
+.timer i{position:absolute;inset:0;background:var(--ink);transform-origin:left;transform:scaleX(0)}
+
+#ask{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding-inline:clamp(20px,9%,140px);pointer-events:auto;visibility:hidden;opacity:0}
+#ask .k{font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:18px}
+#ask h2{margin:0;font-weight:300;font-size:clamp(22px,2.55vw,38px);line-height:1.2;letter-spacing:-.005em;max-width:32ch;text-wrap:balance;font-variation-settings:'opsz' 60}
+#ask h2 em{font-style:italic}
+.typeline{margin-top:30px;max-width:900px;position:relative}
+#answer{display:block;width:100%;background:transparent;border:0;outline:0;padding:4px 0 8px;font:italic 400 clamp(20px,2.1vw,30px)/1.3 var(--serif);color:var(--l0);caret-color:var(--l0)}
+#answer::placeholder{color:var(--ink-2);opacity:.55}
+.caretline{height:1px;background:var(--ink);transform-origin:left}
+.typehint{margin-top:10px;font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.fly{position:fixed;left:0;top:0;z-index:30;pointer-events:none;font-style:italic;font-family:var(--serif);color:var(--l0);transform-origin:0 0;white-space:normal}
+
+#yc{width:min(320px,calc(100% - 24px));padding:14px 16px 12px}
+#yc h3{margin:6px 0 8px;font:400 22px/1.15 var(--serif)}
+#yc h3 em{font-style:italic}
+#yc p{margin:0;font:400 15.5px/1.42 var(--serif);color:var(--ink);text-wrap:pretty}
+#yc p + p{margin-top:2px;color:var(--ink-2)}
+#yc .foot{margin-top:12px;justify-content:space-between}
+.x{background:none;border:0;cursor:pointer;color:var(--ink-2);padding:4px;display:grid;place-items:center}
+
+#letter{left:50%;top:50%;width:min(580px,calc(100% - 28px));max-height:calc(100% - 28px);overflow:auto;padding:28px clamp(20px,4vw,42px) 22px;background:var(--card);
+  background-image:repeating-linear-gradient(0deg,transparent 0 29px,color-mix(in srgb,var(--rule) 45%,transparent) 29px 30px)}
+#letter .date{font:500 10.5px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);text-align:right}
+#letter .sal{font:italic 400 20px/1.5 var(--serif);margin:18px 0 6px}
+#letter .body{font:400 17px/1.75 var(--serif);color:var(--ink);text-wrap:pretty}
+#letter .body p{margin:0 0 .6em}
+#letter .sig{font:italic 400 19px/1.4 var(--serif);text-align:right;margin-top:8px;color:var(--c)}
+.slips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--rule)}
+.slip{background:var(--bg);border:1px solid var(--rule);padding:7px 10px;font:500 10.5px/1 var(--mono);letter-spacing:.04em;color:var(--ink);cursor:pointer;border-radius:1px}
+.slip:nth-child(1){transform:rotate(-1.2deg)}.slip:nth-child(2){transform:rotate(.8deg)}.slip:nth-child(3){transform:rotate(-.4deg)}
+.slipnote{font:500 10px/1.4 var(--mono);color:var(--ink-2);margin-top:10px;min-height:1.4em}
+#letter .lfoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+
+/* transport */
+#controls{grid-column:2;grid-row:3;display:flex;align-items:center;gap:14px;padding-block:12px 0;min-width:0}
+.ibtn{width:38px;height:38px;flex:none;border-radius:50%;border:1px solid var(--rule);background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer;transition:background .2s}
+.ibtn:hover{background:var(--bg-2)}
+.ibtn svg{width:16px;height:16px}
+.speeds .seg button{padding:8px 10px}
+.scrub{flex:1;min-width:140px;position:relative;padding-top:16px}
+#ticks{position:absolute;left:0;right:0;top:0;width:100%;height:16px;display:block}
+#scrub{display:block;width:100%;margin:0;height:22px;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize}
+#scrub::-webkit-slider-runnable-track{height:1px;background:var(--ink-2)}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;width:4px;height:20px;margin-top:-10px;background:var(--ink);border-radius:1px;border:0}
+#scrub::-moz-range-track{height:1px;background:var(--ink-2)}
+#scrub::-moz-range-thumb{width:4px;height:20px;background:var(--ink);border:0;border-radius:1px}
+.scale{display:flex;justify-content:space-between;font:500 9.5px/1 var(--mono);letter-spacing:.06em;color:var(--ink-2);margin-top:2px}
+.odo{flex:none;display:flex;align-items:center;font:500 24px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:.02em}
+.odo .dcol{display:inline-block;height:1em;overflow:hidden;line-height:1}
+.odo .dstrip{display:block;will-change:transform}
+.odo .dstrip span{display:block;height:1em;line-height:1}
+.odo .sep{margin:0 .38em;color:var(--ink-2)}
+.odo-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+.odo-wrap small{font:500 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+
+#threads{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:20;overflow:visible}
+
+@media (max-width:820px){
+  body{overflow:auto}
+  html,body{height:auto}
+  #app{height:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto auto}
+  #stage{grid-column:1;grid-row:2;height:64svh;min-height:400px}
+  #controls{grid-column:1;grid-row:3;flex-wrap:wrap;gap:10px}
+  .scrub{order:5;flex-basis:100%}
+  #rail{grid-column:1;grid-row:4;overflow:visible;padding-block:18px 20px}
+  .corner{position:static;margin-top:16px;max-width:none;align-self:flex-start}
+  .verdict{max-width:62%}
+  .cap{max-width:58%;font-size:14px}
+  .blabel i{display:none}
+  .pair{display:none}
+  .scale .mid{display:none}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+
+<div id="app">
+  <header id="top">
+    <div class="brand">
+      <h1>Every Life You Have <em>Left</em></h1>
+      <span>Alex · 25 · Durham, NC · today is 2026</span>
+    </div>
+    <div class="switches">
+      <div style="display:flex;align-items:center"><span class="sw-label">Look</span>
+        <div class="seg" role="group" aria-label="Look">
+          <button type="button" id="lk-paper" data-look="paper" aria-pressed="true"><i class="dot d-paper"></i>Paper</button>
+          <button type="button" id="lk-night" data-look="night" aria-pressed="false"><i class="dot d-night"></i>Night</button>
+          <button type="button" id="lk-wood" data-look="wood" aria-pressed="false"><i class="dot d-wood"></i>Woodcut</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center"><span class="sw-label">Type</span>
+        <div class="seg" role="group" aria-label="Font pairing">
+          <button type="button" id="ft-a" data-font="a" aria-pressed="true"><span class="f-a">Newsreader</span><span class="pair">+ Plex</span></button>
+          <button type="button" id="ft-b" data-font="b" aria-pressed="false"><span class="f-b">Fraunces</span><span class="pair">+ JetBrains</span></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <aside id="rail" aria-label="Your Words">
+    <div class="rail-h"><span>Your Words</span><span id="railcount">5 notes</span></div>
+    <p class="rail-sub">What you told me. Every turn in the four lives is pinned to one of these lines.</p>
+    <div id="notes"></div>
+    <div class="corner">Prototype · Four Horizons · sample person, no AI</div>
+  </aside>
+
+  <main id="stage" aria-label="Four horizons">
+    <canvas id="cv"></canvas>
+    <div id="ov">
+      <div id="open" aria-live="polite"></div>
+      <div id="summary"><b>Changed from 2031</b><span id="sumtext"></span></div>
+      <div id="hint"></div>
+      <div id="slice"></div>
+      <div class="card" id="why" role="dialog" aria-label="Why this happened">
+        <div class="row"><span class="k">What happened · 2029 · age 28</span><span class="v">You turn down the Singapore transfer and stay in Durham, at the bank.</span></div>
+        <div class="row"><span class="k">Because you said</span><span class="v q">“I can’t say no to my mom.”</span></div>
+        <div class="row"><span class="k">And the world says</span><span class="v">1 in 4 US adults is a family caregiver. Staying close is the common choice, not the weak one.</span><span class="src">AARP, 2025</span></div>
+        <div class="foot"><button type="button" class="tbtn" id="whygo">Keep walking →</button><span class="timer"><i id="whytimer"></i></span></div>
+      </div>
+      <div id="ask" role="dialog" aria-label="A question from 2031">
+        <div class="k">2031 · age 30 · the four of you stop</div>
+        <h2>It’s 2031. You’re 30. Your manager asks if you want to lead the new team, but it means weekends. Sam just asked you to take a painting class together. <em>What do you protect first?</em></h2>
+        <div class="typeline">
+          <input id="answer" type="text" autocomplete="off" spellcheck="false" aria-label="Your answer" placeholder="Start typing…">
+          <div class="caretline" id="caretline"></div>
+          <div class="typehint">Press Enter to answer</div>
+        </div>
+      </div>
+      <div class="card" id="yc" role="dialog" aria-label="A year in one life">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><span class="k" id="yck"></span><button type="button" class="x" id="ycx" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg></button></div>
+        <h3 id="ych"></h3>
+        <p id="yc1"></p><p id="yc2"></p>
+        <div class="foot" style="display:flex"><button type="button" class="tbtn" id="ycw"></button></div>
+      </div>
+      <div class="card" id="letter" role="dialog" aria-label="A letter from future you">
+        <div class="date" id="ldate"></div>
+        <div class="sal">Dear 25-year-old me,</div>
+        <div class="body" id="lbody"></div>
+        <div class="sig" id="lsig"></div>
+        <div class="slips"><button type="button" class="slip">What did it cost?</button><button type="button" class="slip">Was it worth it?</button><button type="button" class="slip">What should I start this week?</button></div>
+        <div class="slipnote" id="slipnote"></div>
+        <div class="lfoot"><span class="k" style="font:500 9.5px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)">Pre-written sample reply</span><button type="button" class="tbtn" id="lclose">Fold the letter</button></div>
+      </div>
+      <button type="button" id="skip">Skip intro ›</button>
+    </div>
+  </main>
+
+  <div id="controls">
+    <button type="button" class="ibtn" id="btnPlay" aria-label="Pause">
+      <svg id="icPause" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx=".6"/><rect x="9.5" y="2.5" width="3" height="11" rx=".6"/></svg>
+      <svg id="icPlay" viewBox="0 0 16 16" fill="currentColor" style="display:none"><path d="M4.5 2.6v10.8c0 .5.5.8.9.5l8.2-5.4c.4-.3.4-.8 0-1L5.4 2.1c-.4-.3-.9 0-.9.5z"/></svg>
+    </button>
+    <div class="speeds"><div class="seg" role="group" aria-label="Speed">
+      <button type="button" id="sp1" data-s="1" aria-pressed="true">1×</button><button type="button" id="sp2" data-s="2" aria-pressed="false">2×</button><button type="button" id="sp4" data-s="4" aria-pressed="false">4×</button>
+    </div></div>
+    <button type="button" class="ibtn" id="btnReplay" aria-label="Replay from the start">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+    </button>
+    <div class="scrub">
+      <canvas id="ticks" aria-hidden="true"></canvas>
+      <input type="range" id="scrub" min="2026" max="2071" step="0.02" value="2026" aria-label="Year">
+      <div class="scale"><span>2026 · 25 · you are here</span><span class="mid">2041 · 40</span><span class="mid">2056 · 55</span><span>2071 · 70</span></div>
+    </div>
+    <div class="odo-wrap"><small>year · age</small><div class="odo" id="odo"></div></div>
+  </div>
+</div>
+<svg id="threads" aria-hidden="true"></svg>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const isShown=e=>{ e=typeof e==='string'?$(e):e; const c=getComputedStyle(e); return c.visibility!=='hidden'&&+c.opacity>.02; };
+const root=document.documentElement;
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const gs=window.gsap;
+const D=x=>RM?0:x;
+const NS='http://www.w3.org/2000/svg';
+
+/* ------------------------------------------------------------------ data (PERSONA.md) */
+const NOW=2026, BIRTH=2001, END=2071, SPY=0.9, TP_Y=2029.4, PAUSE_Y=2031;
+const QUOTES=[
+  {id:'q1',text:"I can’t say no to my mom.",tag:'family'},
+  {id:'q2',text:"Money scares me. I still have $28k in loans.",tag:'money'},
+  {id:'q3',text:"If nobody judged me, I’d go to art school and draw for a living.",tag:'wanting'},
+  {id:'q4',text:"My biggest fear is waking up at 40 in the same cubicle.",tag:'fear'},
+  {id:'q5',text:"Singapore offered me a transfer and I haven’t answered.",tag:'the offer'}
+];
+const V2026=["7:40, the 9 bus to the bank. Mom calls at lunch, like always.","You sketch for twenty minutes after dinner, then stop."];
+const LIVES=[
+{ key:'path', name:'Your Path', sub:'if nothing changes', seed:3.1,
+  verdict:'Steady, and quieter than you planned.', verdictAlt:'Steady, with color in it.',
+  regions:[[0,'durham']],
+  k:{ happy:[[2026,52],[2029,47],[2033,62],[2037,66],[2040,50],[2041,34],[2043,55],[2048,52],[2052,64],[2058,60],[2066,66],[2071,64]],
+      mental:[[2026,55],[2029,48],[2033,64],[2037,60],[2040,40],[2041,18],[2042,32],[2043,58],[2048,50],[2052,66],[2071,68]],
+      wealth:[[2026,22],[2031,32],[2035,42],[2040,52],[2043,46],[2050,56],[2066,62],[2071,60]],
+      career:[[2026,35],[2031,50],[2040,58],[2043,48],[2050,55],[2071,42]],
+      risk:[[2026,28],[2029,46],[2030,20],[2040,30],[2041,55],[2043,48],[2045,22],[2071,14]] },
+  kAlt:{ happy:[[2031,60],[2033,66],[2037,70],[2040,62],[2041,52],[2043,62],[2044,72],[2048,64],[2052,72],[2058,68],[2066,72],[2071,74]],
+      mental:[[2031,62],[2035,68],[2040,58],[2041,44],[2042,54],[2044,70],[2052,72],[2071,74]],
+      risk:[[2031,24],[2041,34],[2044,30],[2071,14]] },
+  comp:{ partner:{m:2033}, child:{b:2037,l:2058}, mom:{j:2048} },
+  ev:[ {y:TP_Y,c:'You turn down Singapore.',q:'q1',tp:1},
+       {y:2033,c:'You meet Sam.'},{y:2037,c:'Your first child is born.'},
+       {y:2041,c:'The heavy year. Same desk, fifteen years on.',q:'q4',only:'o'},
+       {y:2044,c:'A first small exhibition, at the library café.',q:'q6',only:'a'},
+       {y:2048,c:'Mom moves in.'},
+       {y:2052,c:'You paint again, on weekends.',only:'o'},{y:2052,c:'Saturdays still belong to the easel.',only:'a'},
+       {y:2058,c:'The kid leaves home.'},{y:2066,c:'You retire.'} ],
+  lm:[ {y:2026.6,L:'m',k:'bank',lab:'the bank'},{y:TP_Y,L:'n',k:'fork',lab:'Singapore'},
+       {y:2031.4,L:'m',k:'tower',s:1.25,lab:'senior analyst'},
+       {y:2031.75,L:'n',k:'easel',only:'a'},{y:2036.6,L:'n',k:'easel',only:'a'},{y:2041.6,L:'n',k:'easel',only:'a'},
+       {y:2043,L:'m',k:'college',lab:'community college'},
+       {y:2044,L:'m',k:'gallery',s:.8,lab:'first exhibition',only:'a',flag:1},
+       {y:2052.2,L:'n',k:'easel'},{y:2071.35,L:'n',k:'porch',s:1.45},{y:2070.55,L:'n',k:'easel',only:'a'} ],
+  vign:[[2026,...V2026],
+    [2029,"The Singapore email sits in a folder you never open.","Spreadsheets until six. Dinner at Mom’s on the way home."],
+    [2033,"Sam leaves coffee on the step before work.","After, the Eno trail, both phones left in the car."],
+    [2037,"Up at 5:50 with the baby. A meeting you won’t remember.","Sam reads aloud while you wash the bottles."],
+    [2041,"Eleven minutes in the bank’s garage before you go in.","Nobody notices. That’s the part that scares you."],
+    [2043,"Night class: twenty-two adults learning SQL, tired and kind.","You like being useful in a room again."],
+    [2048,"Mom’s tea at seven, her pills at eight.","The house is fuller and slower. You don’t mind."],
+    [2052,"Tuesday night you stretch Saturday’s canvas.","Your first painting in years is bad. You keep it."],
+    [2058,"The kid’s room is a guest room now.","A video call from the dorm at nine. Sam cries a little."],
+    [2066,"No alarm. Coffee on the porch, the same oak, a little thinner.","You paint the oak. It’s steadier than it used to be."]],
+  vignAlt:[[2031,"Tuesday is painting class. You leave at five, on purpose.","The new team goes to someone else. You sleep fine."],
+    [2041,"A hard year at the bank, but Tuesdays are still yours.","Ochre on your cuffs in a budget meeting."],
+    [2044,"Six small paintings on the library café wall.","Two sell. You frame the receipt."],
+    [2052,"Saturdays at the easel, the way it’s been for twenty years.","Sam brings coffee and says the sky is too blue. It is."]],
+  place:()=> 'Durham',
+  letter:["You keep asking if you’re doing it wrong. You’re not, exactly. You’re doing it carefully, which is different.",
+    "Answer Mom’s calls, but answer the other things too. The Singapore email is still in a folder I never open. I don’t regret staying. I regret how little I asked for after I stayed.",
+    "Buy the good paper. Use it on a weeknight. Nobody is coming to give you permission."],
+  letterAlt:["You kept the Tuesday class. I want you to know that it held.",
+    "The bad year at the bank still came, but it came to someone who had somewhere else to be on Tuesday night. That was the whole difference. Six paintings on a café wall. Two sold. I framed the receipt.",
+    "Protect the small thing first. The big things have plenty of people protecting them."] },
+{ key:'leap', name:'The Leap', sub:'you say yes', seed:7.7,
+  verdict:'Louder than you planned.',
+  regions:[[0,'durham'],[2027,'sg'],[2036,'lis']],
+  k:{ happy:[[2026,52],[2027,56],[2028,38],[2029,36],[2030,58],[2032,34],[2033,44],[2036,62],[2040,74],[2045,72],[2055,68],[2071,70]],
+      mental:[[2026,52],[2027,50],[2028,30],[2029,28],[2030,56],[2032,26],[2033,42],[2036,60],[2040,70],[2045,70],[2071,70]],
+      wealth:[[2026,22],[2027,42],[2031,52],[2032,24],[2034,16],[2038,30],[2040,44],[2045,60],[2071,66]],
+      career:[[2026,35],[2027,55],[2031,62],[2032,20],[2033,30],[2040,62],[2045,76],[2071,70]],
+      risk:[[2026,40],[2027,82],[2029,60],[2031,50],[2032,90],[2034,72],[2036,64],[2040,48],[2045,56],[2050,40],[2071,30]] },
+  comp:{ partner:{m:2030}, plane:1 },
+  ev:[ {y:2027.2,c:'You say yes to Singapore.',q:'q5'},{y:2032,c:'Laid off in a restructuring.'},{y:2036,c:'You move to Lisbon.'},
+       {y:2040,c:'Your first show.'},{y:2045,c:'You open a studio.'},{y:2051,c:'Commissions, finally steady.'},{y:2060,c:'Students come to the studio now.'} ],
+  lm:[ {y:2027.2,L:'n',k:'sign',lab:'Singapore'},{y:2028.2,L:'m',k:'tower',s:1.1},{y:2030.6,L:'m',k:'tower',s:1.5,lab:'regional office'},
+       {y:2040,L:'m',k:'gallery',lab:'first show',flag:1},{y:2045,L:'m',k:'studio',lab:'the studio'},{y:2071.35,L:'n',k:'studiohome',s:1.3} ],
+  vign:[[2026,...V2026],
+    [2027,"Dinner standing up at a hawker stall, 10:40 pm.","You call Mom from the MRT so the noise covers your voice."],
+    [2030,"Kopi at seven with someone who laughs at your sketches.","The city starts to feel like it has a door for you."],
+    [2032,"No badge to tap in. The severance email is still starred.","You draw on the balcony until the light goes."],
+    [2036,"Lisbon. Tram 28 rattles past the window at 8:15.","Three commissions due, and the rent is paid. Barely."],
+    [2040,"Hanging your own show with a borrowed drill.","Mom’s flight lands Thursday. You clean everything twice."],
+    [2045,"Keys to the studio. Sideways light at four.","Two students, one kiln, too much coffee."],
+    [2060,"Students fill the studio on Tuesdays now.","You teach them to draw the thing that scares them."]],
+  place:y=> y<2027?'Durham':y<2036?'Singapore':'Lisbon',
+  letter:["It was loud. The first two years in Singapore I ate dinner standing up and called Mom from the train so the noise would cover how I sounded.",
+    "Then it got better, then it fell apart, then I drew my way out of it. I’m writing from the studio. The light comes in sideways at four.",
+    "You’ll be scared of money for a decade. That part is true, and it passes."] },
+{ key:'careful', name:'The Careful Life', sub:'fear wins', seed:12.3,
+  verdict:'Safe, and you know exactly what it cost.',
+  regions:[[0,'durham']],
+  k:{ happy:[[2026,52],[2030,58],[2035,54],[2038,46],[2039,32],[2041,30],[2043,46],[2045,54],[2050,62],[2071,60]],
+      mental:[[2026,52],[2030,60],[2035,50],[2038,40],[2039,26],[2040,18],[2042,24],[2043,46],[2050,60],[2071,62]],
+      wealth:[[2026,22],[2030,34],[2035,52],[2045,80],[2055,88],[2071,94]],
+      career:[[2026,35],[2034,55],[2045,82],[2060,78],[2071,66]],
+      risk:[[2026,14],[2039,34],[2041,18],[2071,8]] },
+  comp:{ partner:{m:2029,e:2039}, friends:{m:2050} },
+  ev:[ {y:2030,c:'Debt paid off. You exhale.',q:'q2'},{y:2034,c:'Promoted. The view gets higher.'},{y:2039,c:'The marriage ends.'},
+       {y:2045,c:'Vice president.'},{y:2050,c:'Old friends, found again.'},{y:2058,c:'The most money of the four of you.'},{y:2064,c:'You never did pick up a brush.'} ],
+  lm:[ {y:2026.6,L:'m',k:'bank'},{y:2030,L:'n',k:'stone',lab:'$0 owed'},{y:2034.2,L:'m',k:'tower',s:1.35},
+       {y:2045,L:'m',k:'tower',s:1.95,lab:'VP',flag:1},{y:2050.25,L:'n',k:'bench'},{y:2071.4,L:'n',k:'manor',s:1.3} ],
+  vign:[[2026,...V2026],
+    [2030,"The loan portal says $0.00. You screenshot it.","You sleep eight hours for the first time in years."],
+    [2034,"A corner desk on fourteen. Lunch at your desk.","Home by seven. The TV fills the evening."],
+    [2039,"The other side of the bed is made, every morning.","You work late because it’s easier."],
+    [2045,"Vice president. Your calendar is full until June.","The house is quiet enough to hear the fridge."],
+    [2050,"Wings and trivia with people who knew you at twenty.","You laugh so hard you have to sit down."],
+    [2060,"The most money of the four of you, and a long driveway.","You walk it at dusk and count what it cost."]],
+  place:()=> 'Durham',
+  letter:["The loans were gone by thirty, and I have never slept better than that first night. I want you to have that.",
+    "I also want you to know what it bought: a big quiet house, a title, and a lot of evenings I can’t tell apart.",
+    "If you choose this, choose it on purpose. And call your friends before you need them. I waited too long. They forgave me anyway."] },
+{ key:'unjudged', name:'The Unjudged Life', sub:'nobody is watching', seed:18.9,
+  verdict:'Poorer on paper, richer every Tuesday.',
+  regions:[[0,'durham'],[2027,'city'],[2030,'durham']],
+  k:{ happy:[[2026,52],[2027,64],[2029,56],[2031,50],[2034,64],[2038,70],[2044,72],[2050,80],[2071,78]],
+      mental:[[2026,52],[2027,64],[2029,52],[2031,40],[2033,50],[2034,62],[2038,66],[2050,78],[2071,76]],
+      wealth:[[2026,22],[2027,8],[2033,10],[2035,22],[2045,34],[2050,42],[2071,44]],
+      career:[[2026,30],[2027,14],[2035,40],[2050,66],[2071,60]],
+      risk:[[2026,30],[2027,74],[2031,64],[2035,40],[2050,26],[2071,22]] },
+  comp:{ partner:{m:2034}, child:{b:2038,l:2057,v:2071.65} },
+  ev:[ {y:2027.2,c:'Art school, on loans.',q:'q3'},{y:2031.5,c:'Rent is late again. You draw anyway.'},{y:2035,c:'Your first picture book.'},
+       {y:2039,c:'A child. Less sleep, more color.'},{y:2044,c:'Sunday dinners at Mom’s, twenty minutes away.'},
+       {y:2050,c:'The book wins an award.'},{y:2058,c:'The kid moves out, and calls on Tuesdays.'},{y:2064,c:'Still drawing every morning.'} ],
+  lm:[ {y:2027.2,L:'n',k:'sign',lab:'MFA'},{y:2027.9,L:'m',k:'studio',s:.9,lab:'art school'},{y:2035,L:'m',k:'studio',s:.7,lab:'picture books'},
+       {y:2044.3,L:'n',k:'cottage'},{y:2050,L:'m',k:'gallery',lab:'the award',flag:1},{y:2071.35,L:'n',k:'cottage',s:1.45},{y:2070.6,L:'n',k:'easel'} ],
+  vign:[[2026,...V2026],
+    [2027,"Figure drawing at nine, a shift at the frame shop at two.","Ramen again. The loan letter goes in the drawer."],
+    [2031,"Rent is late. You draw anyway, in the window seat.","Mom drops off soup and pretends it was extra."],
+    [2035,"Proofs of your first picture book on the kitchen table.","You read it to yourself out loud, twice."],
+    [2038,"Drawing with one hand, rocking the cradle with a foot.","Your partner cooks. You do the bedtime voices."],
+    [2044,"Sunday dinners at Mom’s, twenty minutes away.","On Tuesday you’re still finishing the leftovers."],
+    [2050,"A gold sticker on the cover. You laugh at it.","Then you go back to the drawing board. Literally."],
+    [2058,"The kid calls every Tuesday from their own studio.","You both draw while you talk."]],
+  place:y=> (y>=2027&&y<2030)?'Baltimore':'Durham',
+  letter:["We were broke for seven years. I’m not going to pretend that was romantic. Rent was late, and the loans followed me around like a dog.",
+    "But I drew every single day, and somewhere in year eight it turned into a living. Mom comes on Sundays. The kid draws on the studio floor.",
+    "Poorer on paper. You know the rest."] }
+];
+const PAST=[ {y:2001.3,k:'house',lab:'born · 2001',hi:0},{y:2019.0,k:'sign',lab:'Durham · 2019',hi:1},
+             {y:2023.0,k:'chapel',lab:'graduated · 2023',hi:0},{y:2024.25,k:'office',lab:'first job · 2024',hi:1} ];
+
+/* ------------------------------------------------------------------ helpers */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,k)=>a+(b-a)*k;
+const smooth=k=>{k=clamp(k,0,1);return k*k*(3-2*k)};
+const ease3=k=>{k=clamp(k,0,1);return k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2};
+const frac=x=>x-Math.floor(x);
+const rnd=i=>frac(Math.sin(i*127.1+311.7)*43758.5453);
+function vn(x){const i=Math.floor(x),f=x-i,u=f*f*(3-2*f);return lerp(rnd(i),rnd(i+1),u)}
+function fbm(x){return vn(x)*.55+vn(x*2.1+5.3)*.3+vn(x*4.3+9.1)*.15}
+function kf(a,y){ if(y<=a[0][0])return a[0][1]; for(let i=1;i<a.length;i++){ if(y<=a[i][0]){const[y0,v0]=a[i-1],[y1,v1]=a[i];return v0+(v1-v0)*smooth((y-y0)/(y1-y0))}} return a[a.length-1][1]; }
+function key1(li,key,y,alt){ const L=LIVES[li]; let a=L.k[key]; if(alt&&L.kAlt&&L.kAlt[key]&&y>=PAUSE_Y)a=L.kAlt[key]; return kf(a,Math.max(y,NOW)); }
+function state(li,y,alt){ const o={}; for(const k in LIVES[li].k)o[k]=key1(li,k,y,alt); return o; }
+function shown(item,alt){ return !item.only || (item.only==='a'?alt:!alt); }
+function regionAt(L,y){ let r=L.regions[0][1]; for(const [yy,n] of L.regions) if(y>=yy) r=n; return r; }
+function hex(h){h=h.trim().replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255]}
+const mix=(a,b,k)=>[lerp(a[0],b[0],k),lerp(a[1],b[1],k),lerp(a[2],b[2],k)];
+const css=(c,a)=>a===undefined||a>=1?`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`:`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a.toFixed(3)})`;
+
+/* ------------------------------------------------------------------ tokens */
+let TOK={}, FONT={serif:'Georgia',mono:'monospace'};
+function readTokens(){
+  const cs=getComputedStyle(root), g=n=>hex(cs.getPropertyValue(n));
+  TOK={mode:root.dataset.look||'paper',bg:g('--bg'),bg2:g('--bg-2'),ink:g('--ink'),ink2:g('--ink-2'),pencil:g('--pencil'),rule:g('--rule'),
+    l:[g('--l0'),g('--l1'),g('--l2'),g('--l3')],skya:g('--sky-a'),skyb:g('--sky-b'),storm:g('--storm'),sun:g('--sun'),win:g('--window'),accent:g('--accent')};
+  FONT.serif=cs.getPropertyValue('--serif').trim(); FONT.mono=cs.getPropertyValue('--mono').trim();
+  makeVignette(); drawTicks();
+  $$('.note').forEach(n=>{ if(n.dataset.hl) n.style.setProperty('--hl',`var(--l${n.dataset.hl})`); });
+}
+function palette(i,ink){
+  const T=TOK,m=T.mode,c=T.l[i]; let p;
+  if(m==='night') p={far:mix(T.skyb,c,.30),mid:mix([22,28,48],c,.22),near:mix([10,13,25],c,.12),fig:[5,7,14],road:mix([30,38,62],c,.25),house:mix([16,20,36],c,.18),fore:[6,8,15],
+      win:T.win,unlit:[24,29,46],post:mix(c,T.bg,.25),rim:mix(c,[255,246,226],.55),outline:null,cloud:T.storm,rain:[160,175,205]};
+  else if(m==='wood') p={far:c,mid:c,near:c,fig:c,road:T.bg,house:c,fore:T.bg,win:T.bg,unlit:c,post:c,rim:null,outline:T.bg,cloud:T.bg,rain:c};
+  else p={far:mix(T.bg,c,.19),mid:mix(T.bg,c,.36),near:mix(T.bg,c,.6),fig:mix(c,[22,20,17],.22),road:mix(mix(T.bg,c,.52),T.bg,.42),house:mix(T.bg,c,.66),fore:mix(T.bg,c,.72),
+      win:T.win,unlit:mix(T.bg,c,.18),post:mix(T.bg,c,.8),rim:null,outline:null,cloud:mix(T.storm,T.bg,.25),rain:mix(T.storm,c,.4)};
+  if(ink<1){ const pc=T.pencil,bg=m==='night'?[16,21,36]:T.bg;
+    const pen={far:mix(bg,pc,.18),mid:mix(bg,pc,.32),near:mix(bg,pc,.48),fig:mix(pc,T.ink,.5),road:mix(bg,pc,.24),house:mix(bg,pc,.62),fore:mix(bg,pc,.6),post:mix(bg,pc,.9),unlit:mix(bg,pc,.2)};
+    for(const k in pen) p[k]=mix(pen[k],p[k],ink);
+    if(p.rim) p.rimA=ink; }
+  const o={}; for(const k in p){ o[k]=Array.isArray(p[k])?css(p[k]):p[k]; } o.raw=p; o.c=c; o.inkAmt=ink; return o;
+}
+
+/* ------------------------------------------------------------------ canvas + state */
+const stage=$('#stage'), cv=$('#cv'), ctx=cv.getContext('2d');
+let W=800,H=600,DPR=1,FX=240,BASEPPY=150;
+const clock={t:2001};
+let phase='opening', playing=false, speed=1, prevT=2001, rerouted=false, tpDone=false, pauseDone=false, endShown=false;
+const fx={split:0,ink:[0,0,0,0],dim:[0,0,0,0],worldDim:0,turn:[0,0,0,0],wipe:0,labels:0,here:0};
+let walkAmt=0, walkPhase=0, wclock=0, slicing=false, marker=null, last=performance.now(), vignette=null, grain=null;
+const ppy=()=>lerp(BASEPPY*.36,BASEPPY,ease3(fx.split));
+const dispT=()=>RM&&phase!=='opening'?Math.round(clock.t*2)/2:clock.t;
+
+function resize(){
+  const r=stage.getBoundingClientRect(); W=Math.max(200,r.width); H=Math.max(200,r.height); DPR=Math.min(2,window.devicePixelRatio||1);
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  FX=W<600?W*.24:W*.30; BASEPPY=clamp(W*.135,84,190);
+  makeVignette(); drawTicks();
+}
+function makeVignette(){
+  if(!W) return; const c=document.createElement('canvas'); c.width=Math.max(2,Math.round(W/2)); c.height=Math.max(2,Math.round(H/2)); const x=c.getContext('2d');
+  const g=x.createRadialGradient(c.width/2,c.height*.45,Math.min(c.width,c.height)*.25,c.width/2,c.height/2,Math.max(c.width,c.height)*.75);
+  const dark=TOK.mode==='night'; g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,dark?'rgba(0,0,8,.42)':'rgba(60,40,10,.10)');
+  x.fillStyle=g; x.fillRect(0,0,c.width,c.height); vignette=c;
+  if(!grain){ const n=document.createElement('canvas'); n.width=n.height=180; const nx=n.getContext('2d'); const d=nx.createImageData(180,180);
+    for(let k=0;k<d.data.length;k+=4){const v=Math.random()*255;d.data[k]=d.data[k+1]=d.data[k+2]=v;d.data[k+3]=255} nx.putImageData(d,0,0); grain=n; }
+}
+function bandRects(){
+  const e=k=>ease3(fx.split*1.7-(k-1)*.35); const b=[0];
+  for(let k=1;k<4;k++) b.push(lerp(H,k*H/4,e(k))); b.push(H);
+  return [0,1,2,3].map(i=>({y:b[i],h:Math.max(0,b[i+1]-b[i])}));
+}
+const figH=r=>clamp(r.h*.34,22,96);
+
+/* ------------------------------------------------------------------ drawing primitives */
+function line(x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function ell(x,y,rx,ry){ctx.beginPath();ctx.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),0,0,Math.PI*2);ctx.fill()}
+function tri(x1,y1,x2,y2,x3,y3){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.closePath();ctx.fill()}
+function label(t,x,y,col,size,align,a){ ctx.save(); ctx.globalAlpha*=a===undefined?1:a; ctx.font=`500 ${size||9.5}px ${FONT.mono}`; ctx.fillStyle=col; ctx.textAlign=align||'center'; ctx.textBaseline='alphabetic'; ctx.fillText(t,x,y); ctx.restore(); }
+
+function person(x,gy,h,o){
+  if(h<3) return;
+  const turn=o.turn||0, s=turn<.5?1-2*turn:2*turn-1, front=turn>=.5;
+  ctx.save(); ctx.globalAlpha*=o.a===undefined?1:o.a; ctx.translate(x,gy); ctx.scale(Math.max(s,.05)*(o.flip?-1:1),1);
+  const passes=[];
+  if(o.outline) passes.push([o.outline,0,0,1.6]);
+  if(o.rim) passes.push([o.rim,-1.3,-1,0]);
+  passes.push([o.col,0,0,0]);
+  for(const [col,dx,dy,g] of passes){ ctx.save(); ctx.translate(dx,dy); body(h,o,front,col,g); ctx.restore(); }
+  ctx.restore();
+}
+function body(h,o,front,col,g){
+  ctx.fillStyle=col; ctx.strokeStyle=col; ctx.lineCap='round'; ctx.lineJoin='round';
+  const age=o.age||30, stoop=clamp((age-56)/16,0,1)*.16, child=o.kind==='child';
+  const sw=Math.sin(o.phase||0)*(o.walk||0);
+  const legL=h*.31, hip=-legL;
+  ctx.lineWidth=h*.068+g*2;
+  if(front){ line(-h*.042,hip,-h*.048,-h*.01); line(h*.042,hip,h*.048,-h*.01); }
+  else { const a=.44*sw, fy=hip+Math.cos(a)*legL-h*.01; line(0,hip,Math.sin(a)*legL,fy); line(0,hip,Math.sin(-a)*legL,fy); }
+  ctx.save(); ctx.translate(0,hip+h*.05); ctx.rotate(stoop);
+  const top=-h*(child?.44:.5), shW=h*.085, hemW=h*(child?.12:.15);
+  ctx.beginPath();
+  if(front){ ctx.moveTo(-shW-g,top-g); ctx.lineTo(shW+g,top-g); ctx.lineTo(hemW+g,g); ctx.lineTo(-hemW-g,g); }
+  else { ctx.moveTo(-shW*.7-g,top-g); ctx.lineTo(shW*.95+g,top-g); ctx.quadraticCurveTo(hemW*.75+g,top*.45,hemW*.72+g,g); ctx.lineTo(-hemW*1.08-g,g); ctx.quadraticCurveTo(-hemW*.62-g,top*.45,-shW*.7-g,top-g); }
+  ctx.closePath(); ctx.fill();
+  const hr=h*(child?.11:.086)+g, hx=front?0:h*.025, hy=top-hr*1.02;
+  ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fill();
+  if(o.bun){ ctx.beginPath(); ctx.arc(hx-hr*.95,hy-hr*.35,hr*.42+g*.5,0,Math.PI*2); ctx.fill(); }
+  ctx.lineWidth=h*.05+g*2;
+  if(front){ line(-shW,top+h*.03,-shW-h*.035,top+h*.3); line(shW,top+h*.03,shW+h*.035,top+h*.3); }
+  else { const a=-.55*sw; line(h*.01,top+h*.04,Math.sin(a)*h*.27,top+h*.04+Math.cos(a)*h*.27); }
+  if(o.scarf){ ctx.lineWidth=h*.036+g*2; const nx=front?h*.02:-h*.01, ny=top+h*.012; ctx.beginPath(); ctx.moveTo(front?-h*.05:nx,ny);
+    if(front){ ctx.lineTo(h*.05,ny); ctx.moveTo(h*.03,ny); ctx.lineTo(h*.045,ny+h*.2); }
+    else { const L=h*(.2+.22*(o.wind||0)), tm=o.time||0; for(let k=1;k<=5;k++){const f=k/5; ctx.lineTo(nx-L*f, ny+f*h*(.07-.05*(o.wind||0))+Math.sin(tm*5.5-k*1.25)*h*.028*f*(.35+(o.wind||0)));} }
+    ctx.stroke(); }
+  ctx.restore();
+  if(age>=63&&!front&&!child){ ctx.lineWidth=h*.024+g*2; line(h*.2,hip-h*.17,h*.27,-h*.005); }
+}
+
+function house(x,gy,u,size,lit,P){
+  const D=[[10,8,4],[14,10,6],[18,13,8],[22,20,9],[34,21,10]][size]; const w=D[0]*u,h=D[1]*u,rh=D[2]*u;
+  ctx.fillStyle=P.house; ctx.fillRect(x-w/2,gy-h,w,h+u);
+  if(size===4){ tri(x-w/2-u,gy-h,x-w/4,gy-h-rh,x,gy-h); tri(x,gy-h,x+w/4,gy-h-rh,x+w/2+u,gy-h); }
+  else tri(x-w/2-u,gy-h,x,gy-h-rh,x+w/2+u,gy-h);
+  if(size>=2) ctx.fillRect(x+w*.22,gy-h-rh*.85,2.2*u,rh*.6);
+  const WIN=[[[0,-4.5]],[[-3.5,-5.5],[3.5,-5.5]],[[-5,-6.5],[0,-6.5],[5,-6.5]],[[-6,-6],[0,-6],[6,-6],[-6,-14],[0,-14],[6,-14]],
+    [[-12,-6],[-6,-6],[6,-6],[12,-6],[-12,-15],[-6,-15],[6,-15],[12,-15]]][size];
+  WIN.forEach((p,k)=>{ const on=k<lit; const wx=x+p[0]*u-1.3*u, wy=gy+p[1]*u-1.5*u;
+    if(on&&TOK.mode==='night'){ ctx.fillStyle=css(TOK.win,.18); ctx.fillRect(wx-1.6*u,wy-1.6*u,5.8*u,6.2*u); }
+    ctx.fillStyle=on?P.win:P.unlit; ctx.fillRect(wx,wy,2.6*u,3*u); });
+}
+function tower(x,gy,u,s,P,seed,a){
+  const w=12*u*Math.pow(s,.35), h=30*u*s; ctx.fillStyle=P.mid2||P.house; ctx.fillRect(x-w/2,gy-h,w,h+u);
+  ctx.fillRect(x-.5*u,gy-h-5*u*s,u,5*u*s);
+  const rows=Math.floor(h/(4.2*u))-1;
+  for(let r=0;r<rows;r++) for(let c=0;c<3;c++){ const on=rnd(seed+r*7+c*3)<.42; ctx.fillStyle=on?P.win:P.unlit; ctx.fillRect(x-w/2+w*(.18+c*.27),gy-h+3*u+r*4.2*u,w*.12,2*u); }
+}
+function landmark(k,x,gy,u,P,s,seed){
+  s=s||1; if(['porch','manor','cottage','house','easel','bench','stone'].includes(k)) u*=s; ctx.fillStyle=P.house; ctx.strokeStyle=P.house;
+  switch(k){
+    case 'bank':{ const w=24*u*s,h=20*u*s; ctx.fillRect(x-w/2,gy-h,w,h+u); tri(x-w/2-u,gy-h,x,gy-h-6*u*s,x+w/2+u,gy-h);
+      ctx.fillStyle=P.unlit; for(let c=0;c<5;c++) ctx.fillRect(x-w/2+w*(.12+c*.17),gy-h+3*u,1.4*u,h-4*u); break; }
+    case 'tower': tower(x,gy,u,s,P,seed); break;
+    case 'college':{ const w=32*u*s,h=14*u*s; ctx.fillRect(x-w/2,gy-h,w,h+u); tri(x-w/4,gy-h,x,gy-h-6*u,x+w/4,gy-h); ctx.fillRect(x-2*u,gy-h-12*u,4*u,7*u); tri(x-2.6*u,gy-h-12*u,x,gy-h-16*u,x+2.6*u,gy-h-12*u);
+      ctx.fillStyle=P.win; for(let c=0;c<6;c++) ctx.fillRect(x-w/2+w*(.08+c*.15),gy-h+4*u,2*u,3.2*u); break; }
+    case 'gallery':{ const w=26*u*s,h=13*u*s; ctx.fillRect(x-w/2,gy-h,w,h+u); ctx.fillRect(x-w/2-u,gy-h-2*u,w+2*u,2*u);
+      ctx.fillStyle=P.win; ctx.fillRect(x-4*u*s,gy-8*u*s,8*u*s,8*u*s); ctx.fillStyle=css(TOK.accent); ctx.fillRect(x+w/2-6*u,gy-h+1*u,3*u,7*u); break; }
+    case 'studio':{ const w=26*u*s,h=14*u*s; ctx.fillRect(x-w/2,gy-h,w,h+u); for(let t=0;t<3;t++) tri(x-w/2+t*w/3,gy-h,x-w/2+t*w/3,gy-h-6*u*s,x-w/2+(t+1)*w/3,gy-h);
+      ctx.fillStyle=P.win; ctx.fillRect(x-w/2+3*u,gy-h+3*u,w-6*u,5*u*s); break; }
+    case 'chapel':{ const w=9*u,h=46*u; ctx.fillRect(x-w/2,gy-h,w,h+u); ctx.fillRect(x+w/2,gy-14*u,22*u,14*u+u); tri(x+w/2,gy-14*u,x+w/2+11*u,gy-20*u,x+w/2+22*u,gy-14*u);
+      for(const dx of [-w/2,-w/6,w/6,w/2-2*u]) tri(x+dx,gy-h,x+dx+u,gy-h-6*u,x+dx+2*u,gy-h); ctx.fillStyle=P.unlit; ctx.fillRect(x-1.2*u,gy-h+8*u,2.4*u,6*u); break; }
+    case 'office':{ const w=16*u,h=22*u; ctx.fillRect(x-w/2,gy-h,w,h+u); ctx.fillStyle=P.unlit; for(let r=0;r<4;r++)for(let c=0;c<3;c++) ctx.fillRect(x-w/2+2*u+c*4.6*u,gy-h+3*u+r*4.6*u,2.4*u,2.4*u); break; }
+    case 'house': house(x,gy,u,1,1,P); break;
+    case 'porch': house(x,gy,u,2,3,P); ctx.fillStyle=P.house; ctx.fillRect(x-13*u,gy-9*u,6*u,1.2*u); ctx.fillRect(x-12.5*u,gy-9*u,.9*u,9*u); ctx.fillRect(x-17*u,gy-3.2*u,6*u,1*u); break;
+    case 'manor': house(x+6*u,gy,u,4,2,P); break;
+    case 'cottage': house(x,gy,u,1,2,P); ctx.lineWidth=.8*u; for(let f=0;f<5;f++) line(x+9*u+f*2.4*u,gy,x+9*u+f*2.4*u,gy-3.4*u); line(x+9*u,gy-2.4*u,x+19*u,gy-2.4*u); break;
+    case 'studiohome': landmark('studio',x+8*u,gy,u,P,s,seed); break;
+    case 'easel':{ ctx.lineWidth=.9*u; line(x-3*u,gy,x,gy-13*u); line(x+3*u,gy,x,gy-13*u); line(x,gy-6*u,x+1.5*u,gy); ctx.fillStyle=css(TOK.mode==='wood'?TOK.accent:TOK.accent);
+      ctx.fillRect(x-4*u,gy-12*u,8*u,6*u); ctx.strokeStyle=P.house; ctx.lineWidth=.6*u; ctx.strokeRect(x-4*u,gy-12*u,8*u,6*u); break; }
+    case 'bench': ctx.fillRect(x-6*u,gy-3.4*u,12*u,1.1*u); ctx.fillRect(x-6*u,gy-6.4*u,12*u,.9*u); ctx.fillRect(x-5*u,gy-3.4*u,.9*u,3.4*u); ctx.fillRect(x+4.2*u,gy-3.4*u,.9*u,3.4*u); break;
+    case 'stone': ctx.beginPath(); ctx.moveTo(x-3*u,gy); ctx.lineTo(x-3*u,gy-5*u); ctx.quadraticCurveTo(x,gy-8*u,x+3*u,gy-5*u); ctx.lineTo(x+3*u,gy); ctx.fill(); break;
+  }
+}
+function signpost(x,gy,u,P,text,dir,a){
+  ctx.save(); ctx.globalAlpha*=a; ctx.fillStyle=P.post; ctx.strokeStyle=P.post; ctx.lineWidth=1.1*u;
+  line(x,gy,x,gy-19*u); ctx.font=`500 ${clamp(8*u,8.5,11)}px ${FONT.mono}`; const tw=ctx.measureText(text).width+7*u;
+  const bx=dir<0?x-tw:x, by=gy-19*u; ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+tw,by); ctx.lineTo(bx+tw+(dir>0?3*u:0),by+3.5*u); ctx.lineTo(bx+tw,by+7*u); ctx.lineTo(bx-(dir<0?3*u:0),by+7*u); ctx.lineTo(bx,by); ctx.fill();
+  ctx.fillStyle=TOK.mode==='night'?'rgb(8,10,18)':css(TOK.bg); ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(text,bx+3.5*u,by+3.7*u); ctx.restore();
+}
+function tree(kind,x,gy,u,s,col){
+  ctx.fillStyle=col; ctx.strokeStyle=col;
+  if(kind==='pine'){ tri(x-3.6*u*s,gy-2*u,x,gy-19*u*s,x+3.6*u*s,gy-2*u); ctx.fillRect(x-.5*u,gy-3*u,u,3*u); }
+  else if(kind==='oak'){ ctx.fillRect(x-.7*u,gy-7*u*s,1.4*u,7*u*s); ell(x,gy-10*u*s,6*u*s,5*u*s); ell(x+3*u*s,gy-8.5*u*s,4*u*s,3.5*u*s); }
+  else if(kind==='palm'){ ctx.lineWidth=1.2*u; ctx.beginPath(); ctx.moveTo(x,gy); ctx.quadraticCurveTo(x+2*u,gy-9*u*s,x+1*u,gy-17*u*s); ctx.stroke(); const tx=x+u,ty=gy-17*u*s; ctx.lineWidth=1.1*u;
+    for(let f=0;f<5;f++){ const a=-Math.PI*.95+f*Math.PI*.22; ctx.beginPath(); ctx.moveTo(tx,ty); ctx.quadraticCurveTo(tx+Math.cos(a)*5*u*s,ty+Math.sin(a)*5*u*s-2*u,tx+Math.cos(a)*9*u*s,ty+Math.sin(a)*3*u*s+3*u); ctx.stroke(); } }
+  else if(kind==='cypress'){ ell(x,gy-9*u*s,2.4*u*s,9*u*s); }
+  else if(kind==='umbrella'){ ctx.fillRect(x-.6*u,gy-10*u*s,1.2*u,10*u*s); ell(x,gy-11*u*s,8*u*s,2.6*u*s); }
+  else if(kind==='block'){ const w=(6+rnd(x)*6)*u, h=(8+rnd(x+1)*14)*u*s; ctx.fillRect(x-w/2,gy-h,w,h); }
+}
+function ridgePath(x0,x1,step,yf,bottom){ ctx.beginPath(); ctx.moveTo(x0,bottom); for(let x=x0;x<=x1+step;x+=step) ctx.lineTo(x,yf(x)); ctx.lineTo(x1+step,bottom); ctx.closePath(); }
+function strokeRidge(x0,x1,step,yf,dy){ ctx.beginPath(); for(let x=x0;x<=x1+step;x+=step){ const y=yf(x)+dy; if(x===x0)ctx.moveTo(x,y); else ctx.lineTo(x,y);} ctx.stroke(); }
+function woodTone(r,gap,lw,col,diag){ ctx.save(); ctx.clip(); ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath();
+  if(diag){ for(let d=-r.h;d<W+r.h;d+=gap){ ctx.moveTo(d,r.y+r.h); ctx.lineTo(d+r.h,r.y); } }
+  else { for(let y=r.y;y<r.y+r.h;y+=gap){ ctx.moveTo(0,y); ctx.lineTo(W,y); } }
+  ctx.stroke(); ctx.restore(); }
+
+/* ------------------------------------------------------------------ band layers */
+function skyLayer(i,r,u,S,P,T){
+  const y=r.y,h=r.h,hor=y+h*.66,cover=clamp((66-S.mental)/46,0,1),hap=S.happy/100,m=TOK.mode;
+  if(m==='wood'){
+    ctx.fillStyle=css(TOK.bg); ctx.fillRect(0,y,W,h);
+    const gap=Math.max(2.6,(4.6-cover*1.8)*Math.max(u,.7)); ctx.strokeStyle=P.c?css(P.raw.near):P.near; ctx.beginPath();
+    const st=y+h*(.36-cover*.26); for(let yy=st;yy<hor;yy+=gap){ const k=(yy-st)/(hor-st); ctx.lineWidth=.25+k*k*1.25*(.8+cover*.6); ctx.moveTo(0,yy); ctx.lineTo(W,yy); ctx.stroke(); ctx.beginPath(); }
+  } else {
+    const n=7; const top=mix(TOK.skya,TOK.storm,cover*(m==='night'?.35:.55)); let bot=mix(TOK.skyb,TOK.sun,m==='night'?0:Math.max(0,hap-.45)*.55); bot=mix(bot,TOK.storm,cover*(m==='night'?.45:.7));
+    for(let k=0;k<n;k++){ ctx.fillStyle=css(mix(top,bot,k/(n-1))); ctx.fillRect(0,y+(hor-y)*k/n-1,W,(hor-y)/n+2); }
+    ctx.fillStyle=css(bot); ctx.fillRect(0,hor-2,W,y+h-hor+2);
+  }
+  // stars
+  if(m==='night'&&cover<.9){ for(let k=0;k<70;k++){ const sx=rnd(k*3.1+i*17)*W, sy=y+rnd(k*7.7+i*5)*h*.62; const tw=.6+.4*Math.sin(wclock*1.3+k);
+      ctx.fillStyle=`rgba(240,236,220,${((1-cover)*(.25+.55*rnd(k+.3))*tw).toFixed(3)})`; ctx.fillRect(sx,sy,1.1,1.1);} }
+  // sun / moon
+  const sx=W*.80, sy=y+h*(.62-.38*hap), sr=Math.max(6,h*.07), sa=1-cover*.85;
+  if(sa>.05){
+    if(m==='wood'){ ctx.fillStyle=css(TOK.bg); ctx.beginPath(); ctx.arc(sx,sy,sr*1.9,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=css(P.raw.near); ctx.lineWidth=1.1; ctx.globalAlpha=sa;
+      ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.stroke(); for(let a=0;a<18;a++){ const an=a/18*Math.PI*2; line(sx+Math.cos(an)*sr*1.25,sy+Math.sin(an)*sr*1.25,sx+Math.cos(an)*sr*(a%2?1.6:1.85),sy+Math.sin(an)*sr*(a%2?1.6:1.85)); } ctx.globalAlpha=1; }
+    else if(m==='night'){ ctx.fillStyle=css(TOK.sun,.07*sa); ctx.beginPath(); ctx.arc(sx,sy,sr*2.6,0,Math.PI*2); ctx.fill(); ctx.fillStyle=css(TOK.sun,.9*sa); ctx.beginPath(); ctx.arc(sx,sy,sr*.8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=css(mix(TOK.skya,TOK.skyb,.4),.9*sa); ctx.beginPath(); ctx.arc(sx+sr*.35,sy-sr*.2,sr*.66,0,Math.PI*2); ctx.fill(); }
+    else { ctx.fillStyle=css(TOK.sun,.16*sa); ctx.beginPath(); ctx.arc(sx,sy,sr*1.8,0,Math.PI*2); ctx.fill(); ctx.fillStyle=css(TOK.sun,.62*sa); ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill(); }
+  }
+  // clouds
+  const nC=2+Math.round(cover*6), span=W+300;
+  for(let k=0;k<nC;k++){ const sp=6+rnd(k+i*13)*12; let cx=(rnd(k*5.3+i)*span - wclock*sp - T*BASEPPY*.03)%span; if(cx<0)cx+=span; cx-=150;
+    const cy=y+h*(.1+.34*rnd(k*2.1+i)), s=h*(.05+.045*rnd(k*9.7+i))*(.8+cover*.7);
+    const a=m==='night'?.55+.4*cover:.28+.55*cover;
+    ctx.fillStyle=m==='wood'?css(TOK.bg):css(m==='night'?mix(TOK.storm,TOK.skyb,.3):P.raw.cloud,a);
+    ell(cx,cy,s*1.7,s*.55); ell(cx-s*.8,cy+s*.12,s*.9,s*.42); ell(cx+s*.9,cy+s*.08,s*1.05,s*.48); ell(cx+s*.1,cy-s*.32,s*.85,s*.55);
+    if(m==='wood'){ ctx.strokeStyle=css(P.raw.near); ctx.lineWidth=.9; ctx.beginPath(); ctx.moveTo(cx-s*1.6,cy+s*.5); ctx.lineTo(cx+s*1.9,cy+s*.5); ctx.stroke(); }
+  }
+  // one flash of summer light per year
+  if(phase==='play'&&playing&&!RM&&T>NOW+.3){ const f=Math.exp(-Math.pow((frac(T)-.5)/.07,2)); if(f>.01){ ctx.fillStyle=css(m==='night'?[120,140,200]:TOK.sun,(m==='wood'?0:.07)*f); ctx.fillRect(0,y,W,hor-y); } }
+}
+function farScene(kind,i,r,u,P,T){
+  const base=r.y+r.h*.58, off=T*ppy()*.12, L=LIVES[i], bottom=r.y+r.h;
+  const hills=(amp,b)=>x=>b-(fbm((x+off)*.0032+L.seed)*amp+4)*u;
+  ctx.fillStyle=P.far;
+  if(kind==='durham'||kind==='lis'){ const f=hills(kind==='lis'?40:30,base); ridgePath(-10,W+10,8,f,bottom); ctx.fill(); if(TOK.mode==='wood'){ ridgePath(-10,W+10,8,f,bottom); woodTone(r,3.2,.8,css(TOK.bg),true); } }
+  if(kind==='lis'){ const sea=r.y+r.h*.64; ctx.fillStyle=TOK.mode==='wood'?css(TOK.bg):css(mix(P.raw.far,TOK.mode==='night'?TOK.skyb:TOK.bg,.45)); ctx.fillRect(0,sea,W,bottom-sea);
+    if(TOK.mode==='wood'){ ctx.strokeStyle=P.far; ctx.lineWidth=.7; for(let yy=sea+2;yy<bottom;yy+=3){ctx.setLineDash([6,5]);line(0,yy,W,yy)} ctx.setLineDash([]); }
+    const PW=W*1.3, bx=((W*.55-off*1.2)%PW+PW)%PW-W*.15; ctx.strokeStyle=P.far; ctx.fillStyle=P.far; ctx.lineWidth=1.4*u;
+    ctx.fillRect(bx,sea-26*u,2.4*u,26*u); ctx.fillRect(bx+60*u,sea-26*u,2.4*u,26*u); ctx.fillRect(bx-30*u,sea-6*u,130*u,1.6*u);
+    ctx.lineWidth=.8*u; ctx.beginPath(); ctx.moveTo(bx-30*u,sea-6*u); ctx.quadraticCurveTo(bx-14*u,sea-14*u,bx+1*u,sea-26*u); ctx.quadraticCurveTo(bx+31*u,sea+2*u,bx+61*u,sea-26*u); ctx.quadraticCurveTo(bx+80*u,sea-14*u,bx+100*u,sea-6*u); ctx.stroke(); }
+  if(kind==='sg'||kind==='city'){ const b2=r.y+r.h*.64; ctx.fillRect(0,b2,W,bottom-b2); const PW=520*u, sp=11*u;
+    for(let k=-2;k<PW/sp+W/sp+2;k++){ const lx=k*sp, sx=((lx-off)%PW+PW)%PW-40*u; const hh=(8+rnd(k%47+i)*26)*u*(kind==='sg'?1.15:.8); ctx.fillRect(sx,b2-hh,sp*.8,hh+1); }
+    if(kind==='sg'){ const mx=((PW*.6-off)%PW+PW)%PW-40*u; for(let t=0;t<3;t++) ctx.fillRect(mx+t*9*u,b2-40*u,5.5*u,40*u); ctx.fillRect(mx-4*u,b2-43*u,32*u,3*u); }
+    if(TOK.mode==='wood'){ ctx.beginPath(); ctx.rect(0,r.y,W,r.h); }
+  }
+}
+function farLayer(i,r,u,P,T){
+  const L=LIVES[i]; let prev=null,a=1,cur=regionAt(L,T);
+  for(const [yy] of L.regions){ if(yy>0&&Math.abs(T-yy)<.6){ a=smooth((T-(yy-.6))/1.2); prev=regionAt(L,yy-.01); cur=regionAt(L,yy+.01); } }
+  if(prev&&a<1){ ctx.globalAlpha=1-a; farScene(prev,i,r,u,P,T); ctx.globalAlpha=a; }
+  farScene(cur,i,r,u,P,T); ctx.globalAlpha=1;
+  // the goal mountain, visible the whole way; a flag goes up when that life reaches its peak
+  const gx=W*.9, gb=r.y+r.h*.6; ctx.fillStyle=P.far; tri(gx-46*u,gb,gx,gb-52*u,gx+40*u,gb);
+  if(TOK.mode!=='wood'){ ctx.fillStyle=css(mix(P.raw.far,TOK.mode==='night'?[230,235,245]:TOK.bg,.5)); tri(gx-9*u,gb-42*u,gx,gb-52*u,gx+8*u,gb-43*u); }
+  const flag=L.lm.find(l=>l.flag&&shown(l,i===0&&rerouted)&&T>=l.y);
+  if(flag){ ctx.strokeStyle=css(P.raw.post); ctx.lineWidth=1; line(gx,gb-52*u,gx,gb-64*u); ctx.fillStyle=css(P.c); tri(gx,gb-64*u,gx+8*u,gb-61*u,gx,gb-58*u); }
+}
+function midLayer(i,r,u,P,alt,T){
+  const L=LIVES[i], p=ppy()*.5, off=T*p, base=r.y+r.h*.67, bottom=r.y+r.h;
+  const f=x=>base-(fbm((x-FX+off)*.006+L.seed*3)*16+2)*u;
+  ctx.fillStyle=P.mid; ridgePath(-10,W+10,6,f,bottom); ctx.fill();
+  if(TOK.mode==='wood'){ ctx.strokeStyle=css(TOK.bg); ctx.lineWidth=.8; ctx.setLineDash([40,10,12,16]); for(let k=1;k<3;k++) strokeRidge(-10,W+10,8,f,k*4*u); ctx.setLineDash([]); }
+  if(fx.ink[i]<1){ ctx.strokeStyle=css(TOK.pencil,(1-fx.ink[i])*.7); ctx.lineWidth=.8; strokeRidge(-10,W+10,6,f,0); strokeRidge(-10,W+10,9,x=>f(x)+.8,-.6); }
+  else if(TOK.mode==='paper'){ ctx.strokeStyle=css(P.raw.mid.map((v,k)=>v*.9)); ctx.lineWidth=1.2; strokeRidge(-10,W+10,6,f,0); }
+  else if(TOK.mode==='night'){ ctx.strokeStyle=css(P.raw.rim||[200,200,220],.25); ctx.lineWidth=1; strokeRidge(-10,W+10,6,f,0); }
+  // trees
+  const sp=24*u; if(sp>2){ const k0=Math.floor((off-FX-40)/sp), k1=Math.ceil((off-FX+W+40)/sp);
+    for(let k=k0;k<=k1;k++){ if(rnd(k*1.7+L.seed)>.5) continue; const lx=k*sp+rnd(k)*sp*.6, sx=FX+lx-off, yr=lx/p; const reg=regionAt(L,yr);
+      const kind=reg==='sg'?'palm':reg==='lis'?(rnd(k+.4)<.5?'cypress':'umbrella'):reg==='city'?'block':(rnd(k+.2)<.6?'pine':'oak');
+      tree(kind,sx,f(sx)+2*u,u,.7+rnd(k+.9)*.6,P.mid); } }
+  // career landmarks
+  ctx.save();
+  for(const l of L.lm){ if(l.L!=='m'||!shown(l,alt)) continue; const sx=FX+(l.y-T)*p; if(sx<-80||sx>W+80) continue;
+    const a=smooth((7-(l.y-T))/3); if(a<=0) continue; ctx.globalAlpha=a; const P2=Object.assign({},P,{house:P.mid2,mid2:P.mid2}); landmark(l.k,sx,f(sx)+2*u,u,P2,l.s,l.y*13);
+    if(l.lab){ const s=l.s||1, lh={tower:35*s+8,college:24,bank:31,gallery:20*s,studio:25*s}[l.k]||22; label(l.lab,sx,f(sx)-lh*u,P.post,Math.max(8.5,8.5*Math.min(u,1.2)),'center',.85); } }
+  ctx.restore();
+}
+function groundFn(i,r,u,alt){ const L=LIVES[i], base=r.y+r.h*.77, p=ppy(), T=clock.tD;
+  return sx=>{ const yy=T+(sx-FX)/p, rk=key1(i,'risk',yy,alt)/100, lx=yy*p; return base-((fbm(lx*.012+L.seed*7)-.5)*(3+rk*12)+Math.sin(lx*.004+L.seed)*2.5)*u; }; }
+function nearLayer(i,r,u,P,alt,T,g){
+  const bottom=r.y+r.h, p=ppy();
+  ctx.fillStyle=P.near; ridgePath(-10,W+10,5,g,bottom); ctx.fill();
+  if(TOK.mode==='wood'){ ctx.strokeStyle=css(TOK.bg); ctx.lineWidth=1.3*u; strokeRidge(-10,W+10,5,g,2.2*u); ctx.lineWidth=.8; ctx.setLineDash([60,14,18,22]); for(let k=1;k<3;k++) strokeRidge(-10,W+10,7,g,(6+k*7)*u); ctx.setLineDash([]); }
+  else { ctx.strokeStyle=P.road; ctx.lineWidth=2.3*u; strokeRidge(-10,W+10,5,g,2*u); }
+  if(fx.ink[i]<1){ ctx.strokeStyle=css(TOK.pencil,(1-fx.ink[i])*.85); ctx.lineWidth=1; strokeRidge(-10,W+10,5,g,0); strokeRidge(-10,W+10,8,x=>g(x)+1.1,-.4); }
+  if(TOK.mode==='night'){ ctx.strokeStyle=css(P.raw.rim||[220,220,240],.35*(P.raw.rimA===undefined?1:P.raw.rimA)); ctx.lineWidth=1; strokeRidge(-10,W+10,5,g,0); }
+  // dwellings: size and lit windows follow wealth
+  for(let yr=2027.8; yr<2069; yr+=3){ const sx=FX+(yr-T)*p; if(sx<-40||sx>W+40) continue; if(i===0&&!alt&&Math.abs(yr-2052.2)<.6) continue;
+    const w=key1(i,'wealth',yr,alt); const size=w<14?0:w<30?1:w<48?2:w<72?3:4; const nW=[1,2,3,6,8][size]; const lit=Math.max(1,Math.round(nW*clamp(w/85,.2,1)));
+    house(sx,g(sx)+1.5*u,u*.82,size,lit,P); }
+  // mile-posts carry the years
+  const y0=Math.ceil(T+(-20-FX)/p), y1=Math.floor(T+(W+20-FX)/p);
+  ctx.strokeStyle=P.post; ctx.lineWidth=Math.max(1,.9*u);
+  for(let yr=y0;yr<=y1;yr++){ if(i>0&&yr<NOW) continue; const sx=FX+(yr-T)*p, gy=g(sx)+1.5*u; line(sx,gy,sx,gy-6*u);
+    if(p>34) label(String(yr),sx,gy+11*u,P.post,Math.max(8,7.5*Math.min(u,1.3)),'center',yr===NOW?1:.7); }
+  // near landmarks
+  const L=LIVES[i];
+  for(const l of L.lm){ if(l.L!=='n'||!shown(l,alt)) continue; const sx=FX+(l.y-T)*p; if(sx<-90||sx>W+90) continue; const gy=g(sx)+1.5*u;
+    if(l.k==='fork'){ const taken=T>l.y+.05; ctx.save(); ctx.strokeStyle=P.road; ctx.lineWidth=2*u; ctx.globalAlpha=taken?.45:1; if(taken) ctx.setLineDash([4*u,4*u]);
+      ctx.beginPath(); ctx.moveTo(sx,gy); ctx.bezierCurveTo(sx+30*u,gy-2*u,sx+60*u,gy-22*u,sx+110*u,gy-34*u); ctx.stroke(); ctx.restore();
+      signpost(sx+4*u,gy,u,P,l.lab+' →',1,taken?.55:1); continue; }
+    if(l.k==='sign'){ signpost(sx+3*u,gy,u,P,l.lab+' →',1,1); continue; }
+    landmark(l.k,sx,gy,u,P,l.s,l.y*7);
+    if(l.lab) label(l.lab,sx,gy-11*u,P.post,Math.max(8.5,8*Math.min(u,1.2)),'center',.9); }
+  if(i===0){ // the past, in pencil, and the here-sign
+    const pp={house:css(mix(TOK.bg,TOK.pencil,.75)),unlit:css(TOK.bg),win:css(TOK.bg),post:css(TOK.pencil)};
+    if(TOK.mode==='night'){pp.house=css(mix([16,21,36],TOK.pencil,.8));pp.unlit=css([16,21,36]);pp.win=css(TOK.win)}
+    for(const m of PAST){ const sx=FX+(m.y-T)*p; if(sx<-100||sx>W+100) continue; const gy=g(sx)+1.5*u;
+      if(m.k==='sign') signpost(sx,gy,u,Object.assign({},P,{post:pp.post}),m.lab.split(' · ')[0],1,1); else landmark(m.k,sx,gy,u,pp,1,m.y);
+      label(m.lab,sx+(m.k==='chapel'?10*u:0),r.y+r.h*(m.hi?.30:.40),css(TOK.pencil),Math.max(9,9*Math.min(u,1.3)),'center',1);
+      ctx.strokeStyle=css(TOK.pencil,.5); ctx.lineWidth=.6; ctx.setLineDash([2,3]); line(sx,r.y+r.h*(m.hi?.31:.41),sx,gy-(m.k==='chapel'?50:m.k==='sign'?22:26)*u); ctx.setLineDash([]); }
+    if(m_plane(T)) {}
+    let hx=FX+(NOW-T)*p; if(hx>-60&&hx<W+120){ const gy=g(hx)+1.5*u; ctx.save(); ctx.strokeStyle=css(TOK.ink); ctx.fillStyle=css(TOK.ink); ctx.lineWidth=1.2*u; hx+=14*u; line(hx+6*u,gy,hx+6*u,gy-24*u);
+      ctx.font=`500 ${Math.max(9,9*Math.min(u,1.4))}px ${FONT.mono}`; const tx='you are here · 25', tw=ctx.measureText(tx).width+8*u; const by=gy-24*u;
+      ctx.fillRect(hx+6*u,by,tw,8*u); ctx.fillStyle=TOK.mode==='night'?'rgb(8,10,18)':css(TOK.bg); ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillText(tx,hx+10*u,by+4.2*u);
+      if(fx.here>0){ ctx.strokeStyle=css(TOK.ink,(1-fx.here)*.7); ctx.lineWidth=1; ctx.beginPath(); ctx.arc(hx+6*u,gy,6*u+fx.here*26*u,0,Math.PI*2); ctx.stroke(); } ctx.restore(); }
+  }
+  function m_plane(T){ if(T<2017.6||T>2019.6) return false; const k=(T-2017.6)/2; const px=lerp(W*.95,FX-40,k), py=r.y+r.h*(.24-.08*Math.sin(k*Math.PI));
+    ctx.save(); ctx.fillStyle=css(TOK.pencil); ctx.translate(px,py); ctx.rotate(-.05); ctx.fillRect(-9*u,-1*u,18*u,2.2*u); tri(-2*u,0,4*u,0,-5*u,-6*u); tri(-2*u,0,4*u,0,-5*u,6*u); tri(-9*u,-1*u,-6*u,-1*u,-9*u,-4.5*u); ctx.restore(); return true; }
+}
+function peopleLayer(i,r,u,P,alt,S,T,g){
+  const L=LIVES[i], c=L.comp, p=ppy(), fh=figH(r), X=y=>FX+(y-T)*p;
+  const base={col:P.fig,rim:P.raw.rim?css(P.raw.rim,P.raw.rimA===undefined?1:P.raw.rimA):null,outline:P.raw.outline?css(P.raw.outline):null,time:wclock,wind:S.risk/100};
+  const ph=walkPhase+i*.9;
+  const draw=(x,h,o,dy)=>{ if(x<-60||x>W+60) return; person(x,g(x)+1.5*u+(dy||0),h,Object.assign({},base,o)); };
+  if(c.partner){ const m=c.partner.m, e=c.partner.e;
+    if(T<m){ if(m-T<3.5) draw(X(m)+7*u,fh*.93,{walk:0,flip:true,age:T-2002,bun:1,a:smooth((3.5-(m-T))/.8)}); }
+    else if(!e||T<e){ const j=smooth((T-m)/.7); draw(lerp(X(m)+7*u,FX-21*u,j),fh*.93,{walk:walkAmt*j,phase:ph+1.9,flip:j<.25,age:T-2002,bun:1}); }
+    else draw(FX-21*u+(e-T)*p*.9,fh*.93,{walk:0,flip:true,age:T-2002,bun:1,a:clamp(1-(T-e)/6,0,1)}); }
+  if(c.mom){ const j=c.mom.j; if(T<j){ if(j-T<3) draw(X(j)+5*u,fh*.88,{walk:0,flip:true,age:74,a:smooth((3-(j-T))/.8)}); }
+    else { const k=smooth((T-j)/.7); draw(lerp(X(j)+5*u,FX-40*u,k),fh*.88,{walk:walkAmt*k*.6,phase:ph*.8+.6,age:74+(T-j),flip:k<.25}); } }
+  if(c.friends){ const m=c.friends.m; for(let f=0;f<2;f++){ const off=(36+f*14)*u;
+    if(T<m){ if(m-T<3) draw(X(m)+(9+f*9)*u,fh*(.92+f*.05),{walk:0,flip:true,age:T-2002,a:smooth((3-(m-T))/.8),bun:f}); }
+    else { const k=smooth((T-m)/.7); draw(lerp(X(m)+(9+f*9)*u,FX-off,k),fh*(.92+f*.05),{walk:walkAmt*k,phase:ph+f*2.3,age:T-2002,bun:f,flip:k<.25}); } } }
+  if(c.child&&T>=c.child.b){ const ca=T-c.child.b, sz=lerp(.36,.9,clamp(ca/18,0,1)); let x=FX+19*u, dy=0, a=clamp(ca/.5,0,1);
+    if(c.child.l&&T>c.child.l){ const k=T-c.child.l; x+=k*p*.5; dy=-k*8*u; a*=clamp(1-(k-2.2)/1.4,0,1);
+      if(a>0){ ctx.save(); ctx.strokeStyle=P.road; ctx.globalAlpha=.8*a; ctx.lineWidth=1.4*u; ctx.setLineDash([3*u,3*u]); const x0=X(c.child.l)+19*u; ctx.beginPath(); ctx.moveTo(x0,g(x0)+2*u); ctx.quadraticCurveTo((x0+x)/2,g(x0),x,g(x)+dy+2*u); ctx.stroke(); ctx.restore(); } }
+    if(a>0) draw(x,fh*sz,{walk:walkAmt,phase:ph*1.3+.7,age:ca,kind:sz<.6?'child':'',a},dy); }
+  if(c.child&&c.child.v&&T>2068.5) draw(X(c.child.v),fh*.92,{walk:0,flip:true,age:33,a:smooth((T-2068.5)/.8)});
+  // Alex
+  const age=T-BIRTH;
+  draw(FX,fh,{walk:walkAmt*(age>62?.65:1),phase:ph*(age>62?.8:1),turn:fx.turn[i],age,scarf:true});
+}
+function foreLayer(i,r,u,P,S,T){
+  const p=ppy()*1.35, sp=36*u, off=T*p, wind=S.risk/100; if(sp<3) return;
+  ctx.strokeStyle=P.fore; ctx.lineWidth=Math.max(.8,.9*u); const gy=r.y+r.h-2*u;
+  for(let k=Math.floor((off-FX-20)/sp);k<=Math.ceil((off-FX+W+20)/sp);k++){ if(rnd(k*2.3+i)>.55) continue; const sx=FX+k*sp-off+rnd(k)*sp*.5, hh=(4+rnd(k+.5)*5)*u;
+    const bend=(wind*.9+Math.sin(wclock*2+k)*.15*(.3+wind))*hh; for(let b=-1;b<=1;b++){ ctx.beginPath(); ctx.moveTo(sx+b*1.4*u,gy); ctx.quadraticCurveTo(sx+b*1.4*u+bend*.3,gy-hh*.6,sx+b*2.4*u+bend,gy-hh*(1-.15*Math.abs(b))); ctx.stroke(); } }
+}
+function weatherLayer(i,r,u,P,S,T){
+  const m=TOK.mode, wind=S.risk/100;
+  if(S.mental<38){ const inten=clamp((38-S.mental)/24,0,1), n=Math.round(70*inten*W/1100); const col=m==='wood'?css(P.raw.near):css(P.raw.rain,m==='night'?.45:.55);
+    ctx.strokeStyle=col; ctx.lineWidth=m==='wood'?.8:1; ctx.beginPath();
+    for(let k=0;k<n;k++){ const x=((rnd(k*1.37+i)*W*1.2 - wclock*(60+wind*140))%(W*1.2)+W*1.2)%(W*1.2)-W*.1, y=r.y+((rnd(k*3.1+i)*r.h + wclock*r.h*1.5)%r.h); const L=7*u;
+      ctx.moveTo(x,y); ctx.lineTo(x-L*(.25+wind*.5),y+L); } ctx.stroke(); }
+  if(wind>.6&&!RM){ const n=Math.round((wind-.6)*22); ctx.strokeStyle=m==='wood'?css(P.raw.near,.8):css(TOK.mode==='night'?[220,226,240]:TOK.ink2,.22); ctx.lineWidth=1;
+    for(let k=0;k<n;k++){ const sx=((rnd(k*4.1+i)*W*1.4 - wclock*W*.7)%(W*1.4)+W*1.4)%(W*1.4)-W*.2, sy=r.y+r.h*(.25+.45*rnd(k*2.2+i)); ctx.beginPath(); ctx.moveTo(sx,sy); ctx.quadraticCurveTo(sx+20*u,sy-3*u,sx+42*u,sy); ctx.stroke(); } }
+}
+function drawBand(i,r,alt){
+  if(r.h<1) return;
+  const T=clock.tD, u=Math.min(r.h/200,1.5), S=state(i,Math.max(T,NOW),alt), P=palette(i,fx.ink[i]);
+  P.mid2=TOK.mode==='wood'?P.mid:TOK.mode==='night'?css(mix(P.raw.mid,[6,8,16],.35)):css(mix(P.raw.mid,P.raw.c||TOK.l[i],.25));
+  ctx.save(); ctx.beginPath(); ctx.rect(0,r.y,W,r.h); ctx.clip();
+  skyLayer(i,r,u,S,P,T); farLayer(i,r,u,P,T); midLayer(i,r,u,P,alt,T);
+  const g=groundFn(i,r,u,alt); nearLayer(i,r,u,P,alt,T,g);
+  if(marker&&marker.i===i){ const sx=FX+(marker.y-T)*ppy(); ctx.save(); ctx.strokeStyle=css(TOK.ink,.8); ctx.setLineDash([3,3]); ctx.lineWidth=1; line(sx,r.y+8,sx,g(sx)); ctx.setLineDash([]); ctx.fillStyle=css(TOK.ink); ctx.beginPath(); ctx.arc(sx,g(sx),3,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  if(fx.worldDim>0){ ctx.fillStyle=css(TOK.mode==='night'?[8,10,20]:TOK.bg,.62*fx.worldDim); ctx.fillRect(0,r.y,W,r.h); }
+  peopleLayer(i,r,u,P,alt,S,T,g); foreLayer(i,r,u,P,S,T); weatherLayer(i,r,u,P,S,T);
+  if(fx.dim[i]>0){ ctx.fillStyle=css(TOK.mode==='night'?[8,10,20]:TOK.bg,.66*fx.dim[i]); ctx.fillRect(0,r.y,W,r.h); }
+  ctx.restore();
+}
+function render(){
+  ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,W,H);
+  clock.tD=dispT();
+  const R=bandRects();
+  for(let i=3;i>=0;i--){ const r=R[i]; if(r.h<1) continue;
+    if(i===0&&fx.wipe>0&&fx.wipe<1){ const wx=FX+(W-FX)*fx.wipe;
+      ctx.save(); ctx.beginPath(); ctx.rect(wx,r.y,W-wx,r.h); ctx.clip(); drawBand(0,r,false); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.rect(0,r.y,wx,r.h); ctx.clip(); drawBand(0,r,true); ctx.restore();
+      ctx.strokeStyle=css(TOK.accent); ctx.lineWidth=1.5; line(wx,r.y,wx,r.y+r.h); ctx.strokeStyle=css(TOK.accent,.2); ctx.lineWidth=7; line(wx-3,r.y,wx-3,r.y+r.h); }
+    else drawBand(i,r,i===0&&rerouted); }
+  ctx.strokeStyle=css(TOK.mode==='wood'?TOK.ink:TOK.rule); ctx.lineWidth=TOK.mode==='wood'?1.5:1; for(let i=1;i<4;i++){ const y=R[i].y; if(y<H-1) line(0,y+.5,W,y+.5); }
+  if(slicing){ ctx.strokeStyle=css(TOK.ink,.85); ctx.lineWidth=1; ctx.setLineDash([2,4]); line(FX,26,FX,H); ctx.setLineDash([]); }
+  // grain + vignette
+  if(grain){ ctx.save(); ctx.globalAlpha=TOK.mode==='night'?.05:TOK.mode==='wood'?.09:.07; ctx.globalCompositeOperation='overlay'; ctx.fillStyle=ctx.createPattern(grain,'repeat'); ctx.fillRect(0,0,W,H); ctx.restore(); }
+  if(vignette) ctx.drawImage(vignette,0,0,W,H);
+  layoutOverlay(R);
+}
+
+/* ------------------------------------------------------------------ overlay */
+const ov=$('#ov'), labs=[], caps=[], verds=[];
+LIVES.forEach((L,i)=>{
+  const b=document.createElement('div'); b.className='blabel'; b.style.setProperty('--c',`var(--l${i})`); b.innerHTML=`<b>${L.name}</b><i>${L.sub}</i>`; b.style.opacity=0; ov.insertBefore(b,ov.firstChild); labs.push(b);
+  const c=document.createElement('div'); c.className='cap'; c.style.setProperty('--c',`var(--l${i})`); ov.insertBefore(c,$('#why')); caps.push(c);
+  const v=document.createElement('div'); v.className='verdict'; v.style.setProperty('--c',`var(--l${i})`); ov.insertBefore(v,$('#why')); verds.push(v);
+});
+const capHide=[0,0,0,0];
+function layoutOverlay(R){
+  const T=clock.tD;
+  for(let i=0;i<4;i++){ const r=R[i], fh=figH(r);
+    labs[i].style.transform=`translate(14px,${(r.y+12).toFixed(1)}px)`; labs[i].style.opacity=(fx.labels*clamp((r.h-34)/40,0,1)*(phase==='pause'?.25:1)).toFixed(3);
+    const cx=FX+fh*.5+14, cy=r.y+Math.max(r.h<150?30:42,r.h*.17);
+    caps[i].style.left=cx.toFixed(1)+'px'; caps[i].style.top=cy.toFixed(1)+'px';
+    verds[i].style.left=(FX+fh*.5+16).toFixed(1)+'px'; verds[i].style.top=(r.y+Math.max(32,r.h*.14)).toFixed(1)+'px';
+    if(capHide[i]&&performance.now()>capHide[i]){ capHide[i]=0; gs.to(caps[i],{autoAlpha:0,duration:D(.6)}); } }
+  if(slicing){ const sl=$('#slice'); sl.style.left=FX+'px'; }
+  setOdo(Math.max(T,BIRTH));
+  if(!scrubbing) $('#scrub').value=clamp(T,NOW,END);
+}
+function showCaption(i,ev,text){
+  const el=caps[i], T=ev?ev.y:clock.tD, yr=Math.floor(T);
+  el.innerHTML=`<small>${yr} · age ${yr-BIRTH}</small>${text||ev.c}`;
+  gs.killTweensOf(el); gs.fromTo(el,{autoAlpha:0,y:5},{autoAlpha:1,y:0,duration:D(.5),ease:'power2.out'});
+  capHide[i]=ev?performance.now()+(3600/Math.sqrt(speed)):0;
+}
+function hideCaptions(){ caps.forEach((c,i)=>{capHide[i]=0;gs.killTweensOf(c);gs.to(c,{autoAlpha:0,duration:D(.3)})}); }
+
+/* odometer */
+const odo=$('#odo'); let yCols=[],aCols=[];
+(function(){ const mk=()=>{ const c=document.createElement('span'); c.className='dcol'; const s=document.createElement('span'); s.className='dstrip'; for(let d=0;d<=10;d++){ const n=document.createElement('span'); n.textContent=d%10; s.appendChild(n);} c.appendChild(s); odo.appendChild(c); return s; };
+  yCols=[mk(),mk(),mk(),mk()]; const sp=document.createElement('span'); sp.className='sep'; sp.textContent='·'; odo.appendChild(sp); aCols=[mk(),mk()]; })();
+function roll(v,cols){ const iv=Math.floor(v+1e-6), fr=v-iv, rr=RM?0:smooth((fr-.84)/.16); let carry=true; const n=cols.length;
+  for(let k=n-1;k>=0;k--){ const d=Math.floor(iv/Math.pow(10,n-1-k))%10; const pos=carry?d+rr:d; cols[k].style.transform=`translateY(${(-pos).toFixed(3)}em)`; carry=carry&&d===9; } }
+let lastOdo=-1; function setOdo(T){ if(Math.abs(T-lastOdo)<.0005) return; lastOdo=T; roll(T,yCols); roll(T-BIRTH,aCols); }
+
+/* ticks under the scrubber */
+function drawTicks(){ const c=$('#ticks'); if(!c||!TOK.l) return; const w=c.clientWidth,h=c.clientHeight; if(!w) return; c.width=w*DPR; c.height=h*DPR; const x=c.getContext('2d'); x.setTransform(DPR,0,0,DPR,0,0); x.clearRect(0,0,w,h);
+  const X=y=>(y-NOW)/(END-NOW)*(w-4)+2;
+  LIVES.forEach((L,i)=>{ x.fillStyle=css(TOK.l[i]); L.ev.forEach(e=>{ if(!shown(e,i===0&&rerouted)) return; x.beginPath(); x.arc(X(e.y),2.5+i*3.2,1.35,0,Math.PI*2); x.fill(); }); });
+  x.fillStyle=css(TOK.ink); [[TP_Y,'tp'],[PAUSE_Y,'pause']].forEach(([y])=>{ const px=X(y); x.beginPath(); x.moveTo(px,h-4); x.lineTo(px+3,h-1); x.lineTo(px,h+2); x.lineTo(px-3,h-1); x.fill(); });
+}
+
+/* ------------------------------------------------------------------ rail */
+const notesEl=$('#notes'); const counts={};
+function noteEl(q,mine){ const d=document.createElement('div'); d.className='note'+(mine?' mine':''); d.id='n-'+q.id; d.innerHTML=`<q>${q.text}</q><div class="meta"><span>${q.id} · ${q.tag}</span><b class="cnt"></b></div><i class="pin"></i>`; return d; }
+function buildRail(){ notesEl.innerHTML=''; QUOTES.forEach(q=>{counts[q.id]=0; notesEl.appendChild(noteEl(q));}); delete counts.q6; $('#railcount').textContent='5 notes'; }
+function bump(qid,li){ const el=$('#n-'+qid); if(!el) return; counts[qid]=(counts[qid]||0)+1; el.querySelector('.cnt').textContent=`shaped ${counts[qid]} turn${counts[qid]>1?'s':''}`;
+  el.dataset.hl=li; el.style.setProperty('--hl',`var(--l${li})`); el.classList.add('lit'); clearTimeout(el._t); el._t=setTimeout(()=>{ if(!el.classList.contains('hold')) el.classList.remove('lit'); },RM?2500:1800); return el; }
+function thread(x1,y1,el,li,persist){
+  const svg=$('#threads'), pin=el.querySelector('.pin').getBoundingClientRect(); const x2=pin.left+pin.width/2, y2=pin.top+pin.height/2;
+  const col=getComputedStyle(root).getPropertyValue('--l'+li).trim(); const dx=Math.max(70,Math.abs(x1-x2)*.45);
+  const p=document.createElementNS(NS,'path'); p.setAttribute('d',`M${x1},${y1} C${x1-dx},${y1-20} ${x2+dx},${y2} ${x2},${y2}`); p.setAttribute('fill','none'); p.setAttribute('stroke',col); p.setAttribute('stroke-width',persist?1.25:.9);
+  const c1=document.createElementNS(NS,'circle'); c1.setAttribute('cx',x1); c1.setAttribute('cy',y1); c1.setAttribute('r',persist?3.2:2.2); c1.setAttribute('fill',col);
+  svg.appendChild(p); svg.appendChild(c1); const len=p.getTotalLength(); p.style.strokeDasharray=len; p.style.strokeDashoffset=len;
+  gs.to(p,{strokeDashoffset:0,duration:D(persist?1.1:.7),ease:'power2.inOut'});
+  const els=[p,c1]; if(!persist) gs.to(els,{opacity:0,delay:D(1.5)+.4,duration:D(1),onComplete:()=>els.forEach(e=>e.remove())}); return els;
+}
+function stagePt(x,y){ const r=stage.getBoundingClientRect(); return [r.left+x,r.top+y]; }
+
+/* ------------------------------------------------------------------ text reveal */
+function words(el,text){ el.innerHTML=''; return (text.match(/\S+\s*/g)||[]).map(w=>{ const s=document.createElement('span'); s.className='w'; s.textContent=w; el.appendChild(s); return s; }); }
+function reveal(spans,delay,stg){ if(RM){ gs.set(spans,{opacity:1}); return; } gs.fromTo(spans,{opacity:0,y:6,filter:'blur(7px)'},{opacity:1,y:0,filter:'blur(0px)',duration:.7,stagger:stg||.03,delay:delay||0,ease:'power2.out'}); }
+
+/* ------------------------------------------------------------------ opening */
+let tl=null;
+function runOpening(){
+  resetWorld(); phase='opening'; playing=true; setPlayIcon(); gs.set('#skip',{autoAlpha:1});
+  const op=$('#open'); op.innerHTML='<p class="l1"></p><p class="l2"></p><p class="l3"></p>'; gs.set(op,{autoAlpha:1,y:0});
+  const s1=words(op.children[0],'You’re 25.'), s2=words(op.children[1],'You have 45 summers left.'), s3=words(op.children[2],'Here are four ways to spend them.');
+  gs.set([...s1,...s2,...s3],{opacity:0});
+  if(RM){ clock.t=NOW; gs.set([...s1,...s2,...s3],{opacity:1}); setTimeout(()=>{ gs.set(op,{autoAlpha:0}); finishOpening(); },3200); return; }
+  tl=gs.timeline();
+  tl.to(clock,{t:2003,duration:.9,ease:'sine.in'})
+    .to(clock,{t:2018.4,duration:1.15,ease:'none'})
+    .to(clock,{t:2024.6,duration:1.55,ease:'sine.inOut'})
+    .to(clock,{t:NOW,duration:.95,ease:'power2.out'})
+    .to(fx,{here:1,duration:1.1,ease:'power1.out'},'-=.1')
+    .call(()=>reveal(s1,0,.05),null,'-=.95')
+    .call(()=>reveal(s2,0,.04),null,'+=.05')
+    .call(()=>reveal(s3,0,.035),null,'+=.75')
+    .to(op,{autoAlpha:0,y:-14,duration:.6,ease:'power2.in'},'+=1.35')
+    .to(fx,{split:1,duration:1.6,ease:'power2.inOut'},'-=.15')
+    .to(fx.ink,{0:1,duration:1.1,ease:'sine.out'},'<')
+    .to(fx.ink,{1:1,duration:.9,ease:'sine.out'},'<.35')
+    .to(fx.ink,{2:1,duration:.9,ease:'sine.out'},'<.25')
+    .to(fx.ink,{3:1,duration:.9,ease:'sine.out'},'<.25')
+    .to(fx,{labels:1,duration:.7},'-=.4')
+    .call(()=>finishOpening());
+}
+function finishOpening(){
+  if(tl){ tl.kill(); tl=null; }
+  clock.t=NOW; prevT=NOW; fx.split=1; fx.ink=[1,1,1,1]; fx.labels=1; fx.here=1; gs.set('#open',{autoAlpha:0}); gs.to('#skip',{autoAlpha:0,duration:D(.3)});
+  phase='play'; playing=!RM; setPlayIcon(); if(RM) showHint('Press play to walk the four lives. Click any horizon to open that year.');
+}
+function resetWorld(){
+  gs.killTweensOf(fx); gs.killTweensOf(fx.ink); gs.killTweensOf(fx.dim); gs.killTweensOf(fx.turn);
+  clock.t=2001; prevT=2001; rerouted=false; tpDone=false; pauseDone=false; endShown=false; slicing=false; marker=null;
+  Object.assign(fx,{split:0,worldDim:0,wipe:0,labels:0,here:0}); fx.ink=[0,0,0,0]; fx.dim=[0,0,0,0]; fx.turn=[0,0,0,0];
+  hideCaptions(); verds.forEach(v=>gs.set(v,{autoAlpha:0})); ['#why','#ask','#yc','#letter','#summary','#hint','#slice'].forEach(s=>gs.set(s,{autoAlpha:0}));
+  $('#threads').innerHTML=''; buildRail(); drawTicks();
+}
+
+/* ------------------------------------------------------------------ playback */
+function nextStop(){ const s=[END]; if(!tpDone) s.push(TP_Y); if(!pauseDone) s.push(PAUSE_Y); return Math.min(...s.filter(v=>v>clock.t-1e-6)); }
+function advance(dt){
+  const stop=nextStop(), dist=stop-clock.t, slowR=stop===TP_Y?1.3:stop===PAUSE_Y?1:.8;
+  const mul=dist<slowR?Math.max(.1,Math.pow(dist/slowR,.8)):1;
+  clock.t=Math.min(stop,clock.t+dt*speed/SPY*mul);
+  fireEvents(prevT,clock.t); prevT=clock.t;
+  if(clock.t>=stop-1e-5){ clock.t=stop; if(stop===TP_Y&&!tpDone) enterTP(); else if(stop===PAUSE_Y&&!pauseDone) enterPause(); else if(stop===END) enterEnd(); }
+}
+function fireEvents(a,b){
+  LIVES.forEach((L,i)=>L.ev.forEach(ev=>{ if(ev.y>a&&ev.y<=b&&shown(ev,i===0&&rerouted)){ showCaption(i,ev);
+    if(ev.q&&!ev.tp){ const el=bump(ev.q,i); if(el&&!RM&&W>=600){ const r=bandRects()[i]; const [x,y]=stagePt(FX+figH(r)*.5+10,r.y+Math.max(42,r.h*.17)+8); thread(x,y,el,i,false); } } } }));
+}
+let whyEls=null, whyTimer=null;
+function enterTP(){
+  phase='tp'; const R=bandRects();
+  gs.to(fx.dim,{1:1,2:1,3:1,duration:D(.8),ease:'sine.inOut'});
+  const why=$('#why'); const narrow=W<600; const r=R[0];
+  why.style.left=(narrow?12:Math.min(FX+40,W-390))+'px'; why.style.top=(narrow?r.y+r.h*.5:r.y+14)+'px';
+  showCaption(0,null,'You turn down Singapore.'); capHide[0]=0;
+  const note=$('#n-q1'); note.classList.add('hold'); bump('q1',0);
+  setTimeout(()=>{ const u=r.h/200, gy=r.y+r.h*.8; const [x,y]=stagePt(FX+10*u,gy-17*u); whyEls=thread(x,y,note,0,true);
+    gs.fromTo(why,{autoAlpha:0,y:8},{autoAlpha:1,y:0,duration:D(.6),delay:D(.5),ease:'power2.out'});
+    gs.fromTo('#whytimer',{scaleX:0},{scaleX:1,duration:11,ease:'none',delay:.8,onComplete:leaveTP}); },D(450));
+}
+function leaveTP(){
+  if(phase!=='tp') return; gs.killTweensOf('#whytimer'); phase='play'; tpDone=true; prevT=clock.t;
+  gs.to('#why',{autoAlpha:0,duration:D(.35)}); gs.to(fx.dim,{1:0,2:0,3:0,duration:D(.8)});
+  if(whyEls) gs.to(whyEls,{opacity:0,duration:D(.8),onComplete:()=>{whyEls&&whyEls.forEach(e=>e.remove());whyEls=null}});
+  const n=$('#n-q1'); n.classList.remove('hold'); setTimeout(()=>n.classList.remove('lit'),900); capHide[0]=performance.now()+1500;
+}
+function enterPause(){
+  phase='pause'; hideCaptions();
+  gs.to(fx,{worldDim:1,duration:D(1),ease:'sine.inOut'});
+  [0,1,2,3].forEach(i=>gs.to(fx.turn,{[i]:1,duration:D(.55),delay:D(.25+i*.12),ease:'power2.inOut'}));
+  const ask=$('#ask'), h2=ask.querySelector('h2'); ask.style.paddingLeft=(W<600?20:Math.round(FX+figH(bandRects()[0])+70))+'px'; ask.style.paddingRight=(W<600?20:48)+'px'; const inp=$('#answer'); inp.value=''; gs.set('#caretline',{scaleX:.08});
+  gs.fromTo(ask,{autoAlpha:0},{autoAlpha:1,duration:D(.5),delay:D(.9)});
+  const sp=Array.from(h2.childNodes); if(!h2._split){ const txt=h2.innerHTML; h2._orig=txt; h2._split=1; }
+  h2.innerHTML=h2._orig; const nodes=[]; h2.childNodes.forEach(n=>nodes.push(n)); h2.innerHTML='';
+  const all=[]; nodes.forEach(n=>{ if(n.nodeType===3){ (n.textContent.match(/\s*\S+\s*/g)||[]).forEach(w=>{const s=document.createElement('span');s.className='w';s.textContent=w;h2.appendChild(s);all.push(s);}); } else { const em=document.createElement('em'); h2.appendChild(em); (n.textContent.match(/\s*\S+\s*/g)||[]).forEach(w=>{const s=document.createElement('span');s.className='w';s.textContent=w;em.appendChild(s);all.push(s);}); } });
+  gs.set(all,{opacity:0}); setTimeout(()=>{ reveal(all,0,.022); setTimeout(()=>inp.focus({preventScroll:true}),D(900)); },D(1000));
+}
+$('#answer').addEventListener('input',e=>{ const n=e.target.value.length; gs.to('#caretline',{scaleX:clamp(.08+n/60,.08,1),duration:.3}); });
+$('#answer').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(!v){ gs.fromTo('#caretline',{x:-5},{x:0,duration:.4,ease:'elastic.out(1,.3)'}); return; } submitAnswer(v); } });
+function submitAnswer(v){
+  if(phase!=='pause') return; phase='answering';
+  const inp=$('#answer'), ir=inp.getBoundingClientRect(), fs=parseFloat(getComputedStyle(inp).fontSize);
+  const q={id:'q6',text:v,tag:'you, at 30'}; const n=noteEl(q,true); n.style.visibility='hidden'; notesEl.appendChild(n); $('#railcount').textContent='6 notes'; counts.q6=0;
+  n.scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'});
+  const fly=document.createElement('div'); fly.className='fly'; fly.textContent='“'+v+'”'; fly.style.fontSize=fs+'px'; fly.style.width=Math.min(ir.width,760)+'px'; fly.style.lineHeight='1.3';
+  fly.style.transform=`translate(${ir.left}px,${ir.top}px)`; document.body.appendChild(fly); inp.value=''; gs.to('#ask',{autoAlpha:0,duration:D(.4)});
+  setTimeout(()=>{ const qr=n.querySelector('q').getBoundingClientRect(); const sc=16.5/fs;
+    gs.fromTo(fly,{x:ir.left,y:ir.top,scale:1},{x:qr.left,y:qr.top,scale:sc,width:qr.width/sc,duration:D(1.15),ease:'power3.inOut',onComplete:()=>{ fly.remove(); n.style.visibility='visible'; n.style.setProperty('--hl','var(--l0)'); n.dataset.hl=0; n.classList.add('lit'); setTimeout(()=>n.classList.remove('lit'),2400); reroute(); }}); },60);
+}
+function reroute(){
+  [0,1,2,3].forEach(i=>gs.to(fx.turn,{[i]:0,duration:D(.5),delay:D(i*.08),ease:'power2.inOut'}));
+  gs.to(fx,{worldDim:0,duration:D(1.1),delay:D(.3)});
+  rerouted=true; drawTicks(); fx.wipe=0.0001;
+  gs.to(fx,{wipe:1,duration:D(1.6),delay:D(.5),ease:'power2.inOut',onComplete:()=>{ fx.wipe=0; }});
+  $('#sumtext').textContent='You protect the painting. The 2041 burnout is softer, and a first small exhibition appears in 2044.';
+  gs.fromTo('#summary',{autoAlpha:0,y:-6},{autoAlpha:1,y:0,duration:D(.6),delay:D(.7)}); gs.to('#summary',{autoAlpha:0,duration:D(.8),delay:D(.7)+6.5});
+  setTimeout(()=>{ phase='play'; pauseDone=true; prevT=clock.t; },D(2300));
+}
+function enterEnd(){
+  phase='end'; playing=false; setPlayIcon(); hideCaptions();
+  [0,1,2,3].forEach(i=>gs.to(fx.turn,{[i]:1,duration:D(.6),delay:D(1+i*.15),ease:'power2.inOut'}));
+  showVerdicts(); showHint('Drag the timeline to see the four of you at any age. Click a horizon to open that year.');
+}
+function showVerdicts(){ endShown=true; verds.forEach((v,i)=>{ const L=LIVES[i]; v.innerHTML=`<small>${L.name} · at 70 · ${L.place(2071)}</small>${i===0&&rerouted?L.verdictAlt:L.verdict}`;
+  gs.fromTo(v,{autoAlpha:0,y:6},{autoAlpha:1,y:0,duration:D(.8),delay:D(.5+i*.35),ease:'power2.out'}); }); }
+function hideVerdicts(){ if(!endShown) return; endShown=false; verds.forEach(v=>gs.to(v,{autoAlpha:0,duration:D(.25)})); }
+function showHint(t){ $('#hint').textContent=t; gs.fromTo('#hint',{autoAlpha:0},{autoAlpha:1,duration:D(.5),delay:D(1.6)}); gs.to('#hint',{autoAlpha:0,duration:D(.6),delay:D(1.6)+7}); }
+
+/* ------------------------------------------------------------------ slice */
+function phraseAt(i,y){ const alt=i===0&&rerouted; let best=null; for(const e of LIVES[i].ev){ if(shown(e,alt)&&e.y<=y+.01) best=e; } return best?best.c:LIVES[i].sub; }
+function updateSlice(){ const T=clock.t, age=Math.round(T-BIRTH), yr=Math.round(T); const sl=$('#slice'); sl.textContent=`The four of you at ${age} · ${yr}`; sl.style.left=FX+'px';
+  if(!isShown(sl)) gs.to(sl,{autoAlpha:1,duration:D(.2)});
+  if(isShown('#hint')) gs.to('#hint',{autoAlpha:0,duration:.2}); caps.forEach((c,i)=>{ c.innerHTML=`<small>${LIVES[i].name} · ${yr}</small>${tuesday(i,yr)[1]}`; capHide[i]=0; gs.killTweensOf(c); gs.set(c,{autoAlpha:1,y:0}); }); }
+function endSlice(){ slicing=false; gs.to('#slice',{autoAlpha:0,duration:D(.3)}); hideCaptions(); }
+
+/* ------------------------------------------------------------------ controls */
+function setPlayIcon(){ const on=playing&&phase!=='end'; $('#icPause').style.display=on?'':'none'; $('#icPlay').style.display=on?'none':''; $('#btnPlay').setAttribute('aria-label',on?'Pause':'Play'); }
+$('#btnPlay').addEventListener('click',togglePlay);
+function togglePlay(){
+  if(phase==='opening'){ playing=!playing; if(tl) playing?tl.play():tl.pause(); setPlayIcon(); return; }
+  if(phase==='tp'){ leaveTP(); playing=true; setPlayIcon(); return; }
+  if(phase==='pause'||phase==='answering') return;
+  closeCards();
+  if(phase==='end'||clock.t>=END-.01){ clock.t=NOW; prevT=NOW; phase='play'; hideVerdicts(); fx.turn=[0,0,0,0]; playing=true; if(slicing) endSlice(); setPlayIcon(); return; }
+  playing=!playing; if(playing&&slicing) endSlice(); setPlayIcon();
+}
+$$('.speeds button').forEach(b=>b.addEventListener('click',()=>{ speed=+b.dataset.s; $$('.speeds button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false')); }));
+$('#btnReplay').addEventListener('click',()=>{ closeCards(); runOpening(); });
+$('#skip').addEventListener('click',()=>{ if(phase==='opening'){ gs.killTweensOf(fx); gs.killTweensOf(fx.ink); finishOpening(); playing=true; setPlayIcon(); } });
+let scrubbing=false;
+const scrub=$('#scrub');
+scrub.addEventListener('pointerdown',()=>{ scrubbing=true; });
+window.addEventListener('pointerup',()=>{ if(scrubbing){ scrubbing=false; } });
+scrub.addEventListener('input',()=>{
+  if(phase==='opening'||phase==='tp'||phase==='pause'||phase==='answering'){ scrub.value=clamp(clock.t,NOW,END); return; }
+  closeCards(); playing=false; setPlayIcon(); slicing=true;
+  clock.t=+scrub.value; prevT=clock.t; fx.turn=[0,0,0,0];
+  if(clock.t<END-.05){ hideVerdicts(); if(phase==='end') phase='play'; } else if(!endShown){ phase='end'; showVerdicts(); fx.turn=[1,1,1,1]; }
+  updateSlice();
+});
+scrub.addEventListener('change',()=>{ scrubbing=false; });
+
+/* year card */
+cv.addEventListener('click',e=>{
+  if(!(phase==='play'||phase==='end')) return;
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top; const R=bandRects(); const i=R.findIndex(b=>y>=b.y&&y<b.y+b.h); if(i<0) return;
+  const yr=clamp(Math.round(clock.t+(x-FX)/ppy()),NOW,END); openYear(i,yr,x,R[i]);
+});
+let ycCur=null;
+function tuesday(i,yr){ const L=LIVES[i]; let list=L.vign; if(i===0&&rerouted){ list=L.vign.filter(v=>!(v[0]>=2031&&L.vignAlt.some(a=>a[0]===v[0]))).concat(L.vignAlt).sort((a,b)=>a[0]-b[0]); }
+  let best=list[0]; for(const v of list) if(v[0]<=yr) best=v; return best; }
+function openYear(i,yr,x,r){
+  if(playing){ playing=false; setPlayIcon(); } marker={i,y:yr}; ycCur={i,yr};
+  const v=tuesday(i,yr), age=yr-BIRTH;
+  $('#yck').textContent=`${LIVES[i].name} · ${LIVES[i].place(yr)} · age ${age}`; $('#ych').innerHTML=`A Tuesday in <em>${yr}</em>`;
+  $('#yc1').textContent=v[1]; $('#yc2').textContent=v[2]; $('#ycw').textContent=`Write to yourself at ${age} →`;
+  const yc=$('#yc'); const cw=Math.min(320,W-24); yc.style.left=clamp(x+16,12,W-cw-12)+'px'; yc.style.top=clamp(r.y+10,10,H-230)+'px';
+  gs.fromTo(yc,{autoAlpha:0,y:6},{autoAlpha:1,y:0,duration:D(.35),ease:'power2.out'});
+}
+function closeCards(){ marker=null; ycCur=null; gs.to(['#yc','#letter'],{autoAlpha:0,duration:D(.25)}); }
+$('#ycx').addEventListener('click',closeCards);
+$('#ycw').addEventListener('click',()=>{ if(!ycCur) return; const {i,yr}=ycCur, L=LIVES[i], age=yr-BIRTH;
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  $('#ldate').textContent=`${L.place(yr)} · a Tuesday in ${months[(yr*7)%12]} ${yr}`;
+  const paras=(i===0&&rerouted?L.letterAlt:L.letter); const body=$('#lbody'); body.innerHTML=''; const all=[];
+  paras.forEach(t=>{ const p=document.createElement('p'); body.appendChild(p); all.push(...words(p,t)); });
+  $('#lsig').textContent=`Alex, at ${age}`; $('#letter').style.setProperty('--c',`var(--l${i})`); $('#slipnote').textContent='';
+  gs.to('#yc',{autoAlpha:0,duration:D(.2)}); gs.fromTo('#letter',{autoAlpha:0,y:14},{autoAlpha:1,y:0,duration:D(.5),ease:'power2.out'}); $('#letter').scrollTop=0;
+  gs.set(all,{opacity:0}); reveal(all,.35,.014);
+});
+$('#lclose').addEventListener('click',closeCards);
+$$('.slip').forEach(s=>s.addEventListener('click',()=>{ $('#slipnote').textContent=`In the full build, Alex writes back to “${s.textContent}” in a new letter.`; }));
+$('#whygo').addEventListener('click',leaveTP);
+
+window.addEventListener('keydown',e=>{
+  if(e.target&&e.target.id==='answer') return;
+  if(e.key==='Escape'){ if(isShown('#letter')||isShown('#yc')) closeCards(); else if(phase==='tp') leaveTP(); }
+  if(e.key===' '&&!(e.target instanceof HTMLButtonElement)&&!(e.target instanceof HTMLInputElement)){ e.preventDefault(); togglePlay(); }
+});
+
+/* looks + fonts */
+function setLook(l){ root.dataset.look=l; $$('[data-look]').forEach(b=>b.tagName==='BUTTON'&&b.setAttribute('aria-pressed',b.dataset.look===l?'true':'false')); readTokens(); try{localStorage.setItem('fh-look',l)}catch(e){} }
+function setFont(f){ if(f==='b') root.dataset.font='b'; else delete root.dataset.font; $$('[data-font]').forEach(b=>b.tagName==='BUTTON'&&b.setAttribute('aria-pressed',b.dataset.font===f?'true':'false')); readTokens(); try{localStorage.setItem('fh-font',f)}catch(e){} }
+$$('button[data-look]').forEach(b=>b.addEventListener('click',()=>setLook(b.dataset.look)));
+$$('button[data-font]').forEach(b=>b.addEventListener('click',()=>setFont(b.dataset.font)));
+
+/* ------------------------------------------------------------------ loop */
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  if(phase==='play'&&playing&&!scrubbing) advance(dt);
+  const walking=(phase==='play'&&playing&&!scrubbing)||(phase==='opening'&&playing);
+  const target=walking&&!RM?1:0; walkAmt+=(target-walkAmt)*Math.min(1,dt*(target?5:7));
+  if(!RM){ walkPhase+=dt*Math.PI*2*(phase==='opening'?2.2:1.35*Math.sqrt(speed))*(walkAmt>.02?1:0); if(phase!=='pause'&&phase!=='answering') wclock+=dt; }
+  render(); schedule(frame);
+}
+let USE_TIMER=false; const schedule=f=>USE_TIMER?setTimeout(()=>{ gs.ticker.tick(); f(performance.now()); },16):requestAnimationFrame(f);
+
+gs.set('#letter',{xPercent:-50,yPercent:-50});
+let saved={look:'paper',font:'a'}; try{ saved.look=localStorage.getItem('fh-look')||'paper'; saved.font=localStorage.getItem('fh-font')||'a'; }catch(e){}
+root.dataset.look=saved.look; setLook(saved.look); setFont(saved.font);
+new ResizeObserver(()=>{ resize(); }).observe(stage); resize();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>readTokens());
+buildRail(); runOpening(); requestAnimationFrame(t=>{ last=t; frame(t); });
+window.__fh={timers(){ USE_TIMER=true; schedule(frame); },clock,fx,get phase(){return phase},get playing(){return playing},get tl(){return tl}};
+})();
+</script>
