@@ -415,7 +415,7 @@ flowchart LR
     </div>
   </section>
 
-  <footer>Repository: <a href="https://github.com/JackDeBuff/every-life-you-have-left" target="_blank" rel="noopener">github.com/JackDeBuff/every-life-you-have-left</a> · Plan written Fri Nov 6, 11pm.</footer>
+  <footer>Live app skeleton: <a href="https://every-life-you-have-left.supawich.workers.dev" target="_blank" rel="noopener">every-life-you-have-left.supawich.workers.dev</a> · Repository: <a href="https://github.com/JackDeBuff/every-life-you-have-left" target="_blank" rel="noopener">github.com/JackDeBuff/every-life-you-have-left</a> · Plan written Fri Nov 6, 11pm.</footer>
 </main>
 
 <div class="savebar" id="savebar" hidden>
@@ -473,7 +473,9 @@ const DECISIONS = [
     ["D-065","default","<strong>Storage:</strong> D1 for sessions and lives, R2 for uploaded files."],
     ["D-067","default","<strong>Front end:</strong> React, GSAP for the playback clock, Motion for cards, d3 for path math."],
     ["D-068","locked","<strong>Public repo</strong> on GitHub, with Paul added as a collaborator. Built from scratch this weekend."],
-    ["D-069","locked","<strong>Agents build, commit, push and deploy overnight.</strong> You review in the morning."]
+    ["D-069","locked","<strong>Agents build, commit, push and deploy overnight.</strong> You review in the morning."],
+    ["D-070","locked","<strong>The final main branch holds only the product.</strong> At the Sunday freeze, research, docs, prototypes and planning .md files leave main in one commit. Git history stays. One short product README stays unless you say otherwise."],
+    ["D-071","open","<strong>Try models other than Gemini.</strong> OpenAI's open-weight gpt-oss-120b already works on our Google Cloud key and costs about 4 cents a session. Claude (Haiku 5.5, Sonnet 5.5, Opus 5.5) is in Google's model catalog but needs Anthropic's terms accepted and a service-account login, and it may not be covered by the $100 credit. The eval will compare them; Gemini stays the default until it loses."]
   ]}
 ];
 

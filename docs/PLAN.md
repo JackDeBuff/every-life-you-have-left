@@ -87,7 +87,7 @@ Coordination: each WP agent works in its **own git worktree/branch** on disjoint
 | Sat 07:00–09:00 | WP6 quality pass; owner's own life generated for internal review (D-040) |
 | Sat 09:00–18:00 | **Paul's testing loop** with real people (admin view), tuning, deep path, voice/TTS polish, share; before/after study + ChatGPT control (D-044) |
 | Sat 18:00–24:00 | Pitch: Devpost text + images, 2-min video, stage deck, rehearse the 90-second table pitch; pick showcase life; pre-generate fallbacks |
-| Sun 07:00–09:00 | Freeze, final deploy, submit Devpost by **9:30am** |
+| Sun 07:00–09:00 | Freeze, final deploy, **strip planning files from `main` (D-070: research/, docs/, prototypes/, IDEA/DECISIONS/CLAUDE.md; keep a product README)**, submit Devpost by **9:30am** |
 | Sun 10:00–12:15 | Expo judging |
 
 ## 5. Risks and mitigations
