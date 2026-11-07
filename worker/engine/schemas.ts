@@ -1,0 +1,202 @@
+/**
+ * What the models return (drafts). Code owns ids, years/ages, quotes, decisionIds and every
+ * invariant; these schemas are sent as responseJsonSchema (via geminiSchema) and validated with
+ * zod. Header fields come before big arrays (shared/schema.ts rules).
+ */
+import { z } from "zod";
+import { BASE_RATE_IDS } from "../../shared/baseRates";
+import { DomainKey, DomainStates, DomainWeights, EventCategory, FearKind, MoneyFeel, Tone } from "../../shared/schema";
+import {
+  ACTIVITIES, AGE_BANDS, FLAVORS, HOMES, MOMENTS, MOODS, ROLES, SEASONS, SETTINGS_PLACE, SettingType, TIMES, WEATHERS,
+} from "../../shared/sim";
+
+const int = () => z.number().int();
+const w01 = () => z.number().min(0).max(1);
+
+// ---------------------------------------------------------------------------------------------
+// Profile
+// ---------------------------------------------------------------------------------------------
+
+export const FACT_KEYS = [
+  "occupation", "education", "location", "living", "relationship", "children", "background", "health_habits", "interests", "other",
+] as const;
+
+const FactDraft = z.object({
+  key: z.enum(FACT_KEYS),
+  label: z.string().describe('Card title, 1-2 words, e.g. "Work"'),
+  value: z.string().describe('Short phrase, e.g. "Data analyst at a regional bank, 2 years"'),
+  source: z.enum(["answer", "upload", "inferred"]),
+  quoteIds: z.array(z.string()),
+  confidence: w01(),
+});
+const ValueDraft = z.object({ label: z.string().describe("1-2 words"), weight: w01(), quoteIds: z.array(z.string()) });
+const FearDraft = z.object({ text: z.string().describe("<= 12 words, in their framing"), kind: FearKind, quoteIds: z.array(z.string()) });
+const PersonDraft = z.object({
+  label: z.string().describe('How the user names them: "Mom", "Sam". Never invent a name.'),
+  relation: z.string().describe("mother, father, partner, sibling, friend, manager, child, ..."),
+  closeness: w01(),
+  influence: w01(),
+  expectation: z.string().nullable().describe("What they expect of the user, only if said or clearly implied"),
+  quoteIds: z.array(z.string()),
+});
+const ConstraintDraft = z.object({
+  kind: z.enum(["debt", "family_obligation", "visa", "health_habit", "location", "caregiving", "other"]),
+  text: z.string(),
+  personLabel: z.string().nullable().describe("The person's label if the constraint is about one of the people"),
+  quoteIds: z.array(z.string()),
+});
+const MoneyDraft = z.object({
+  feel: MoneyFeel,
+  incomeUsd: int().nullable().describe("Annual personal income in USD (convert local currency); estimate if unknown and set assumed"),
+  debtUsd: int().nullable(),
+  debtKind: z.string().nullable(),
+  savingsUsd: int().nullable(),
+  supportsFamily: z.boolean(),
+  assumed: z.boolean().describe("true if any money number was guessed"),
+});
+const SeedDraft = z.object({ text: z.string().describe("<= 14 words"), quoteIds: z.array(z.string()) });
+
+export const ProfileLLM = z.object({
+  docQuotes: z
+    .array(z.object({ ref: z.string().describe('"d1", "d2", ...'), docIndex: int(), text: z.string().describe("Copied EXACTLY from the document") }))
+    .describe("Up to 6 sentences copied verbatim from the documents that say something personal; [] if no documents"),
+  shortForms: z.array(z.object({ quoteId: z.string(), shortForm: z.string().describe("<= 12 words, verbatim excerpt of that quote") })),
+  facts: z.array(FactDraft),
+  values: z.array(ValueDraft).describe("2-5"),
+  fears: z.array(FearDraft).describe("0-4"),
+  people: z.array(PersonDraft),
+  constraints: z.array(ConstraintDraft),
+  money: MoneyDraft,
+  worries: DomainWeights.describe("0..1 per domain; 0.1 default; what they worry about or keep coming back to"),
+  seeds: z.object({ path: SeedDraft, leap: SeedDraft, careful: SeedDraft, unjudged: SeedDraft }),
+  assumptions: z.array(z.object({ field: z.string(), value: z.string(), reason: z.string() })),
+});
+export type ProfileLLM = z.infer<typeof ProfileLLM>;
+
+/** Folding one decision answer into the profile (fast model). */
+export const AnswerDeltaLLM = z.object({
+  shortForm: z.string().nullable().describe("<= 12 words, verbatim excerpt of their answer; null if no text"),
+  worries: DomainWeights,
+  facts: z.array(FactDraft).describe("New or corrected facts only"),
+  people: z.array(PersonDraft).describe("New people, or existing people (same label) with updated expectation/closeness"),
+  fears: z.array(FearDraft),
+  values: z.array(ValueDraft),
+  constraints: z.array(ConstraintDraft),
+  money: MoneyDraft.nullable().describe("Only if the answer changes what we know about money"),
+});
+export type AnswerDeltaLLM = z.infer<typeof AnswerDeltaLLM>;
+
+// ---------------------------------------------------------------------------------------------
+// Decisions
+// ---------------------------------------------------------------------------------------------
+
+export const LEANS = ["path", "leap", "careful", "unjudged"] as const;
+export const DecisionLLM = z.object({
+  domains: z.array(DomainKey).describe("1-3 domains this decision is about"),
+  prompt: z.string().describe("The question set in the moment, <= 30 words"),
+  whyAsking: z.string().describe("<= 20 words, cites what they said"),
+  whyQuoteId: z.string().nullable(),
+  options: z
+    .array(
+      z.object({
+        lean: z.enum(LEANS),
+        label: z.string().describe("<= 10 words, first person, a real choice"),
+        hint: z.string().nullable().describe("<= 12 words: what it trades off"),
+        branchTitle: z.string().nullable().describe("Big: 2-4 words naming the fork. Small: null"),
+      }),
+    )
+    .min(4)
+    .max(4),
+  placeholder: z.string(),
+});
+export type DecisionLLM = z.infer<typeof DecisionLLM>;
+
+// ---------------------------------------------------------------------------------------------
+// Years
+// ---------------------------------------------------------------------------------------------
+
+export const EventDraft = z.object({
+  domain: DomainKey,
+  category: EventCategory,
+  title: z.string().describe("<= 8 words"),
+  narrative: z.string().describe("2-3 concrete sentences, present tense, second person"),
+  isTurningPoint: z.boolean(),
+  cause: z.object({ quoteId: z.string(), reason: z.string().describe("One sentence, second person, links their words to this") }).nullable(),
+  baseRate: z.object({ statId: z.enum(BASE_RATE_IDS) }).nullable(),
+  tone: Tone,
+  worldId: z.string().nullable().describe('world_context only: the world event id ("w1"); else null'),
+});
+export type EventDraft = z.infer<typeof EventDraft>;
+
+export const SceneDraft = z.object({
+  setting: z.enum(SETTINGS_PLACE),
+  flavor: z.enum(FLAVORS),
+  placeLabel: z.string(),
+  home: z.enum(HOMES),
+  activity: z.enum(ACTIVITIES),
+  people: z.array(z.object({ role: z.enum(ROLES), ageBand: z.enum(AGE_BANDS) })).max(6),
+  season: z.enum(SEASONS),
+  timeOfDay: z.enum(TIMES),
+  weather: z.enum(WEATHERS),
+  mood: z.enum(MOODS),
+  moment: z.enum(MOMENTS).nullable(),
+  caption: z.string().describe("<= 8 words"),
+});
+
+export const YearDraft = z.object({
+  year: int(),
+  age: int(),
+  place: z.string().describe('"City, Region" or "City, Country"'),
+  events: z.array(EventDraft).max(3),
+  summary: z.string().describe("One line, <= 20 words"),
+  money: z.object({ income: int(), netWorth: int() }),
+  states: DomainStates,
+  scene: SceneDraft,
+});
+export type YearDraft = z.infer<typeof YearDraft>;
+
+export const YearsLLM = z.object({ years: z.array(YearDraft) });
+export const OneYearLLM = z.object({ year: YearDraft });
+
+// ---------------------------------------------------------------------------------------------
+// Settings, interlude, ending, safety
+// ---------------------------------------------------------------------------------------------
+
+export const SettingsLLM = z.object({
+  settings: z
+    .array(
+      z.object({
+        id: z.string().describe("snake_case; reuse an existing id when it is the same control"),
+        type: SettingType,
+        label: z.string(),
+        hint: z.string(),
+        options: z.array(z.object({ value: z.string(), label: z.string() })),
+        multi: z.boolean(),
+        leftLabel: z.string().nullable(),
+        rightLabel: z.string().nullable(),
+        value: z.string(),
+        sourceQuoteIds: z.array(z.string()),
+      }),
+    )
+    .min(3)
+    .max(5),
+});
+
+export const InterludeLLM = z.object({
+  cuts: z.array(z.object({ branchId: z.string(), caption: z.string().describe("<= 14 words, honest, concrete") })),
+});
+
+export const EndingLLM = z.object({
+  lives: z.array(
+    z.object({
+      id: z.string().describe('"chosen" or the branch id'),
+      verdict: z.string().describe("One sentence spoken at the end age; no ranking"),
+      fiveYear: z.string().describe("3-4 first-person sentences answering 'Where do you see yourself in five years?'"),
+    }),
+  ),
+});
+
+export const SafetyLLM = z.object({
+  category: z.enum(["none", "self_harm", "abuse", "other"]),
+  severity: int().describe("0 none, 1 past or mild, 2 concerning, 3 acute"),
+});

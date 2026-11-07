@@ -1,0 +1,309 @@
+/**
+ * Engine-side model calls: routing (Gemini vs the OpenAI-compatible gpt-oss endpoint), hedged
+ * requests, usage reporting and zod parsing. Everything else in the engine calls through here.
+ *
+ * Hedging: on Sat Nov 7 ~2:40am we measured gemini-3.8-flash streams that stall ~25 s after the
+ * headers in about 1 of 3 calls. A second identical request started after `hedgeMs` without a
+ * first token wins in those cases; the loser is aborted, so the extra spend is bounded.
+ */
+import type { z } from "zod";
+import { geminiSchema } from "../../shared/schema";
+import { extractJsonText, isOpenAIModel, LlmError, type LlmPort, type LlmTurn, type LlmUsage, type ThinkingLevel } from "./llm-port";
+
+export type Tier = "heavy" | "fast" | "branch" | "repair";
+
+export interface EngineModels {
+  /** Lives, big decisions, profile, ending, chat. Default gemini-3.8-flash (thinking low). */
+  heavy: string;
+  /** Small decisions, answer folding, safety, captions. Default gemini-3.5-flash-lite. */
+  fast: string;
+  /** Coarse hidden-branch steps. Default = fast. */
+  branch: string;
+  /** Validator repair calls. Default = heavy. */
+  repair: string;
+  /** Thinking level for Gemini 3.x heavy calls ("low" per D-062). */
+  heavyThinking: ThinkingLevel;
+}
+
+export const DEFAULT_MODELS: EngineModels = {
+  heavy: "gemini-3.8-flash",
+  fast: "gemini-3.5-flash-lite",
+  branch: "gemini-3.5-flash-lite",
+  repair: "gemini-3.8-flash",
+  heavyThinking: "low",
+};
+
+export interface UsageEvent extends LlmUsage {
+  /** What the call was for: "profile", "years", "decision.big", ... */
+  purpose: string;
+  hedged: boolean;
+}
+
+export interface CallerDeps {
+  llm: LlmPort;
+  models: EngineModels;
+  onUsage?: (u: UsageEvent) => void;
+}
+
+export interface JsonCall<S extends z.ZodType> {
+  tier: Tier;
+  purpose: string;
+  system: string;
+  prompt: string;
+  history?: LlmTurn[];
+  schema: S;
+  maxOutputTokens?: number;
+  /** Start a duplicate request if the first has not answered after this long. 0 = never. */
+  hedgeMs?: number;
+  timeoutMs?: number;
+}
+
+export function modelFor(models: EngineModels, tier: Tier): string {
+  switch (tier) {
+    case "heavy":
+      return models.heavy;
+    case "fast":
+      return models.fast;
+    case "branch":
+      return models.branch;
+    case "repair":
+      return models.repair;
+  }
+}
+
+function thinkingFor(models: EngineModels, model: string, tier: Tier): ThinkingLevel | undefined {
+  if (isOpenAIModel(model)) return undefined;
+  if (/flash-lite/.test(model)) return undefined; // levels not listed for 3.5 Flash-Lite; its default is fast
+  if (tier === "fast") return "low";
+  return models.heavyThinking;
+}
+
+/** Run `fn` once; if it hasn't settled after `hedgeMs` (or fails), run it again; first success wins. */
+export function hedged<T>(fn: (signal: AbortSignal) => Promise<T>, hedgeMs: number): Promise<{ value: T; hedged: boolean }> {
+  return new Promise((resolve, reject) => {
+    const acs: AbortController[] = [];
+    let done = false;
+    let failed = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const launch = (isHedge: boolean) => {
+      const ac = new AbortController();
+      acs.push(ac);
+      fn(ac.signal).then(
+        (value) => {
+          if (done) return;
+          done = true;
+          if (timer !== undefined) clearTimeout(timer);
+          for (const c of acs) if (c !== ac) c.abort();
+          resolve({ value, hedged: isHedge });
+        },
+        (err: unknown) => {
+          failed++;
+          if (done) return;
+          const fatal = err instanceof LlmError && !err.retryable;
+          if (acs.length < 2 && !fatal && hedgeMs) {
+            if (timer !== undefined) clearTimeout(timer);
+            launch(true);
+            return;
+          }
+          if (failed >= acs.length) {
+            done = true;
+            if (timer !== undefined) clearTimeout(timer);
+            reject(err);
+          }
+        },
+      );
+    };
+    launch(false);
+    if (hedgeMs) timer = setTimeout(() => !done && acs.length < 2 && launch(true), hedgeMs);
+  });
+}
+
+const jsonInstruction = (system: string, schema: Record<string, unknown> | undefined) =>
+  schema ? `${system}\n\nReply with one JSON object only (no prose, no code fences), matching this JSON Schema:\n${JSON.stringify(schema)}` : system;
+
+export function createCaller(deps: CallerDeps) {
+  const { llm, models } = deps;
+  const report = (purpose: string, usage: LlmUsage, wasHedged: boolean) => deps.onUsage?.({ ...usage, purpose, hedged: wasHedged });
+
+  /** One JSON call, parsed and zod-validated. Returns the raw object too (for code-side fixes). */
+  async function json<S extends z.ZodType>(c: JsonCall<S>): Promise<{ data: z.infer<S> | null; raw: unknown; issues: string[]; model: string }> {
+    const model = modelFor(models, c.tier);
+    const jsonSchema = geminiSchema(c.schema);
+    const run = async (signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> => {
+      if (isOpenAIModel(model)) {
+        const r = await llm.chatCompletionsOpenAI({
+          model,
+          messages: [
+            { role: "system", content: jsonInstruction(c.system, jsonSchema) },
+            ...(c.history ?? []).map((t) => ({ role: t.role, content: t.text })),
+            { role: "user", content: c.prompt },
+          ],
+          jsonSchema,
+          maxTokens: c.maxOutputTokens ? c.maxOutputTokens + 3000 : undefined,
+          reasoningEffort: "low",
+          timeoutMs: c.timeoutMs,
+          signal,
+        });
+        return { text: r.text, usage: r.usage };
+      }
+      const r = await llm.generateJSON<unknown>({
+        model,
+        system: c.system,
+        prompt: c.prompt,
+        history: c.history,
+        schema: jsonSchema,
+        thinkingLevel: thinkingFor(models, model, c.tier),
+        maxOutputTokens: c.maxOutputTokens,
+        timeoutMs: c.timeoutMs,
+        signal,
+      });
+      return { text: r.text, usage: r.usage };
+    };
+    const { value, hedged: wasHedged } = await hedged(run, c.hedgeMs ?? 0);
+    report(c.purpose, value.usage, wasHedged);
+    let raw: unknown;
+    try {
+      raw = JSON.parse(extractJsonText(value.text));
+    } catch {
+      return { data: null, raw: null, issues: ["response was not valid JSON"], model };
+    }
+    const parsed = c.schema.safeParse(raw);
+    if (parsed.success) return { data: parsed.data, raw, issues: [], model };
+    return { data: null, raw, issues: parsed.error.issues.slice(0, 12).map((i) => `${i.path.join(".")}: ${i.message}`), model };
+  }
+
+  interface StreamCall {
+    tier: Tier;
+    purpose: string;
+    system: string;
+    prompt: string;
+    history?: LlmTurn[];
+    schema?: z.ZodType;
+    maxOutputTokens?: number;
+    /** Start a duplicate stream if no first token arrives within this long. 0 = never. */
+    hedgeMs?: number;
+  }
+
+  type Chunk = { text: string; usage?: LlmUsage };
+  type Src = { ac: AbortController; it: AsyncIterator<Chunk> };
+
+  function open(c: StreamCall, model: string, jsonSchema: Record<string, unknown> | undefined): Src {
+    const ac = new AbortController();
+    if (!isOpenAIModel(model)) {
+      const iterable = llm.streamText({
+        model,
+        system: c.system,
+        prompt: c.prompt,
+        history: c.history,
+        schema: jsonSchema,
+        thinkingLevel: thinkingFor(models, model, c.tier),
+        maxOutputTokens: c.maxOutputTokens,
+        signal: ac.signal,
+      });
+      return { ac, it: iterable[Symbol.asyncIterator]() };
+    }
+    // Adapt the callback-style OpenAI stream to an async iterator.
+    const queue: Chunk[] = [];
+    let wake: (() => void) | null = null;
+    let finished = false;
+    let error: unknown = null;
+    llm
+      .chatCompletionsOpenAI({
+        model,
+        messages: [
+          { role: "system", content: jsonInstruction(c.system, jsonSchema) },
+          ...(c.history ?? []).map((t) => ({ role: t.role, content: t.text })),
+          { role: "user", content: c.prompt },
+        ],
+        jsonSchema,
+        maxTokens: c.maxOutputTokens ? c.maxOutputTokens + 3000 : undefined,
+        reasoningEffort: "low",
+        signal: ac.signal,
+        onDelta: (t) => {
+          queue.push({ text: t });
+          wake?.();
+        },
+      })
+      .then((r) => void queue.push({ text: "", usage: r.usage }))
+      .catch((e: unknown) => void (error = e))
+      .finally(() => {
+        finished = true;
+        wake?.();
+      });
+    const it: AsyncIterator<Chunk> = {
+      async next() {
+        for (;;) {
+          if (queue.length) return { value: queue.shift()!, done: false };
+          if (error) throw error;
+          if (finished) return { value: undefined, done: true };
+          await new Promise<void>((r) => (wake = r));
+          wake = null;
+        }
+      },
+    };
+    return { ac, it };
+  }
+
+  /**
+   * Streamed call: yields raw text deltas. Hedged on time-to-first-token. Works for JSON (schema
+   * set) and plain text. Usage is reported when the stream ends.
+   */
+  async function* stream(c: StreamCall): AsyncGenerator<string> {
+    const model = modelFor(models, c.tier);
+    const jsonSchema = c.schema ? geminiSchema(c.schema) : undefined;
+    type First = { kind: "ok"; s: Src; chunk: Chunk | null } | { kind: "err"; s: Src; err: unknown };
+    const hedgeMs = c.hedgeMs ?? 0;
+    const firstText = (s: Src): Promise<First> =>
+      (async (): Promise<First> => {
+        for (;;) {
+          const r = await s.it.next();
+          if (r.done) return { kind: "ok", s, chunk: null };
+          if (r.value.text || r.value.usage) return { kind: "ok", s, chunk: r.value };
+        }
+      })().catch((err: unknown): First => ({ kind: "err", s, err }));
+    const sources: Src[] = [];
+    const pending = new Map<Src, Promise<First>>();
+    const add = () => {
+      const s = open(c, model, jsonSchema);
+      sources.push(s);
+      pending.set(s, firstText(s));
+    };
+    add();
+    let winner: Src | null = null;
+    let firstChunk: Chunk | null = null;
+    while (!winner) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const racers: Promise<First | { kind: "hedge" }>[] = [...pending.values()];
+      if (hedgeMs && sources.length === 1) racers.push(new Promise((r) => (timer = setTimeout(() => r({ kind: "hedge" }), hedgeMs))));
+      const got = await Promise.race(racers);
+      if (timer) clearTimeout(timer);
+      if (got.kind === "hedge") {
+        add();
+        continue;
+      }
+      if (got.kind === "err") {
+        pending.delete(got.s);
+        if (sources.length < 2 && !(got.err instanceof LlmError && !got.err.retryable)) add();
+        else if (pending.size === 0) throw got.err;
+        continue;
+      }
+      winner = got.s;
+      firstChunk = got.chunk;
+    }
+    const wasHedged = winner !== sources[0];
+    for (const s of sources) if (s !== winner) s.ac.abort();
+
+    if (firstChunk?.usage) report(c.purpose, firstChunk.usage, wasHedged);
+    if (firstChunk?.text) yield firstChunk.text;
+    for (;;) {
+      const r = await winner.it.next();
+      if (r.done) break;
+      if (r.value.usage) report(c.purpose, r.value.usage, wasHedged);
+      if (r.value.text) yield r.value.text;
+    }
+  }
+
+  return { json, stream, model: (t: Tier) => modelFor(models, t) };
+}
+
+export type Caller = ReturnType<typeof createCaller>;
