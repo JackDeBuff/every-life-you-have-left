@@ -29,6 +29,7 @@ import type { Caller } from "./models";
 import { bornFrom, guardMoney, knowMeScore, nextQuoteIndex } from "./profile";
 import { ANSWERS_SYSTEM, SMALL_BATCH_SYSTEM, smallBatchPrompt } from "./prompts/decision";
 import { AnswersDeltaLLM, SmallBatchLLM, type DecisionLLM } from "./schemas";
+import { kidsQuestionOpen } from "./kids";
 import { coverage, parseSlotReason } from "./slots";
 import { clamp, norm, truncateWords, wordCount } from "./util";
 
@@ -61,9 +62,15 @@ export interface SmallDecisionKit {
   begsFollowUp(answer: DecisionAnswer): boolean;
 }
 
+/**
+ * The life in `year`, that year included when it's written: its place, work and people after the
+ * latest fork. A fork's consequence starts the year after the fork, so a card served in that year
+ * must see the move or the new job (owner's playtest, Sat Nov 7: a fork moved them to a new city
+ * "from next year", and next year's card still said "in your [old city] apartment").
+ */
 const lifeNowAt = (state: SessionState, year: number): LifeNow => {
   const p = state.profile!;
-  return lifeAt(p, state.years.filter((y) => y.year < year), year, forksTaken(state, year));
+  return lifeAt(p, state.years.filter((y) => y.year <= year), year, forksTaken(state, year));
 };
 
 /** Code checks for a small card against the life at `year` (place, work, people, date, framing). */
@@ -93,7 +100,9 @@ export function createSmallKit(call: Caller, today: () => Date, at: () => string
     const first = slots[0]!;
     const t = today();
     const past = state.years.filter((y) => y.year < first.year);
-    const ctx = nowContext({ profile, years: past, atYear: first.year, path: forksTaken(state, first.year), today: t, title: "NOW (the life as it stands for these cards)" });
+    // NOW includes the first card's own year when it's written (the agent waits for it): its place,
+    // work and people after the latest fork. Each card is re-checked against its served year anyway.
+    const ctx = nowContext({ profile, years: state.years.filter((y) => y.year <= first.year), atYear: first.year, path: forksTaken(state, first.year), today: t, title: "NOW (the life as it stands for these cards)" });
     // Every small card asked so far (served ones; the queue is the agent's), newest last.
     const smalls = state.decisions.filter((d) => d.kind === "small").sort((a, b) => a.year - b.year);
     const asked = smalls.slice(-24).map((d) => `- ${d.prompt}`).join("\n");
@@ -107,7 +116,9 @@ export function createSmallKit(call: Caller, today: () => Date, at: () => string
     const used = new Set<DomainKey>();
     const plan = slots.map((sl) => {
       const r = parseSlotReason(sl.reason);
-      if (r.moment === "followup") {
+      // A follow-up keeps its domain; so does the kids question while it's still open (kids.ts:
+      // under ~35 without kids, it is asked, never left to the weights).
+      if (r.moment === "followup" || (r.moment === "kids" && !used.has("children") && kidsQuestionOpen(profile, state))) {
         used.add(r.domain);
         return { slot: sl, domain: r.domain, why: r.why };
       }
