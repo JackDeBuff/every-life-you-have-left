@@ -16,7 +16,7 @@ export interface AddedDoc {
   chars: number;
 }
 
-const LABEL: Record<DocKind, string> = { cv: "CV", linkedin: "LinkedIn PDF", ai_export: "AI-app export" };
+const LABEL: Record<DocKind, string> = { cv: "CV", linkedin: "LinkedIn", ai_export: "AI export" };
 
 export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]; onAdd: (kind: DocKind, text: string, name: string) => void; dense?: boolean }) {
   const [busy, setBusy] = useState<DocKind | null>(null);
@@ -44,17 +44,17 @@ export function UploadSlots({ added, onAdd, dense = false }: { added: AddedDoc[]
         <label key={k} className="upload" data-done={!!has(k)} data-busy={busy === k}>
           <input type="file" accept=".pdf,application/pdf,.txt" className="sr-only" onChange={(e) => void onFile(k, e.target.files?.[0])} />
           <Icon name={has(k) ? "check" : "file"} size={15} />
-          <span className="upload-name">{has(k) ? has(k)!.name : LABEL[k]}</span>
+          <span className="upload-name" title={has(k)?.name}>{has(k) ? (dense ? `${LABEL[k]} added` : has(k)!.name) : LABEL[k]}</span>
           <span className="upload-act faint">{busy === k ? "Reading…" : has(k) ? `${Math.round(has(k)!.chars / 100) / 10}k chars` : "PDF"}</span>
         </label>
       ))}
-      <AiExport done={!!has("ai_export")} onAdd={(t) => onAdd("ai_export", t, "AI-app export")} />
+      <AiExport done={!!has("ai_export")} dense={dense} onAdd={(t) => onAdd("ai_export", t, "AI-app export")} />
       {err && <p className="upload-err small">{err}</p>}
     </div>
   );
 }
 
-function AiExport({ done, onAdd }: { done: boolean; onAdd: (t: string) => void }) {
+function AiExport({ done, onAdd, dense }: { done: boolean; onAdd: (t: string) => void; dense: boolean }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
@@ -63,7 +63,7 @@ function AiExport({ done, onAdd }: { done: boolean; onAdd: (t: string) => void }
       <Popover.Trigger asChild>
         <button type="button" className="upload" data-done={done}>
           <Icon name={done ? "check" : "chat"} size={15} />
-          <span className="upload-name">{done ? "AI-app export added" : "AI-app export"}</span>
+          <span className="upload-name">{done ? (dense ? "Added" : "AI-app export added") : dense ? "AI export" : "AI-app export"}</span>
           <span className="upload-act faint">Paste</span>
         </button>
       </Popover.Trigger>

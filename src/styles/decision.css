@@ -68,3 +68,11 @@
 .keys-hint { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .btn.decide { min-width: 120px; }
 .btn.slide { color: var(--ink-2); font-stretch: var(--w-data); }
+
+/* Small decisions are lighter: they slide in, they don't take over. */
+.dcard[data-kind="small"] { padding: var(--s4) var(--s5) var(--s3); gap: var(--s3); }
+.dcard[data-kind="small"] .dq { font-size: 21px; }
+.dcard[data-kind="small"] .tile { min-height: 46px; padding: 9px 10px 9px 9px; }
+.dcard[data-kind="small"] .tile-label { font-size: 13.5px; }
+.dcard[data-kind="small"] .say .say-field .textarea { min-height: 46px; }
+.dcard[data-kind="small"] .say-micro { font-size: 11.5px; }

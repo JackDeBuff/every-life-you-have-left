@@ -39,6 +39,17 @@ function Dialogue({ hidden }: { hidden: boolean }) {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: main.length < 4 ? "auto" : "smooth" });
   }, [main.length, hidden]);
 
+  // When the pane grows back after a big decision, keep the newest line in view.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!highlight || !box.current) return;
     const el = box.current.querySelector<HTMLElement>(`[data-quote-id="${highlight.quoteId}"] mark`);

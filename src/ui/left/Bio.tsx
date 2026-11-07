@@ -23,7 +23,7 @@ export function LeftPane() {
 function StatusRose() {
   const states = useSim((s) => s.status);
   const log = useSim((s) => s.log);
-  return <LifeRose states={states} log={log} size={236} />;
+  return <LifeRose states={states} log={log} size={224} />;
 }
 
 export function Bio() {
