@@ -183,9 +183,24 @@ export type SceneSpec = z.infer<typeof SceneSpec>;
 // Years, log, branches (SPEC §4, §7, §8)
 // ---------------------------------------------------------------------------------------------
 /** A simulated year of the chosen life (or a branch). Extends v1 Year with the scene. */
+/** Code-owned life snapshot for a year (worker/engine/ledger.ts): current work + people, ages computed in code. */
+export const YearLifePerson = z.object({
+  name: z.string(),
+  role: z.enum(["partner", "child", "pet", "parent", "sibling", "grandchild", "other"]),
+  relation: z.string(),
+  age: int().nullable(),
+});
+export const YearLife = z.object({
+  work: z.string().describe("<= 8 words, e.g. 'Senior nurse, St. Luke's ER' or 'Retired'"),
+  ch: z.array(z.string()).describe("People changes this year: '+partner:Sam', '+child:Bea', '-pet:Barnaby', ..."),
+  people: z.array(YearLifePerson),
+});
+export type YearLife = z.infer<typeof YearLife>;
+
 export const SimYear = Year.extend({
   scene: SceneSpec,
   decisionIds: z.array(z.string()).describe("Decisions scheduled in this year (engine-owned)"),
+  life: YearLife.nullable().optional().describe("Engine-owned ledger snapshot; UI reads work/people from here"),
 });
 export type SimYear = z.infer<typeof SimYear>;
 
