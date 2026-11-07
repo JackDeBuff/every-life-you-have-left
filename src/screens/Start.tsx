@@ -12,7 +12,8 @@ import { HAIR, Portrait, SKIN_SWATCHES } from "../ui/left/Portrait";
 import { UploadSlots, type AddedDoc, type DocKind } from "../ui/left/TellMeMore";
 import { KNOWN_PLACES } from "../ui/mock/life";
 import { gsap, reducedMotion } from "../ui/motion";
-import { sim } from "../ui/session";
+import { startPortraits } from "../ui/media";
+import { backend, sim } from "../ui/session";
 import { LongDay } from "../ui/start/LongDay";
 
 const SPEEDS: { id: SpeedMode; key: string; title: string; note: string }[] = [
@@ -58,8 +59,9 @@ export default function Start() {
   const [via, setVia] = useState<"text" | "voice">("text");
   const [speed, setSpeed] = useState<SpeedMode>("auto");
   const [look, setLook] = useState<Appearance>({ hairStyle: null, hairColor: null, skinTone: null, glasses: null, facialHair: null });
-  const [selfie, setSelfie] = useState<string | null>(null);
-  const [docs, setDocs] = useState<(AddedDoc & { text: string })[]>([]);
+  const [selfie, setSelfie] = useState<{ file: File; url: string } | null>(null);
+  const [docs, setDocs] = useState<(AddedDoc & { text: string; file: File | null })[]>([]);
+  const [err, setErr] = useState<string | null>(null);
   const [adult, setAdult] = useState(demo);
   const [open, setOpen] = useState<"look" | "more" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -84,6 +86,7 @@ export default function Start() {
   async function begin() {
     if (!ready || busy) return;
     setBusy(true);
+    setErr(null);
     const p = parsePlace(place);
     const input: StartInput = {
       firstName: name.trim().slice(0, 40),
@@ -100,10 +103,19 @@ export default function Start() {
     if (!reducedMotion() && rootRef.current) {
       gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 0.4, duration: 0.5, stagger: 0.03 });
     }
-    await sim().start(input);
-    for (const d of docs) void sim().addDocument(d.kind, d.text);
+    try {
+      await sim().start(input);
+    } catch {
+      setBusy(false);
+      setErr("I couldn't reach the life engine. Check the Wi-Fi and try again, or play the offline demo.");
+      if (rootRef.current) gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 1, duration: 0.3 });
+      return;
+    }
+    // The screen changes when the agent opens the first fork; until then the button says so.
+    for (const d of docs) void sim().addDocument(d.kind, d.text, d.file).catch(() => {});
+    if (backend() === "live") startPortraits({ sessionId: sim().sessionId, age: ageN, endAge, appearance: input.appearance, selfie: selfie?.file ?? null });
     const j = jumpParams();
-    if (j) await fastForward(j.age, j.stopAtBig);
+    if (j && backend() === "mock") await fastForward(j.age, j.stopAtBig);
   }
 
   useEffect(() => {
@@ -244,7 +256,7 @@ export default function Start() {
                       className="sr-only"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) setSelfie(URL.createObjectURL(f));
+                        if (f) setSelfie({ file: f, url: URL.createObjectURL(f) });
                       }}
                     />
                     <Icon name="camera" size={14} /> {selfie ? "Selfie added" : "Add a selfie"}
@@ -263,7 +275,7 @@ export default function Start() {
           {open === "more" && (
             <div className="opt-body">
               <p className="small muted">The more I know, the more the lives sound like yours, and the sooner future-you can talk back in your own voice.</p>
-              <UploadSlots added={docs} onAdd={(kind: DocKind, text, nm) => setDocs((d) => [...d.filter((x) => x.kind !== kind), { kind, name: nm, chars: text.length, text }])} />
+              <UploadSlots added={docs} onAdd={(kind: DocKind, text, nm, file) => setDocs((d) => [...d.filter((x) => x.kind !== kind), { kind, name: nm, chars: text.length, text, file: file ?? null }])} />
             </div>
           )}
         </div>
@@ -282,6 +294,11 @@ export default function Start() {
           </label>
         </div>
 
+        {err && (
+          <p className="start-err small" role="alert">
+            {err}
+          </p>
+        )}
         <div className="start-go">
           <button className="btn sun go" type="submit" disabled={!ready || busy}>
             {busy ? (

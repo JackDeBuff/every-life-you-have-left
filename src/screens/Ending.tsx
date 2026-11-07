@@ -5,7 +5,7 @@
  */
 import * as Slider from "@radix-ui/react-slider";
 import * as Tabs from "@radix-ui/react-tabs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
@@ -13,6 +13,7 @@ import { money, ROMAN } from "../ui/format";
 import { Icon } from "../ui/icons";
 import { MiniRose } from "../ui/left/LifeRose";
 import { Portrait } from "../ui/left/Portrait";
+import { readAloud, type Reading } from "../ui/media";
 import { gsap, reducedMotion, setSun } from "../ui/motion";
 import { sim, useSim } from "../ui/session";
 
@@ -107,7 +108,7 @@ export default function Ending() {
               <p className="small faint">{l.path}</p>
             </header>
             <div className="life-pics">
-              <Portrait appearance={s.appearance} age={s.endAge} progress={1} size={78} />
+              <Portrait appearance={s.appearance} age={s.endAge} progress={1} size={78} portraits={s.portraits} />
               {l.last && <MiniRose states={l.last.states} size={110} />}
             </div>
             {l.last && (
@@ -203,33 +204,10 @@ function FiveYear({ lives }: { lives: LifeCol[] }) {
   const five = useSim((s) => s.ending?.fiveYear ?? NONE);
   const [tab, setTab] = useState("chosen");
   const [copied, setCopied] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const audio = useRef<HTMLAudioElement | null>(null);
+  const sessionId = useSim((s) => s.sessionId);
+  const { speaking, toggle, stop } = useReadAloud(sessionId);
   const text = five[tab] ?? "";
-
-  const stop = () => {
-    audio.current?.pause();
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
-  };
-  const speak = async () => {
-    if (speaking) return stop();
-    setSpeaking(true);
-    try {
-      const res = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, voice: "warm" }) });
-      if (!res.ok || !res.headers.get("content-type")?.startsWith("audio")) throw new Error("no tts");
-      const a = new Audio(URL.createObjectURL(await res.blob()));
-      audio.current = a;
-      a.onended = () => setSpeaking(false);
-      await a.play();
-    } catch {
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.96;
-      u.onend = () => setSpeaking(false);
-      window.speechSynthesis?.speak(u);
-    }
-  };
-  useEffect(() => () => stop(), []);
+  const speak = () => toggle(text);
 
   return (
     <Tabs.Root className="five" value={tab} onValueChange={(v) => (stop(), setTab(v))}>
@@ -258,7 +236,7 @@ function FiveYear({ lives }: { lives: LifeCol[] }) {
           <Icon name={copied ? "check" : "copy"} size={14} /> {copied ? "Copied" : "Copy"}
         </button>
         <button className="btn ghost sm" onClick={() => void speak()}>
-          <Icon name={speaking ? "stop" : "speaker"} size={14} /> {speaking ? "Stop" : "Read it aloud"}
+          <Icon name={speaking === text && text ? "stop" : "speaker"} size={14} /> {speaking === text && text ? "Stop" : "Read it aloud"}
         </button>
         <span className="small faint">About 30 seconds out loud. Practise it once.</span>
       </div>
@@ -270,7 +248,9 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
   const startAge = useSim((s) => s.profile?.age ?? 25);
   const endAge = useSim((s) => s.endAge);
   const score = useSim((s) => s.profile?.knowMeScore ?? 0);
-  const chat = useSim((s) => s.chat);
+  const chat = useSim((s) => s.dialogue);
+  const sessionId = useSim((s) => s.sessionId);
+  const reader = useReadAloud(sessionId);
   const [age, setAge] = useState(endAge);
   const [text, setText] = useState("");
   const box = useRef<HTMLDivElement>(null);
@@ -333,6 +313,11 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
                 {c.text}
                 {c.streaming && <span className="caret" />}
               </p>
+              {!c.streaming && c.text.length > 1 && (
+                <button className="btn quiet sm t-read" onClick={() => void reader.toggle(c.text)}>
+                  <Icon name={reader.speaking === c.text ? "stop" : "speaker"} size={13} /> {reader.speaking === c.text ? "Stop" : c.form === "letter" ? "Read the letter aloud" : "Hear it"}
+                </button>
+              )}
             </div>
           ),
         )}
@@ -366,4 +351,39 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
       </div>
     </div>
   );
+}
+
+/** One reading at a time: Gemini TTS in the "future" voice (browser speech as the fallback). */
+function useReadAloud(sessionId: string) {
+  const [speaking, setSpeaking] = useState<string | null>(null);
+  const cur = useRef<Reading | null>(null);
+  const token = useRef(0);
+  const stop = useCallback(() => {
+    token.current++;
+    cur.current?.stop();
+    cur.current = null;
+    setSpeaking(null);
+  }, []);
+  const toggle = useCallback(
+    async (text: string) => {
+      if (!text) return;
+      const same = speaking === text;
+      stop();
+      if (same) return;
+      const t = ++token.current;
+      setSpeaking(text);
+      const r = await readAloud(text, sessionId);
+      if (t !== token.current) return r.stop();
+      cur.current = r;
+      void r.done.then(() => {
+        if (t === token.current) {
+          cur.current = null;
+          setSpeaking(null);
+        }
+      });
+    },
+    [sessionId, speaking, stop],
+  );
+  useEffect(() => () => cur.current?.stop(), []);
+  return { speaking, toggle, stop };
 }

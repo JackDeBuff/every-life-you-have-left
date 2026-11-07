@@ -1,10 +1,12 @@
 /**
  * Hold to talk: MediaRecorder → POST /api/transcribe → editable text.
- * If the mic is unavailable or the endpoint fails (mock mode), a local mock transcript is used so
- * the demo never dead-ends. Hold with the pointer, or hold Space while the button has focus.
+ * Live: the real transcript, or a short "couldn't hear that" (we never put words in your mouth).
+ * Offline demo (mock backend): if the mic or the endpoint fails, a sample transcript is used so the
+ * demo never dead-ends. Hold with the pointer, or hold Space while the button has focus.
  */
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import { backend } from "./session";
 
 type Status = "idle" | "listening" | "transcribing" | "error";
 
@@ -16,6 +18,8 @@ const MOCK: string[] = [
 ];
 
 export async function transcribe(blob: Blob | null, hint: string): Promise<string> {
+  const live = backend() === "live";
+  if (live && (!blob || !blob.size)) throw new Error("no_audio");
   if (blob && blob.size > 0) {
     try {
       const fd = new FormData();
@@ -24,11 +28,12 @@ export async function transcribe(blob: Blob | null, hint: string): Promise<strin
       const res = await fetch("/api/transcribe", { method: "POST", body: fd });
       if (res.ok) {
         const j = (await res.json()) as { text?: string };
-        if (j.text) return j.text;
+        if (j.text?.trim()) return j.text.trim();
       }
     } catch {
-      /* fall through to the mock */
+      /* fall through */
     }
+    if (live) throw new Error("transcribe_failed");
   }
   await new Promise((r) => setTimeout(r, 700));
   return MOCK[Math.floor(Math.random() * MOCK.length)]!;
@@ -102,16 +107,25 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
       blob = new Blob(chunks.current, { type: r.mimeType || "audio/webm" });
     }
     stopAll();
-    if (held < 250 && blob === null) {
+    if (held < 250) {
       setStatus("idle");
       return;
     }
-    const text = await transcribe(blob, hint);
-    onText(text);
-    setStatus("idle");
+    try {
+      const text = await transcribe(blob, hint);
+      onText(text);
+      setStatus("idle");
+    } catch {
+      setStatus("error");
+      window.setTimeout(() => setStatus((s) => (s === "error" ? "idle" : s)), 2600);
+    }
   }
 
-  const label = status === "listening" ? "Listening… release to stop" : status === "transcribing" ? "Writing it down…" : "Hold to talk";
+  const label =
+    status === "listening" ? "Listening… release to stop"
+    : status === "transcribing" ? "Writing it down…"
+    : status === "error" ? (rec.current ? "I couldn't hear that. Try again, or type it." : "No microphone. Type it instead.")
+    : "Hold to talk";
   return (
     <button
       type="button"
@@ -139,8 +153,13 @@ export function HoldToTalk({ onText, hint = "", compact = false, disabled = fals
       }}
     >
       <span className="talk-ring" aria-hidden="true" />
+      {status === "error" && (
+        <span className="talk-err" role="status">
+          {label}
+        </span>
+      )}
       <Icon name="mic" size={compact ? 15 : 16} />
-      {!compact && <span className="talk-label">{status === "idle" ? "Hold to talk" : status === "listening" ? "Listening" : "Writing…"}</span>}
+      {!compact && <span className="talk-label">{status === "idle" ? "Hold to talk" : status === "listening" ? "Listening" : status === "error" ? "Try again" : "Writing…"}</span>}
     </button>
   );
 }

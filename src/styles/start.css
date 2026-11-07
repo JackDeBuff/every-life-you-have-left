@@ -72,6 +72,13 @@
 .talk[data-status="transcribing"] { color: var(--ink); }
 .talk[data-status="transcribing"] svg { animation: breathe 1s var(--e-tide) infinite alternate; }
 @keyframes breathe { to { opacity: 0.3; } }
+.talk[data-status="error"] { color: var(--ink); border-color: var(--sun); }
+.talk-err {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 6; white-space: nowrap;
+  padding: 5px 9px; font-size: 12px; font-weight: 560; color: var(--ink);
+  background: var(--raised); border: 1px solid var(--hair-2); border-radius: var(--r1); box-shadow: var(--lift);
+  animation: pop-in var(--t-quick) var(--e-settle);
+}
 
 /* Speed cards: hardware keys with an LED */
 .speeds { border: 0; padding: 0; margin: 0; }
