@@ -30,3 +30,6 @@ export const useUi = create<Ui>((set) => ({
   world3d: false,
   worldCut: -1,
 }));
+
+// QA handle (dev): UI flags (forking, worldCut, world3d).
+if (import.meta.env.DEV) (window as unknown as { __ui: typeof useUi }).__ui = useUi;
