@@ -32,8 +32,9 @@ const FactDraft = z.object({
 const ValueDraft = z.object({ label: z.string().describe("1-2 words"), weight: w01(), quoteIds: z.array(z.string()) });
 const FearDraft = z.object({ text: z.string().describe("<= 12 words, in their framing"), kind: FearKind, quoteIds: z.array(z.string()) });
 const PersonDraft = z.object({
-  label: z.string().describe('How the user names them: "Mom", "Sam". Never invent a name.'),
-  relation: z.string().describe("mother, father, partner, sibling, friend, manager, child, ..."),
+  label: z.string().describe('How the user names them: "Mom", "Sam", or a pet\'s name ("Biscuit"). Never invent a name.'),
+  relation: z.string().describe("mother, father, partner, sibling, best friend, friend, manager, son, daughter, dog, cat, ..."),
+  age: int().nullable().describe("Their age when this was written, ONLY if stated or given by a stated birth year (\"Theo, who is 9\" -> 9; \"Dev (44)\" -> 44; \"a 6-year-old dog\" -> 6). null otherwise; never guess"),
   closeness: w01(),
   influence: w01(),
   expectation: z.string().nullable().describe("What they expect of the user, only if said or clearly implied"),

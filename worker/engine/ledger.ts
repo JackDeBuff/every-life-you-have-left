@@ -131,7 +131,8 @@ export function ageMentions(text: string, names: string[]): AgeMention[] {
     if (!/^[A-Z][\p{L}'-]+$/u.test(name)) continue;
     const N = esc(name);
     const res = [
-      new RegExp(`\\b${N}\\s*\\((${NUM})\\)`, "g"),
+      // "Bea (3)", "Dev (44, a nurse at ...)"
+      new RegExp(`\\b${N}\\s*\\((${NUM})(?=\\s*[,;)])`, "g"),
       new RegExp(`\\b${N}(?:'s|,)?\\s+(?:is|was|turns|turned|just turned|who is|who's|, who's|aged|age|now)\\s+(?:now\\s+|just\\s+|almost\\s+|nearly\\s+|already\\s+)?(${NUM})\\b${NOT_AGE_AFTER}`, "gi"),
       new RegExp(`\\b${N},\\s+(${NUM})\\b${NOT_AGE_AFTER}`, "gi"),
       new RegExp(`\\b${N},?\\s+(?:he's|she's|they're|he is|she is|they are)\\s+(?:now\\s+|just\\s+|almost\\s+)?(${NUM})\\b${NOT_AGE_AFTER}`, "gi"),
@@ -162,6 +163,8 @@ export function ageMentions(text: string, names: string[]): AgeMention[] {
 export function roleOf(relation: string, label = ""): Role {
   const r = `${relation} ${label}`.toLowerCase();
   if (/\bex[- ]|\bformer\b|\bex\b/.test(r)) return "other";
+  // a partner's family is not theirs ("mother-in-law", "Dev's mother")
+  if (/in[- ]laws?\b|\b(?:partner|husband|wife|spouse|boyfriend|girlfriend|fianc[eé]e?)'s\b/.test(r)) return "other";
   if (/grand(son|daughter|child|kid|baby)/.test(r)) return "grandchild";
   if (/grand(mother|father|ma|pa|parent)|granny|abuela|lola|lolo/.test(r)) return "other";
   if (/\b(partner|wife|husband|spouse|girlfriend|boyfriend|fianc[eé]e?)\b/.test(r)) return "partner";
@@ -173,6 +176,10 @@ export function roleOf(relation: string, label = ""): Role {
 }
 
 const GENERIC_NAME = /^(your |my |the )?(?:(?:younger|older|little|big|baby|elder|eldest|youngest|kid) )?(partner|wife|husband|spouse|girlfriend|boyfriend|fianc[eé]e?|mom|mum|mother|dad|father|parents?|son|daughter|child|kid|baby|sister|brother|dog|cat|pet)\b/i;
+/** Relations outside the household that are still part of the life (shown in People, role "other"). */
+const CLOSE_OTHER = /\b(friend|best friend|bestie|godmother|godfather|godparent|aunt|auntie|uncle|cousin|grandmother|grandfather|grandma|grandpa|granny|nana|abuela|abuelo|lola|lolo|mentor|roommate|flatmate)\b/i;
+/** People in a stable order: the household first (the bio shows the first five). */
+const ROLE_ORDER: Record<Role, number> = { partner: 0, child: 1, pet: 2, parent: 3, sibling: 4, grandchild: 5, other: 6 };
 
 function personKey(role: Role, name: string) {
   return `${role}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
@@ -217,11 +224,9 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
   let pluralKids = false;
   for (const pp of profile.people) {
     const role = roleOf(pp.relation, pp.label);
-    if (role === "other" && !/friend/i.test(pp.relation)) {
-      // keep exes, friends, grandparents etc. out of the ledger: they don't change counts or ages
-      continue;
-    }
-    if (role === "other") continue;
+    // Close friends and family beyond the household are in the life too (QA: Margo's best friend
+    // Hanna, from her AI export, never reached People). Exes and people met through work are not.
+    if (role === "other" && (!CLOSE_OTHER.test(`${pp.relation} ${pp.label}`) || /\bex\b|\bex-|former/i.test(`${pp.relation} ${pp.label}`) || !/^[A-Z][\p{L}'-]+/u.test(pp.label.trim()) || /^(my|your|the|our)\b/i.test(pp.label.trim()))) continue;
     // a plural label ("my kids", "parents", "the girls") is several people, not one named "my kids"
     if (/\b(kids|children|sons|daughters|parents|sisters|brothers|siblings|girls|boys|twins)\b/i.test(`${pp.label} ${pp.relation}`)) {
       if (role === "parent") {
@@ -239,7 +244,9 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     // age on day one (an eval session aged Leo 11 years at once when a fold added it). The
     // earliest statement wins; facts count from their earliest quote.
     const first = name.split(/\s+/)[0]!;
-    for (const src of ageSources) {
+    // A birth year from the profile (an age stated in their words or uploads) wins.
+    if (typeof pp.born === "number" && pp.born > 1880 && pp.born <= start) (born = pp.born), (ageKnown = true);
+    for (const src of ageKnown ? [] : ageSources) {
       const m = ageMentions(src.text, [first]);
       if (!m.length) continue;
       born = src.year - m[0]!.age;
@@ -251,8 +258,14 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     add({
       since: sinceOf(pp.quoteIds),
       name, generic, role, relation: role === "pet" && species ? species : pp.relation.toLowerCase(), born, ageKnown,
-      // a pet they "just adopted" / a puppy is young; otherwise assume it's already a few years old
-      goneAt: role === "pet" && species ? start + petYears(name, species, /\b(just (?:adopted|got)|new (?:puppy|kitten|dog|cat)|puppy|kitten)\b/i.test(corpus)) : null,
+      // a pet with a stated age lives out a real lifespan from its birth; one they "just adopted" /
+      // a puppy is young; otherwise assume it's already a few years old
+      goneAt:
+        role === "pet" && species
+          ? ageKnown && born !== null
+            ? Math.max(start + 1, born + petYears(name, species, true))
+            : start + petYears(name, species, /\b(just (?:adopted|got)|new (?:puppy|kitten|dog|cat)|puppy|kitten)\b/i.test(corpus))
+          : null,
     });
   }
   // Pets they named in their own words but the profile didn't list as people ("I just adopted a
@@ -306,7 +319,7 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
       born: age !== undefined ? start - age : profile.birthYear + Math.min(profile.age - 1, 28 + 2 * i), ageKnown: age !== undefined,
     });
   }
-  return out;
+  return out.sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -421,7 +434,7 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
   }
 }
 
-const roleWord = (s: string) => {
+export const roleWord = (s: string) => {
   const t = s.toLowerCase();
   return /mother|mom|mum|mama|nanay|amma/.test(t) ? "mother" : /father|dad|papa|tatay|appa/.test(t) ? "father" : t;
 };
@@ -531,9 +544,39 @@ export function advance(prev: LifeNow, y: SimYear): { now: LifeNow; changes: str
 }
 
 export const ageOf = (p: LedgerPerson, year: number) => (p.born === null ? null : year - p.born);
-/** A parent whose age is only estimated and is now ~95+: no longer shown (never declared dead by code). */
-export const offScreen = (p: LedgerPerson, year: number) => p.role === "parent" && !p.ageKnown && (ageOf(p, year) ?? 0) >= 95;
+/**
+ * A parent whose age is only estimated and is now ~93+: very old. They stay in People (people never
+ * silently disappear; QA: Sam's parents vanished at 65 with no log line) but without a made-up age,
+ * and they are kept out of 3D scenes. A parent leaves only through a logged old-age death.
+ */
+export const offScreen = (p: LedgerPerson, year: number) => p.role === "parent" && !p.ageKnown && (ageOf(p, year) ?? 0) >= 93;
 export const here = (now: LifeNow, role?: Role) => now.people.filter((p) => p.status === "here" && p.since <= now.year && (!role || p.role === role));
+
+/**
+ * A parent's old-age death, owned by code (content rule: at most once in a life, late, gently,
+ * offscreen). The oldest parent in the ledger dies at 85-90 (deterministic per session), never
+ * before the user is 48 (the validator's rule) nor in the first two years. Every life of a session
+ * shares it (a parent's lifespan doesn't depend on the user's choices). null = no parent known, or
+ * it falls after the end. The year writer must log it (worker/engine/years.ts); without it, parents
+ * on an estimated age silently vanished from People in their 90s (QA: Sam's, at 65).
+ */
+export interface ParentDeath {
+  name: string;
+  relation: string;
+  year: number;
+  /** The parent's age then (code-computed; an estimate when their age was never stated). */
+  age: number;
+}
+export function parentDeathPlan(profile: Profile, endYear: number): ParentDeath | null {
+  const parents = initialPeople(profile).filter((p) => p.role === "parent" && p.born !== null);
+  if (!parents.length) return null;
+  const oldest = parents.slice().sort((a, b) => a.born! - b.born!)[0]!;
+  const r = hash32(`parent-death:${profile.sessionId}:${oldest.key}`);
+  let year = oldest.born! + 85 + (r % 6);
+  year = Math.max(year, profile.startYear + 2 + (r % 3), profile.birthYear + 48);
+  if (year > endYear) return null;
+  return { name: oldest.name, relation: roleWord(oldest.relation) === "mother" || roleWord(oldest.relation) === "father" ? roleWord(oldest.relation) : "parent", year, age: year - oldest.born! };
+}
 
 /** The YearLife snapshot stored on a year. */
 export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
@@ -541,8 +584,12 @@ export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
     work: work || now.work,
     ch,
     people: here(now)
-      .filter((p) => p.role !== "other" && !offScreen(p, now.year))
-      .map((p) => ({ name: p.name, role: p.role, relation: p.relation, age: p.ageKnown || p.role === "parent" ? ageOf(p, now.year) : null })),
+      .slice()
+      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
+      .map((p) => ({
+        name: p.name, role: p.role, relation: p.relation,
+        age: offScreen(p, now.year) ? null : p.ageKnown || p.role === "parent" ? ageOf(p, now.year) : null,
+      })),
   };
 }
 
@@ -592,7 +639,7 @@ function personLine(p: LedgerPerson, from: number, to: number): string {
   }
   if (a1 === null) return `${nm}: age not stated (don't state one)`;
   if (!p.ageKnown && p.role === "parent")
-    return `${nm}: about ${a1}${a2 !== a1 && a2 !== null ? `-${a2}` : ""}${a1 >= 93 ? " (if still alive, very old: keep them off-screen)" : a1 >= 85 ? " (frail)" : ""}`;
+    return `${nm}: about ${a1}${a2 !== a1 && a2 !== null ? `-${a2}` : ""}${a1 >= 93 ? " (very old; still alive in this life, mostly off-screen: a call, a visit; never write their death)" : a1 >= 85 ? " (frail)" : ""}`;
   if (!p.ageKnown) return `${nm}: age not stated (don't state one)`;
   return from === to ? `${nm}: ${a1}` : `${nm}: ${a1} in ${from} -> ${a2} in ${to} (born ${p.born})`;
 }
@@ -611,6 +658,8 @@ export function peopleBlock(now: LifeNow, from = now.year, to = from): string {
     lines.push(`- Pets: ${pets.length ? pets.map((p) => personLine(p, from, to)).join("; ") : "none now"}${gonePets.length ? `. No longer in the story (never mention again): ${gonePets.map((p) => p.name).join(", ")}` : ""}`);
   const fam = [...here(now, "parent"), ...here(now, "sibling"), ...here(now, "grandchild")];
   if (fam.length) lines.push(`- Family: ${fam.map((p) => personLine(p, from, to)).join("; ")}`);
+  const others = here(now, "other");
+  if (others.length) lines.push(`- Close friends and other family: ${others.map((p) => personLine(p, from, to)).join("; ")}`);
   const goneFam = now.people.filter((p) => p.role === "parent" && p.status === "gone");
   if (goneFam.length) lines.push(`- Gone (a parent's old-age death, already happened; at most a gentle memory): ${goneFam.map((p) => `${p.name} (${p.until})`).join(", ")}`);
   return lines.join("\n");
@@ -645,9 +694,8 @@ export function nowBlock(now: LifeNow, opts: { from?: number; to?: number; title
 /** Compact people line for small prompts (interlude captions): who, and code-computed ages. */
 export function peopleNowLine(now: LifeNow): string {
   const out = here(now)
-    .filter((p) => p.role !== "other" && !offScreen(p, now.year))
     .map((p) => {
-      const a = ageOf(p, now.year);
+      const a = offScreen(p, now.year) ? null : ageOf(p, now.year);
       const age = a === null ? "" : p.ageKnown ? `, ${a}` : p.role === "parent" ? `, ~${a}` : "";
       return `${p.generic ? p.name.replace(/^your /, "") : `${p.name} (${p.relation})`}${p.role === "pet" ? "" : age}`;
     });
@@ -696,7 +744,7 @@ export function scenePeopleFrom(now: LifeNow, modelPeople: SceneSpec["people"]):
     .slice(0, 4))
     out.push({ role: "child", ageBand: bandFor(ageOf(k, now.year), now.age < 40 ? "child" : now.age < 55 ? "teen" : "adult") });
   if (here(now, "pet").length) out.push({ role: "pet", ageBand: "adult" });
-  const parentsAlive = here(now, "parent");
+  const parentsAlive = here(now, "parent").filter((p) => !offScreen(p, now.year));
   const modelParents = modelPeople.filter((p) => p.role === "parent").length;
   const unknownParents = now.people.every((p) => p.role !== "parent") && now.age < 60;
   const parents = Math.min(modelParents, unknownParents ? 2 : parentsAlive.length);

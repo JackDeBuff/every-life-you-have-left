@@ -134,6 +134,8 @@ export const Person = z.object({
   influence: weight(),
   expectation: z.string().nullable().describe("What they expect of the user, if said"),
   quoteIds: ids("quotes"),
+  /** Birth year, when an age or a birth year was stated (an upload's "Theo, who is 9"). Optional: older profiles lack it. */
+  born: int().nullable().optional(),
 });
 export type Person = z.infer<typeof Person>;
 

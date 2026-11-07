@@ -24,11 +24,11 @@ import type { DecisionOption, StartInput } from "../../shared/sim";
 import { WARM_KEYS, type WarmKey, type WarmQuestion, type WarmSource } from "../agent/protocol";
 import { personBlock, quotesBlock } from "./context";
 import type { Caller } from "./models";
-import { emptyProfile, guardMoney, knowMeScore, nextQuoteIndex, quotesFromText } from "./profile";
+import { bornFrom, emptyProfile, guardMoney, knowMeScore, nextQuoteIndex, quotesFromText } from "./profile";
 import { COVERAGE_SYSTEM, coveragePrompt, FOLD_SYSTEM, PERSONAL_SYSTEM, SEED_MEANING, WARM_BANK } from "./prompts/warmup";
 import { AnswerDeltaLLM } from "./schemas";
 import { clamp, norm, truncateClean, truncateWords, wordCount } from "./util";
-import { displayCurrency } from "../../shared/currency";
+import { CURRENCIES, displayCurrency, type CurrencyCode } from "../../shared/currency";
 
 export { WARM_KEYS };
 export type { WarmKey };
@@ -57,14 +57,22 @@ const LABEL_OF: Record<WarmKey, string> = {
 };
 export const warmLabel = (k: WarmKey) => LABEL_OF[k];
 
-export function warmQuestions(): WarmQuestion[] {
+/** "dollar", "naira", "euro", "baht": a currency's unit, singular, for pre-written copy. */
+export function moneyUnit(cur: CurrencyCode): string {
+  const word = CURRENCIES[cur].name.split(/\s+/).at(-1)!.toLowerCase();
+  return word === "renminbi" ? "yuan" : word;
+}
+
+/** The five questions, with copy in the currency they think in ("watching every naira", never "every dollar" to a naira user). */
+export function warmQuestions(currency: CurrencyCode = "USD"): WarmQuestion[] {
+  const unit = moneyUnit(currency);
   return WARM_BANK.map((b) => ({
     id: `w-${b.key}`,
     key: b.key,
     prompt: b.prompt,
     whyAsking: b.whyAsking,
     whyQuoteId: null,
-    options: b.options.map(([label, hint], i) => ({ id: IDS[i]!, label, hint, branchTitle: null })),
+    options: b.options.map(([label, hint], i) => ({ id: IDS[i]!, label: label.replace(/\{unit\}/g, unit), hint, branchTitle: null })),
     placeholder: b.placeholder,
     domains: [...b.domains],
     status: "queued",
@@ -159,11 +167,12 @@ export function applyWarmDelta(profile: Profile, key: WarmKey, quoteId: string |
   const people = [...profile.people];
   for (const p of d.people) {
     const i = people.findIndex((x) => norm(x.label) === norm(p.label));
-    if (i >= 0) people[i] = { ...people[i]!, expectation: p.expectation ?? people[i]!.expectation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), quoteIds: [...new Set([...people[i]!.quoteIds, ...cite(p.quoteIds)])] };
+    const born = bornFrom(p.age, profile.startYear);
+    if (i >= 0) people[i] = { ...people[i]!, expectation: p.expectation ?? people[i]!.expectation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), quoteIds: [...new Set([...people[i]!.quoteIds, ...cite(p.quoteIds)])], born: people[i]!.born ?? born };
     else {
       let id = `p${people.length + 1}`;
       while (people.some((x) => x.id === id)) id = `p${Number(id.slice(1)) + 1}`;
-      people.push({ id, label: p.label, relation: p.relation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), expectation: p.expectation, quoteIds: cite(p.quoteIds) });
+      people.push({ id, label: p.label, relation: p.relation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), expectation: p.expectation, quoteIds: cite(p.quoteIds), born });
     }
   }
   const facts = [...profile.facts];

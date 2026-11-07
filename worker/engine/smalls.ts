@@ -26,7 +26,7 @@ import { lifeSoFarBlock, nowContext, personBlock, quotesBlock } from "./context"
 import { coerceDecision, decisionId, finalize } from "./decisions";
 import { cityOf, forksTaken, here, lifeAt, type LifeNow } from "./ledger";
 import type { Caller } from "./models";
-import { guardMoney, knowMeScore, nextQuoteIndex } from "./profile";
+import { bornFrom, guardMoney, knowMeScore, nextQuoteIndex } from "./profile";
 import { ANSWERS_SYSTEM, SMALL_BATCH_SYSTEM, smallBatchPrompt } from "./prompts/decision";
 import { AnswersDeltaLLM, SmallBatchLLM, type DecisionLLM } from "./schemas";
 import { coverage, parseSlotReason } from "./slots";
@@ -272,10 +272,13 @@ export function createSmallKit(call: Caller, today: () => Date, at: () => string
         return sf && wordCount(sf) <= 12 && norm(text).includes(norm(sf).replace(/[.…]+$/, "")) ? { ...q, shortForm: sf } : q;
       });
       const people = [...cur.people];
+      // ages said in these answers count from the year they were said
+      const saidIn = Math.max(...items.map((x) => x.decision.year));
       for (const p of delta.people) {
         const i = people.findIndex((x) => norm(x.label) === norm(p.label));
-        if (i >= 0) people[i] = { ...people[i]!, expectation: p.expectation ?? people[i]!.expectation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), quoteIds: [...new Set([...people[i]!.quoteIds, ...cite(p.quoteIds)])] };
-        else people.push({ id: `p${people.length + 1}`, label: p.label, relation: p.relation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), expectation: p.expectation, quoteIds: cite(p.quoteIds) });
+        const born = bornFrom(p.age, saidIn);
+        if (i >= 0) people[i] = { ...people[i]!, expectation: p.expectation ?? people[i]!.expectation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), quoteIds: [...new Set([...people[i]!.quoteIds, ...cite(p.quoteIds)])], born: people[i]!.born ?? born };
+        else people.push({ id: `p${people.length + 1}`, label: p.label, relation: p.relation, closeness: clamp(p.closeness, 0, 1), influence: clamp(p.influence, 0, 1), expectation: p.expectation, quoteIds: cite(p.quoteIds), born });
       }
       const facts = [...cur.facts];
       for (const f of delta.facts) {

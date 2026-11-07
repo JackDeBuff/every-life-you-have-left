@@ -38,6 +38,7 @@
 import { Agent, callable, type Connection, type ConnectionContext } from "agents";
 import type { DecisionSlot, DocInput, DocKind, Engine, Ending, PreparedFork, SafetyResult } from "../../shared/engine";
 import { endAgeFor, type Quote } from "../../shared/schema";
+import { displayCurrency } from "../../shared/currency";
 import {
   SPEED_CONFIG,
   SpeedMode,
@@ -117,6 +118,8 @@ interface WarmRun {
 const WARM_REFRESH_MS = 3000;
 /** With long uploads the first question waits this long for the coverage check, then the keyword guess picks it. */
 const WARM_CHECK_WAIT_MS = 2500;
+/** Uploads answered every question: the first fork waits for the start profile until this long after Start. */
+const WARM_BASE_WAIT_MS = 16000;
 const normText = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, " ").trim();
 const wordsIn = (s: string | null | undefined) => (s ? s.trim().split(/\s+/).filter(Boolean).length : 0);
 /** Cheap text fingerprint (dedupes an upload sent with start() and again by /api/upload). */
@@ -473,7 +476,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // with long uploads it waits (briefly) for the coverage check instead.
     const p0 = this.withId(provisional ? provisional(parsed) : warmProvisional(parsed));
     const guess = quickCoverage(parsed.line, docsNow);
-    const questions = warmQuestions();
+    // (pre-written answers in the currency they think in: "watching every naira")
+    const questions = warmQuestions(displayCurrency(p0));
     const run: WarmRun = {
       input: parsed, p0, base: null, guess, quotes: new Map(), deltas: new Map(), folds: new Set(), rev: 0,
       inflight: null, best: null, personalizing: new Set(), finishing: false, placed: false, settled: false, t0: Date.now(),
@@ -769,6 +773,18 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
   private async finalCard(run: WarmRun): Promise<Decision> {
+    // Nothing was asked (the uploads answered all five): "Here's what I learned" is all they see of
+    // the warm-up, and it stayed empty because the first fork went up from the code-only profile
+    // before the start profile had read the uploads (QA, Margo's AI export). Wait for it (bounded):
+    // the panel fills with the facts, people and quotes from the uploads, and the fork is written from them.
+    const asked = this.s.warmup?.questions.some((q) => q.status === "answered" || q.status === "skipped") ?? false;
+    if (!asked) {
+      while (!run.base && this.warm === run && Date.now() < run.t0 + WARM_BASE_WAIT_MS) await new Promise((r) => setTimeout(r, 200));
+      if (run.base && this.warm === run) {
+        const { engine } = await this.engInfo();
+        return engine.makeDecision({ ...this.s, decisions: [] }, this.firstSlot());
+      }
+    }
     const rev = run.rev;
     if (run.best && run.best.rev >= rev) return run.best.d; // already written from everything they said
     if (run.inflight && run.inflight.rev >= rev) {
