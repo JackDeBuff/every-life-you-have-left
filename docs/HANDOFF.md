@@ -107,6 +107,14 @@ Notes:
 - **Migration** `0004_admin.sql` is applied remotely.
 - Production version at the end of the session: `7e72e43a`.
 
+## Spend caps: LIVE (Sat Nov 7 ~5pm, production `627b35b1`)
+- GCP credit: "The Triangle AI Hackathon", $100 one-time, **$58.76 left** at ~4:45pm (Billing → Credits). The billing account has no payment method, so nothing can be charged to a card.
+- Where the first $51 went: development (agent evals, QA runs, Argon), not players (all player sessions ≈ $6.40 tracked).
+- `worker/spend.ts`: D1 `spend_ledger` (one row per day) gets every model call (agent usage sink) and media call (portrait $0.08, TTS $0.02, transcribe $0.002 estimates). `GET /api/health` shows `spend: {usd, cap, capped}`.
+- Caps (wrangler vars): `SPEND_CAP_USD=30` app-wide since the ledger started (at the cap all model calls stop like the kill switch; new sessions get the offline engine); per session `SESSION_SOFT_CAP_USD=2.5` (no more small cards) and `SESSION_HARD_CAP_USD=5` (no more calls).
+- Prices in `worker/engine/pricing.ts` were half of what GCP bills for 3.8/3.6 Flash and Argon; fixed (1.5/7.5, 4/20). Per-session costs in /admin before this date read ~half the truth.
+- Local evals use the local D1, so they are NOT counted by the prod ledger: keep dev runs small.
+
 ## Playtest fixes round 1: DONE (Sat Nov 7 afternoon, production `23ad6f96`)
 From the owner's and Paul's own lives. Six agents in worktrees, merged into main:
 - **Pacing (1×):** small cards are held in their own year (no more dropped slots); 4/yr in the 20s–30s, 2–3 later, a fork every ~2 years (147 small / 20 big planned). Live check: 28 cards over ages 28–34, 4 each. `worker/engine/small-pace.ts`, `scripts/qa/pace-sim.ts`.
