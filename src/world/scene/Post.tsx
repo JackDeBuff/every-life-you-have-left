@@ -45,6 +45,25 @@ class GradeEffect extends Effect {
   }
 }
 
+/** The N8AO pass object (the wrapper forwards its ref to it). */
+interface AOPass {
+  autoDetectTransparency: boolean;
+  configuration: { transparencyAware: boolean };
+}
+
+/**
+ * N8AO's transparency mode switches itself on whenever any material in the scene is transparent
+ * (water, blob shadows, weather), and then traverses the scene four times and renders it twice
+ * more on every frame: 3 scene renders instead of 1. The AO is subtle enough that letting it see
+ * through those few surfaces is invisible, so it stays off. (A callback ref: the composer mounts
+ * its children a render after this component's own effects run.)
+ */
+function quietAO(p: AOPass | null) {
+  if (!p) return;
+  p.autoDetectTransparency = false;
+  p.configuration.transparencyAware = false;
+}
+
 export interface PostProps {
   /** 0..1 "memory" grade for interlude cuts (cooler, less saturated). */
   memory: MutableNumber;
@@ -74,8 +93,8 @@ export function Post({ memory, tier }: PostProps) {
     if (vignette.current) vignette.current.darkness = L.vignette + memory.current * 0.15;
   });
   return (
-    <EffectComposer key={tier === 0 ? "lo" : "hi"} multisampling={tier === 2 ? 4 : tier === 1 ? 2 : 0} enableNormalPass={false}>
-      {tier > 0 ? <N8AO halfRes aoRadius={0.55} distanceFalloff={0.6} intensity={2.2} quality={tier === 2 ? "medium" : "performance"} color="#1E2A38" /> : <></>}
+    <EffectComposer key={`t${tier}`} multisampling={tier === 2 ? 4 : tier === 1 ? 2 : 0} enableNormalPass={false}>
+      {tier > 0 ? <N8AO ref={quietAO} halfRes aoRadius={0.55} distanceFalloff={0.6} intensity={2.2} quality={tier === 2 ? "medium" : "performance"} color="#1E2A38" /> : <></>}
       <Bloom ref={bloom} mipmapBlur luminanceThreshold={0.82} luminanceSmoothing={0.2} intensity={0.3} radius={0.65} />
       <primitive object={grade} dispose={null} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
