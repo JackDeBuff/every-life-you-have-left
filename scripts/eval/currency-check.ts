@@ -47,7 +47,11 @@ check("place: Durham, NC, US -> USD", currencyForPlace("Durham, NC, US") === "US
 check("place: Los Angeles, CA is California, not Canada", currencyForPlace("Los Angeles, CA") === "USD");
 check("place: Toronto, ON -> CAD", currencyForPlace("Toronto, ON") === "CAD");
 check("place: Lisbon, Portugal -> EUR", currencyForPlace("Lisbon, Portugal") === "EUR");
-check("place: unknown -> null", currencyForPlace("Lagos, Nigeria") === null);
+check("place: Lagos, Nigeria -> NGN", currencyForPlace("Lagos, Nigeria") === "NGN");
+check("place: Zurich, Switzerland -> CHF", currencyForPlace("Zurich, Switzerland") === "CHF");
+check("place: Nairobi -> KES", currencyForPlace("Nairobi") === "KES");
+check("country: TR -> TRY", currencyForCountry("TR") === "TRY");
+check("place: unknown -> null", currencyForPlace("Ulaanbaatar, Mongolia") === null);
 check("format ฿3.00M", formatMoney(85_000, "THB") === "฿3.00M", formatMoney(85_000, "THB"));
 check("format short ฿850k", formatMoney(24_079, "THB", true) === "฿850k", formatMoney(24_079, "THB", true));
 check("format USD unchanged", formatMoney(-28_000, "USD") === "−$28,000");
