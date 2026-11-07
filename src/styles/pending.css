@@ -1,0 +1,34 @@
+/* The first fork while it is written (src/ui/right/CardPending.tsx): the card's own frame, quiet. */
+.card-pending { gap: var(--s4); }
+.card-pending .cp-stage {
+  margin: 0; display: flex; align-items: baseline; gap: 2px;
+  font-size: var(--fs-q-small); font-weight: 650; font-stretch: var(--w-wide);
+  letter-spacing: -0.022em; line-height: 1.1; color: var(--ink);
+}
+.card-pending .cp-line { animation: cp-in var(--t-slow) var(--e-settle) both; }
+.card-pending .cp-stage .dots { color: var(--ink-3); }
+.card-pending .cp-quote { margin: 0; display: grid; gap: 4px; padding-left: var(--s3); border-left: 2px solid var(--sun); }
+.card-pending .cp-quote .voice { font-family: var(--f-voice); font-style: italic; font-size: 16px; line-height: 1.4; color: var(--ink-2); }
+.card-pending .cp-tile {
+  pointer-events: none; overflow: hidden;
+  animation: cp-tile var(--t-slow) var(--e-settle) both; animation-delay: calc(var(--k) * 110ms + 150ms);
+}
+.card-pending .cp-tile .kc { color: var(--ink-3); }
+.card-pending .cp-bar { grid-column: 2; display: block; height: 9px; width: 86%; margin-top: 5px; border-radius: 3px; background: var(--sunken); }
+.card-pending .cp-bar.short { width: 54%; }
+.card-pending .cp-tile::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 25%, color-mix(in oklab, var(--sun) 16%, transparent) 50%, transparent 75%);
+  transform: translateX(-100%);
+  animation: cp-sheen 2.6s var(--e-tide) infinite; animation-delay: calc(var(--k) * 200ms + 900ms);
+}
+.card-pending .cp-note { margin: 0; color: var(--ink-3); }
+
+@keyframes cp-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes cp-tile { from { opacity: 0; transform: translateY(8px); } }
+@keyframes cp-sheen { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-pending .cp-line, .card-pending .cp-tile { animation: none; }
+  .card-pending .cp-tile::after { display: none; }
+}

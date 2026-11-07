@@ -9,6 +9,7 @@ import { Icon } from "../icons";
 import { sim, useSim } from "../session";
 import type { ChatEntry } from "../types";
 import { useUi } from "../uiStore";
+import { CardPending } from "./CardPending";
 import { DecisionCard } from "./DecisionCard";
 import { LiveSettings } from "./LiveSettings";
 
@@ -20,11 +21,13 @@ export function RightPane() {
   const pendingBig = deciding ? decisions.find((d) => d.kind === "big" && d.status === "pending") : undefined;
   const active = forking ? decisions.find((d) => d.id === forking.decisionId) : (pendingBig ?? decisions.find((d) => d.status === "pending"));
   const big = active?.kind === "big";
+  // The first fork is being written: its card's place shows that (never an empty pane).
+  const firstPending = useSim((s) => s.phase !== "ended" && !!s.profile && !s.decisions.some((d) => d.kind === "big"));
   return (
     <aside className="pane right" data-region="right" data-big={big} aria-label="Settings and conversation">
       <LiveSettings collapsed={big} />
       <Dialogue hidden={big} />
-      {active ? <DecisionCard key={active.id} d={active} /> : <Composer />}
+      {active ? <DecisionCard key={active.id} d={active} /> : firstPending ? <CardPending /> : <Composer />}
     </aside>
   );
 }
