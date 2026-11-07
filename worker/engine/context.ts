@@ -3,6 +3,7 @@
  * Compact matters: every year call carries this, so tokens here are paid ~10x per session.
  */
 import { BASE_RATES } from "../../shared/baseRates";
+import { CURRENCIES, displayCurrency, formatMoney } from "../../shared/currency";
 import { DOMAINS, DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Profile, WorldEvent } from "../../shared/schema";
 import type { Decision, DecisionAnswer, LiveSetting, SessionState, SettingNudge, SimYear } from "../../shared/sim";
@@ -12,6 +13,7 @@ export function personBlock(p: Profile): string {
   const lines: string[] = [];
   const where = [p.city, p.region, p.country].filter(Boolean).join(", ");
   lines.push(`${p.firstName ?? "They"}, ${p.age}, born ${p.birthYear}, lives in ${where}. Today is ${p.startYear}.`);
+  lines.push(genderLine(p.gender));
   if (p.country.toUpperCase() !== "US")
     lines.push(`Not in the US: the base-rate table is US data, applied as approximate. Use local realities for money (in USD), housing, family norms and careers.`);
   for (const f of p.facts) lines.push(`- ${f.label}: ${f.value}${f.source === "inferred" ? " (our guess)" : ""}`);
@@ -22,6 +24,13 @@ export function personBlock(p: Profile): string {
         .join("; ")}`,
     );
   if (p.constraints.length) lines.push(`Constraints: ${p.constraints.map((c) => c.text).join("; ")}`);
+  const plans = (p.plans ?? []).filter((x) => x.year >= p.startYear);
+  if (plans.length)
+    lines.push(
+      `KNOWN PLANS (they told us; baseline reality in this life: it happens on time unless a decision in this life changed it):\n${plans
+        .map((x) => `- ${x.year}${x.when ? ` (${x.when})` : ""}: ${x.text} [${x.certainty}${x.quoteIds[0] ? `, ${x.quoteIds[0]}` : ""}]`)
+        .join("\n")}`,
+    );
   const m = p.money;
   lines.push(
     `Money: feels ${m.feel}` +
@@ -31,6 +40,13 @@ export function personBlock(p: Profile): string {
       (m.supportsFamily ? ", supports family" : "") +
       (m.assumed ? " (partly guessed)" : ""),
   );
+  const cur = displayCurrency(p);
+  if (cur !== "USD") {
+    const c = CURRENCIES[cur];
+    lines.push(
+      `Currency: they think in ${c.name} (${c.symbol}). Number fields (inc, nw, money) stay USD. When a sentence they read names an amount, write it in ${cur} at 1 USD = ${c.perUsd} ${cur}, rounded (e.g. $1,500 -> ${formatMoney(1500, cur)}, $85,000 -> ${formatMoney(85000, cur)}).`,
+    );
+  }
   if (p.values.length) lines.push(`Values: ${p.values.map((v) => v.label).join(", ")}`);
   if (p.fears.length) lines.push(`Fears: ${p.fears.map((f) => `${f.text} (${f.kind})`).join("; ")}`);
   const top = topWorries(p, 3);
@@ -39,6 +55,16 @@ export function personBlock(p: Profile): string {
     `Seeds: momentum = ${p.seeds.path.text}; the leap = ${p.seeds.leap.text}; fear wins = ${p.seeds.careful.text}; unjudged = ${p.seeds.unjudged.text}`,
   );
   return lines.join("\n");
+}
+
+/** Pronouns for the user, from the gender they picked themselves (never guessed). */
+export function genderLine(g: Profile["gender"]): string {
+  const how =
+    g === "woman" ? "a woman: others call them she/her (a daughter, a wife or partner, a mom to her kids)"
+    : g === "man" ? "a man: others call them he/him (a son, a husband or partner, a dad to his kids)"
+    : g === "nonbinary" ? "non-binary: others call them they/them, in neutral words (child, partner or spouse, parent)"
+    : "not given: others call them they/them, in neutral words (child, partner, parent). Never guess it from their name or anything else";
+  return `Gender (they chose it): ${how}. Narration still says "you".`;
 }
 
 export function topWorries(p: Profile, n: number): [DomainKey, number][] {

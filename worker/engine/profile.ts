@@ -2,9 +2,10 @@
  * Profile: quotes are code-owned and verbatim (D-013); the model extracts facts, people, worries
  * and seeds and may only cite existing quote ids. Never infer race (D-011).
  */
+import { currencyForCountry, displayCurrency, fixUnconverted, statedAmounts, type CurrencyCode } from "../../shared/currency";
 import type { DocInput } from "../../shared/engine";
 import { DOMAIN_KEYS } from "../../shared/domains";
-import { endAgeFor, type DomainWeights, type Profile, type Quote } from "../../shared/schema";
+import { endAgeFor, type DomainWeights, type PlannedEvent, type Profile, type Quote } from "../../shared/schema";
 import type { Decision, DecisionAnswer, SessionState, StartInput } from "../../shared/sim";
 import { personBlock, quotesBlock } from "./context";
 import type { Caller } from "./models";
@@ -13,7 +14,7 @@ import { PROFILE_SYSTEM, profilePrompt } from "./prompts/profile";
 import { AnswerDeltaLLM, ProfileLLM } from "./schemas";
 import { clamp, norm, sentences, shortId, truncateWords, wordCount } from "./util";
 
-const ETHNIC = /\b(race|racial|ethnic\w*|caucasian|white|black|asian|hispanic|latin[oax]|african[- ]american|arab|indigenous)\b/i;
+const ETHNIC = /\b(race|racial|ethnic\w*|caucasian|white|black|asian|hispanic|latin[oax]|african[- ]american|arab|indigenous|gender|pronouns?)\b/i;
 
 /** Split free text into verbatim quotes; tiny fragments are merged into a neighbour. */
 export function quotesFromText(text: string, startIndex: number, questionId: string | null, source: Quote["source"]): Quote[] {
@@ -49,6 +50,16 @@ export function knowMeScore(profile: Profile, answered: number): number {
 
 function defaultWorries(): DomainWeights {
   return Object.fromEntries(DOMAIN_KEYS.map((d) => [d, 0.1])) as DomainWeights;
+}
+
+/**
+ * Money fields are USD. If the model copied an amount they stated in another currency without
+ * converting it ("3 million baht" -> savingsUsd 3,000,000), use the code-converted USD instead.
+ */
+export function guardMoney(m: Profile["money"], text: string, prefer: CurrencyCode): Profile["money"] {
+  const stated = statedAmounts(text, prefer);
+  if (!stated.some((s) => s.code !== "USD")) return m;
+  return { ...m, incomeUsd: fixUnconverted(m.incomeUsd, stated), debtUsd: fixUnconverted(m.debtUsd, stated), savingsUsd: fixUnconverted(m.savingsUsd, stated) };
 }
 
 /** Turn the model's draft into Profile fields; ids assigned here; citations filtered to real quotes. */
@@ -108,8 +119,17 @@ function applyDraft(base: Profile, draft: ProfileLLM, quotes: Quote[]): Profile 
     worries: Object.fromEntries(DOMAIN_KEYS.map((d) => [d, clamp(w[d] ?? 0.1, 0, 1)])) as DomainWeights,
     seeds: { path: seed(draft.seeds.path), leap: seed(draft.seeds.leap), careful: seed(draft.seeds.careful), unjudged: seed(draft.seeds.unjudged) },
     assumptions: draft.assumptions.slice(0, 8),
+    plans: plansFrom(draft.plans, cite, base.startYear),
     quotes,
   };
+}
+
+/** Dated plans from the model: ids by code, citations to real quotes, years from today on. */
+function plansFrom(drafts: ProfileLLM["plans"], cite: (ids: string[]) => string[], startYear: number, offset = 0): PlannedEvent[] {
+  return drafts
+    .filter((d) => d.text.trim() && Number.isInteger(d.year) && d.year >= startYear && d.year <= startYear + 60)
+    .slice(0, 5)
+    .map((d, i) => ({ id: `pl${offset + i + 1}`, text: truncateWords(d.text.trim(), 16), year: d.year, when: d.when, kind: d.kind, certainty: d.certainty, quoteIds: cite(d.quoteIds) }));
 }
 
 /** Verbatim doc quotes → real quotes; returns them and the ref → id map. */
@@ -161,9 +181,11 @@ export function emptyProfile(input: StartInput, startYear: number, sessionId: st
     sessionId,
     profileVersion: 1,
     firstName: input.firstName,
+    gender: input.appearance?.gender ?? null, // self-identified on the start screen; never inferred
     age: input.age,
     birthYear: startYear - input.age,
     country: input.country.toUpperCase(),
+    currency: input.currency ?? currencyForCountry(input.country),
     region: input.region,
     city: input.city || null,
     startYear,
@@ -183,6 +205,7 @@ export function emptyProfile(input: StartInput, startYear: number, sessionId: st
     },
     quotes,
     assumptions: [{ field: "money.feel", value: "okay", reason: "Not asked yet" }],
+    plans: [],
     knowMeScore: 10,
     updatedAt: at,
   };
@@ -207,6 +230,7 @@ export async function buildStartProfile(call: Caller, input: StartInput, docs: D
     const draft = remapRefs(r.data, refMap);
     const quotes = applyShortForms([...lineQuotes, ...dq], draft);
     const p = applyDraft(base, draft, quotes);
+    p.money = guardMoney(p.money, [input.line, ...docs.map((d) => d.text)].join("\n"), displayCurrency(base));
     if (!p.facts.some((f) => f.key === "location")) p.facts.unshift(base.facts[0]!);
     return { ...p, knowMeScore: knowMeScore(p, 0) };
   } catch {
@@ -220,7 +244,7 @@ export async function enrich(call: Caller, profile: Profile, docs: DocInput[], f
   const allBefore = [...profile.quotes, ...textQuotes];
   const input: StartInput = {
     firstName: profile.firstName ?? "", age: profile.age, city: profile.city ?? "", region: profile.region, country: profile.country,
-    line: "", via: "text", speed: "auto", appearance: null, hasSelfie: false,
+    line: "", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: profile.currency ?? null,
   };
   try {
     const r = await call.json({
@@ -240,6 +264,7 @@ export async function enrich(call: Caller, profile: Profile, docs: DocInput[], f
     const draft = remapRefs(r.data, refMap);
     const quotes = applyShortForms([...allBefore, ...dq], draft);
     const merged = applyDraft(profile, draft, quotes);
+    merged.money = guardMoney(merged.money, [freeText ?? "", ...docs.map((d) => d.text)].join("\n"), displayCurrency(profile));
     const p = { ...merged, profileVersion: profile.profileVersion + 1, updatedAt: at };
     return { profile: { ...p, knowMeScore: knowMeScore(p, answeredCount(p)) }, quotes: [...textQuotes, ...dq] };
   } catch {
@@ -326,6 +351,10 @@ export async function foldAnswer(
             }
           : profile.money,
       };
+      next.money = guardMoney(next.money, text, displayCurrency(profile));
+      const had = profile.plans ?? [];
+      const fresh = plansFrom(d.plans, cite, profile.startYear, had.length).filter((x) => !had.some((h) => h.year === x.year && norm(h.text) === norm(x.text)));
+      if (fresh.length) next.plans = [...had, ...fresh].slice(-6);
     }
   } catch {
     /* keep the quote even if the fold failed */
