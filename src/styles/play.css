@@ -41,7 +41,7 @@
 .tl-fork[data-pending="true"] { fill: var(--sun); animation: forkpulse 1.4s var(--e-tide) infinite alternate; }
 @keyframes forkpulse { to { stroke-width: 3; } }
 .tl-fork-hit {
-  position: absolute; top: calc(40px - 11px); width: 22px; height: 22px;
+  position: absolute; top: calc(40px - 12px); width: 24px; height: 24px;
   border: 0; background: transparent; border-radius: 3px; cursor: pointer;
 }
 .tl-fork-hit:hover { background: var(--sun-soft); }
@@ -63,30 +63,11 @@
 .key.pausekey { min-width: 34px; margin-left: 6px; }
 .key:disabled { opacity: 0.4; }
 .key-l { line-height: 1; }
-.slowed { min-width: 70px; color: var(--sun-text); opacity: 0; transition: opacity var(--t-base); }
+/* "Time slowed" hangs under the keys: it never takes width from the bar. */
+.keys { position: relative; }
+.slowed { position: absolute; right: 0; top: calc(100% + 3px); white-space: nowrap; color: var(--sun-text); opacity: 0; transition: opacity var(--t-base); }
 .slowed[data-on="true"] { opacity: 1; animation: breathe 1.6s var(--e-tide) infinite alternate; }
-
-.lives-left {
-  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px;
-  border: 1px solid var(--hair); border-radius: var(--r1); background: transparent;
-  font-size: 12px; font-weight: 640; font-stretch: var(--w-data); color: var(--ink-2);
-}
-.lives-left:hover:not(:disabled) { border-color: var(--hair-2); color: var(--ink); }
-.lives-left:disabled { opacity: 0.45; cursor: default; }
-.lives-n { display: inline-block; overflow: hidden; height: 1.2em; line-height: 1.2em; font-size: 15px; color: var(--ink); }
-.lives-n span { display: inline-block; }
-.lives-label { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; }
-
-/* peeks */
-.peek { width: 380px; display: grid; gap: 8px; }
-.peek-q { font-weight: 600; font-stretch: 104%; line-height: 1.3; }
-.peek-chosen { display: flex; gap: 6px; align-items: baseline; }
-.peek-you { font-size: 10px; font-weight: 720; letter-spacing: 0.08em; text-transform: uppercase; background: var(--sun); color: var(--on-sun); padding: 1px 5px; border-radius: 2px; }
-.peek-list { display: grid; gap: 0; border-top: 1px solid var(--hair); }
-.branch-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--hair); }
-.branch-row[data-retired="true"] { opacity: 0.5; }
-.branch-main { display: grid; gap: 2px; min-width: 0; }
-.branch-title { font-weight: 650; font-size: 14px; }
+/* lives-left, fork peeks (road not taken), legend: src/ui/timeline/timeline.css */
 .numeral { font-size: 10.5px; font-weight: 760; font-stretch: var(--w-cond); letter-spacing: 0.06em; color: var(--ink-3); margin-right: 2px; }
 .numeral.big { font-size: 12px; }
 

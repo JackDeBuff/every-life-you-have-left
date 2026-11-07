@@ -1,0 +1,111 @@
+/* Timeline extras: the not-lived-yet band, small-choice dots, tooltips, the lives-left badge,
+   the legend and the "road not taken" popover. Tokens only (src/styles/tokens.css). */
+
+/* ---------------------------------------------------------------- axis */
+.tl-ahead-band { fill: var(--sunken); stroke: var(--hair); stroke-width: 1; }
+.tl-ahead-label {
+  font: 600 10px var(--f-sans); font-stretch: var(--w-cond); letter-spacing: 0.08em;
+  text-transform: uppercase; fill: var(--ink-3); transition: opacity var(--t-quick);
+}
+.tl-small { cursor: help; }
+.tl-small-dot { fill: var(--ink-2); }
+.tl-small[data-slid="true"] .tl-small-dot { fill: none; stroke: var(--ink-3); stroke-width: 1; }
+.tl-small:hover .tl-small-dot { fill: var(--sun); }
+
+.tl-fork-hit:focus-visible { outline: 2px solid var(--sun); outline-offset: 1px; }
+.tl-fork-hit[data-state="open"] { background: var(--sun-soft); }
+
+/* CSS tooltips (hover and keyboard focus) for the fork markers and the lives badge. */
+.lives-left[data-tip] { position: relative; }
+.tl-fork-hit[data-tip]::after, .lives-left[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 8px); z-index: 70;
+  width: max-content; max-width: 240px;
+  padding: 6px 8px; border-radius: var(--r1);
+  background: var(--ink); color: var(--panel);
+  font: 560 12.5px/1.35 var(--f-sans); letter-spacing: 0; text-transform: none; text-align: left; white-space: normal;
+  opacity: 0; pointer-events: none; transform: translateY(-2px);
+  transition: opacity var(--t-micro), transform var(--t-micro);
+}
+.tl-fork-hit[data-tip]::after { left: 0; }
+.lives-left[data-tip]::after { right: 0; }
+.tl-fork-hit[data-tip]:hover::after, .tl-fork-hit[data-tip]:focus-visible::after,
+.lives-left[data-tip]:hover::after, .lives-left[data-tip]:focus-visible::after {
+  opacity: 1; transform: none; transition-delay: 250ms;
+}
+/* No tooltip over its own open popover. */
+.tl-fork-hit[data-state="open"]::after, .lives-left[data-state="open"]::after { display: none; }
+
+/* ---------------------------------------------------------------- legend */
+.tl-who { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.tl-legend-btn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 4px;
+  border: 1px solid var(--hair); border-radius: var(--r1); background: transparent;
+  color: var(--ink-2); font-size: var(--fs-label); font-weight: 600; line-height: 1.5;
+}
+.tl-legend-btn:hover, .tl-legend-btn[data-state="open"] { color: var(--ink); border-color: var(--hair-2); }
+.pop.tl-legend { width: 320px; display: grid; gap: var(--s2); }
+.tl-legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tl-legend li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; font-size: var(--fs-small); line-height: 1.35; color: var(--ink-2); }
+.tl-legend li svg { margin-top: 1px; overflow: visible; }
+.tl-legend b { color: var(--ink); font-weight: 650; }
+
+/* ---------------------------------------------------------------- lives badge */
+.lives-left {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 10px 0 8px; flex: none;
+  border: 1px solid var(--hair); border-radius: var(--r1); background: transparent; color: var(--ink-2);
+}
+.lives-left:hover:not(:disabled), .lives-left[data-state="open"] { border-color: var(--hair-2); color: var(--ink); }
+.lives-left:disabled { opacity: 0.5; cursor: default; }
+.lives-glyph { flex: none; }
+.lives-n { display: inline-block; flex: none; min-width: 0.7em; text-align: center; font-size: 18px; line-height: 1; font-weight: 680; color: var(--ink); }
+.lives-label { font-size: 11px; font-weight: 600; line-height: 1.15; text-align: left; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- road not taken */
+.pop.rn {
+  width: 400px; max-width: min(400px, calc(100vw - 24px));
+  max-height: min(600px, var(--radix-popover-content-available-height, 600px));
+  overflow-y: auto; overscroll-behavior: contain;
+  display: grid; gap: 10px; align-content: start;
+  padding-right: var(--s6);
+}
+.rn .label { padding-right: var(--s4); }
+.rn-hint {
+  display: flex; gap: 6px; align-items: flex-start;
+  margin: 0; padding: 7px 9px; border-radius: var(--r1);
+  background: var(--sunken); color: var(--ink-2); font-size: var(--fs-meta); line-height: 1.4;
+}
+.rn-hint svg { flex: none; margin-top: 2px; color: var(--sun-text); }
+.rn-q { margin: -4px 0 0; font-size: var(--fs-body); font-weight: 650; line-height: 1.3; color: var(--ink); }
+.rn-you {
+  display: grid; gap: 3px; padding: 8px 10px 9px; border-radius: var(--r1);
+  border-left: 3px solid var(--sun); background: var(--sun-soft);
+}
+.rn-chose { margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.rn-tag {
+  flex: none; font-size: 10px; font-weight: 720; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 2px;
+}
+.rn-tag-you { background: var(--sun); color: var(--on-sun); }
+.rn-opt { font-weight: 650; color: var(--ink); }
+.rn-line { margin: 0; font-size: var(--fs-small); line-height: 1.4; color: var(--ink); }
+.rn-line.muted { color: var(--ink-2); }
+.rn-lead { font-weight: 650; color: var(--ink-2); }
+.rn-facts { margin: 0; font-size: var(--fs-meta); line-height: 1.35; color: var(--ink-2); }
+.rn-others-h { margin-top: 2px; }
+.rn-list { list-style: none; margin: -4px 0 0; padding: 0; display: grid; }
+.rn-row { display: grid; gap: 3px; padding: 9px 0; border-top: 1px solid var(--hair); }
+.rn-row:first-child { border-top: 0; padding-top: 4px; }
+.rn-if { margin: 0; font-size: var(--fs-small); line-height: 1.35; color: var(--ink-2); }
+.rn-num { margin-right: 4px; }
+.rn-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.rn-tag-state { margin-top: 2px; border: 1px solid var(--hair-2); color: var(--ink-2); font-weight: 680; }
+.rn-row[data-kind="running"] .rn-tag-state { border-color: var(--ink-3); color: var(--ink); }
+.rn-from { margin: 0; font-size: var(--fs-meta); color: var(--ink-2); }
+/* Lives that faded or were never followed: dimmed, never hidden. */
+.rn-row[data-kind="faded"], .rn-row[data-kind="unfollowed"] { opacity: 0.68; }
+.rn-row[data-kind="faded"] .rn-opt, .rn-row[data-kind="unfollowed"] .rn-opt { font-weight: 600; color: var(--ink-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-fork-hit[data-tip]::after, .lives-left[data-tip]::after, .tl-ahead-label { transition: none; }
+}
