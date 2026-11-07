@@ -46,7 +46,9 @@ const CHUNK = 4; // generateYears chunk size (3–5)
 const LOOKAHEAD_SMALL = 1; // make small decisions this many years before the playhead reaches them
 const LOOKAHEAD_BIG = 2; // big ones earlier: the playhead waits at a big slot until its decision exists
 const BRANCH_STEP = 5; // hidden branches advance coarsely in 5-year steps
-const INTERLUDE_S = 9; // "Meanwhile…" length before auto-resume
+// "Meanwhile…" safety net: the client ends the interlude with pause(false) when the 3D world's cuts
+// finish (and after the fork moment); this only resumes a session whose client went away.
+const INTERLUDE_S = 30;
 const FLUSH_MS = 50; // patch coalescing
 const PERSIST_MS = 1000; // setState debounce
 const AGENT_LOG_KINDS = new Set(["decision", "nudge", "fork", "interlude", "slid"]);
@@ -446,6 +448,15 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     reply = { ...reply, done: true, text: reply.text || "…" };
     replace(reply);
     void this.mirror.chat(reply);
+    // Words said to the interviewer are kept as a quote and re-tune the years ahead.
+    if (life === "interviewer" && this.s.profile && !safety.flagged) {
+      this.bg("enrich", async () => {
+        const { profile } = await engine.enrichProfile(this.s.profile!, [], msg);
+        this.update({ profile });
+        void this.mirror.session(this.s);
+        this.invalidate();
+      });
+    }
   }
 
   /** Called by /api/portrait (DO RPC) after a portrait is stored in R2. */

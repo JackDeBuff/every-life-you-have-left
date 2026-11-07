@@ -9,7 +9,7 @@ import { LifeRose } from "../ui/left/LifeRose";
 import { TellMeMore } from "../ui/left/TellMeMore";
 import { Interlude } from "../ui/middle/Interlude";
 import { LifeLog } from "../ui/middle/LifeLog";
-import { WorldSlot } from "../ui/middle/WorldSlot";
+import { CurrentWorld } from "../ui/middle/WorldView";
 import { setSun } from "../ui/motion";
 import { LiveSettings } from "../ui/right/LiveSettings";
 import { RightPane } from "../ui/right/Dialogue";
@@ -93,11 +93,6 @@ export default function Play() {
   );
 }
 
-function CurrentWorld() {
-  const spec = useSim((s) => s.years.find((y) => y.year === s.playhead.year)?.scene ?? null);
-  return <WorldSlot spec={spec} />;
-}
-
 function PhonePlay({ dim, showInterlude }: { dim: boolean; showInterlude: boolean }) {
   const tab = useUi((s) => s.mobileTab);
   const setTab = useUi((s) => s.setMobileTab);
@@ -108,7 +103,7 @@ function PhonePlay({ dim, showInterlude }: { dim: boolean; showInterlude: boolea
   const forking = useUi((s) => s.forking);
   const states = useSim((s) => s.status);
   const log = useSim((s) => s.log);
-  const lastGuide = useSim((s) => [...s.chat].reverse().find((c) => c.channel === "main"));
+  const lastGuide = useSim((s) => [...s.dialogue].reverse().find((c) => c.channel === "main"));
   const open = sheetOpen || !!pending || !!forking;
   const tabs = useMemo(() => ["log", "bio", "settings"] as const, []);
   return (

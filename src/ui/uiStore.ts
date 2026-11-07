@@ -12,6 +12,10 @@ interface Ui {
   setMobileTab: (t: Ui["mobileTab"]) => void;
   sheetOpen: boolean;
   setSheetOpen: (o: boolean) => void;
+  /** The 3D world is mounted and has WebGL (it drives the interlude's timing). */
+  world3d: boolean;
+  /** Interlude cut the 3D world is showing now (-1 = none yet). */
+  worldCut: number;
 }
 
 export const useUi = create<Ui>((set) => ({
@@ -23,4 +27,6 @@ export const useUi = create<Ui>((set) => ({
   setMobileTab: (mobileTab) => set({ mobileTab }),
   sheetOpen: false,
   setSheetOpen: (sheetOpen) => set({ sheetOpen }),
+  world3d: false,
+  worldCut: -1,
 }));

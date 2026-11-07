@@ -259,6 +259,23 @@
 .lid.bottom { bottom: 0; transform-origin: bottom; border-radius: 50% 50% 0 0 / 18% 18% 0 0; }
 .il-skip { position: absolute; top: var(--s3); right: var(--s3); color: rgb(255 255 255 / 0.8); z-index: 4; }
 .il-skip:hover { color: #fff; background: rgb(255 255 255 / 0.12); }
+/* Over the 3D world: the world plays the cuts; the overlay is title + captions only. */
+.interlude.driven { pointer-events: none; }
+.interlude.driven .il-skip { pointer-events: auto; }
+.il-shade { position: absolute; inset: 0; background: rgb(8 18 30 / 0.55); }
+.interlude.driven .il-tint[data-cut="true"] { background: linear-gradient(180deg, rgb(8 18 30 / 0) 45%, rgb(8 18 30 / 0.55)); }
+.interlude.driven .il-cap { bottom: calc(7% + var(--s4)); }
+.interlude.driven .il-head { top: calc(7% + var(--s2)); }
+.interlude.driven .il-skip { top: calc(7% + var(--s1)); }
+
+/* "Life is thinking…": the buffer is behind the playhead, or the agent is working. */
+.thinking-chip {
+  position: absolute; top: var(--s3); left: var(--s4); z-index: 4; margin: 0;
+  display: inline-flex; align-items: center; gap: 2px; padding: 5px 10px 5px 11px;
+  font-size: 12px; font-weight: 600; font-stretch: var(--w-data); letter-spacing: 0.02em;
+  color: #fff; background: rgb(8 18 30 / 0.55); border-radius: 999px;
+  animation: slidein var(--t-base) var(--e-settle) both;
+}
 
 /* ---------------------------------------------------------------- right */
 .right { display: flex; flex-direction: column; min-height: 0; position: relative; }

@@ -32,6 +32,8 @@ export interface SceneProps {
   onMomentDone?: () => void;
   onCut?: (index: number, cut: InterludeCut) => void;
   onInterludeDone?: () => void;
+  /** Seconds per interlude cut (default 2.5). */
+  cutSeconds?: number;
   /** DOM-level fade (interlude cut joins). */
   fade: (on: boolean) => void;
   /** Reduced motion: called with a snapshot before a change is applied. */
@@ -108,6 +110,7 @@ function preloadFor(layout: Layout) {
 
 export function WorldScene(props: SceneProps) {
   const { mode, cuts, appearance, onMomentDone, onCut, onInterludeDone, fade, snapshot, quality } = props;
+  const cutLen = Math.max(1.2, props.cutSeconds ?? 2.5);
   const { time, reduced } = useMotion();
   const { gl, invalidate } = useThree();
   const rig = useRef<RigState>(makeRig());
@@ -246,8 +249,7 @@ export function WorldScene(props: SceneProps) {
       return;
     }
     memory.current = 0.6;
-    const CUT = 2.5;
-    const k = (time() - cutT0.current) / CUT;
+    const k = (time() - cutT0.current) / cutLen;
     const i = cutState.current.index;
     const yaw0 = 22 + i * 32;
     rig.current.shot = { yaw0, yaw1: yaw0 + (reduced ? 0 : 10), dist0: 27, dist1: reduced ? 27 : 22, pitch: 27, t: clamp01(k) };
