@@ -48,7 +48,7 @@ One family, three widths, is the system:
 | Role | Face | Size / weight / width | Notes |
 |---|---|---|---|
 | Hero title (start) | Mona Sans | 72–96 px, 700, **wide 125%**, tracking −0.035em | Left aligned, set in two lines |
-| The question (decision) | Mona Sans | 30 px big / 24 px small, 640, **wide 112%**, −0.02em, lh 1.08 | The largest text on the play screen |
+| The question (decision) | Mona Sans | `--fs-q-text` 21 px (big 22 px), 620, **text width 100%**, lh ~1.3; steps down for long questions; a little larger once the pane is widened | Set for reading, not display (playtest legibility pass, Sat Nov 7; was 30/24 px wide 112%) |
 | Age numeral (bio) | Mona Sans | 64 px, 760, wide 118%, tabular | Rolls like an odometer each year |
 | Section heads | Mona Sans | 13 px, 650, **condensed 82%**, caps, +0.08em | Instrument labels, never mono |
 | Body / chat / log | Mona Sans | 14–15.5 px, 420, 100%, lh 1.5 | |
@@ -105,8 +105,18 @@ Your life: solid ink line + the sun. Branches: the same ink, thinner, each with 
 - 4 px base: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 48 · 64.
 - Radius: 2 px for controls and tiles (crisp, instrument-like), 8 px for popovers and the phone
   sheet, round only for the sun, LEDs and the portrait's arched window.
-- Desktop: timeline bar 64 px; panes `300px | 1fr | 420px` separated by 1 px of `--canvas`. The
-  middle pane is world (60%) over log (40%).
+- Desktop: timeline bar 64 px; panes `300px | 1fr | 420px` (280 / 384 at ≤1360 px wide; tokens
+  `--left-w` / `--right-w`) separated by 1 px of `--canvas`. The middle pane is world (60%) over
+  log (40%).
+- **Draggable dividers** (`screens/Play.tsx`, `role="separator"`): drag the hairline, or focus it
+  and use the arrow keys / Home / End; double-click or Enter resets. Left 240–420 px, right 340 px
+  to 55% of the window, middle ≥380 px. Widths persist in localStorage (`elyl.pane.left.v1`,
+  `elyl.pane.right.v1`), and the timeline bar's grid follows the same variables.
+- **No page overflow:** `.play` and `.pane` are positioned, so hidden file inputs at the foot of a
+  scrolled pane can't stretch the document; html/body don't scroll while the play screen is up.
+- **Viewport units:** every `dvh` is preceded by a `vh` fallback, and the html/body scroll lock
+  sits inside `@supports (height: 100dvh)`. WeChat's in-app browser (older Chromium) has no
+  `dvh`; there the page keeps a document scroll so the answer box stays reachable (D-099).
 - Left-anchored, asymmetric compositions. The start screen is a two-column spread, form left,
   living illustration right.
 - Elevation by contrast; one soft shadow token (`--lift`) only for popovers and the decision card
@@ -137,11 +147,11 @@ Every animation means one of four things:
 
 Choreographies (GSAP):
 
-- **Clock slows** (small decision): the global time scale tweens 1 → 0.25 over 600 ms; the sun's
+- **Clock slows** (small decision): the global time scale tweens 1 → 0.5 (`SMALL_DECISION_SCALE`) over 600 ms; the sun's
   halo pulse slows with it. At 2×/4× a hairline across the card's top drains linearly over 12 s with
   "let it slide" beside it. Unanswered → the card folds into a log line (`expo.in`, 300 ms).
 - **Big decision**: the left pane, middle pane and timeline dim to 32% with a slight desaturate
-  (640 ms tide); settings collapse; the card takes the right pane. The timeline marks the fork ◆ at
+  (640 ms tide); the right pane switches to Decisions and Steer locks; the card takes the pane. The timeline marks the fork ◆ at
   the playhead with a slow pulse.
 - **Fork moment** (after answering a big decision, ~2.4 s):
   1. 0–0.3 s: the chosen tile locks (sun edge fills, keycap turns to a check); the three others
@@ -186,9 +196,10 @@ Location: `src/ui/` (components), `src/screens/` (screens), `src/styles/` (token
 | World slot | `ui/middle/WorldSlot.tsx` | `<WorldSlot spec>`; placeholder sky until `<World>` is plugged in |
 | Life log | `ui/middle/LifeLog.tsx` | Auto-scroll, domain ticks, fork rows, why popover |
 | Why card | `ui/middle/WhyCard.tsx` | Quote (serif italic) + base rate + source + "show in chat" |
-| Live settings | `ui/right/LiveSettings.tsx` | Radix select / slider / chips / switch, "applies from next year" tag; folds to a summary bar while a card is open |
+| Steer this life | `ui/right/LiveSettings.tsx` | The right pane's second tab (the phone's Steer tab): explainer, Radix select / slider (both ends labelled) / chips / switch, "Applied · from N" per row, "Nudge applied" status line |
+| Right pane | `ui/right/Dialogue.tsx` (`RightPane`) | Tabs "Decisions \| Steer this life"; both panels stay mounted; a new card brings Decisions forward; a fork locks Steer |
 | Dialogue | `ui/right/Dialogue.tsx` | DE-style column, not bubbles; your words in serif italic |
-| Decision card | `ui/right/DecisionCard.tsx` | Question, why, 4 tiles with keycaps, say-more, submit, countdown |
+| Decision card | `ui/right/DecisionCard.tsx` | Question (21 px text width), "Why I'm asking" on its own line, 4 tiles with a key-badge column, say-more, submit, countdown; a size container: two-up tiles once the pane is ≥500 px |
 | Hold to talk | `ui/right/HoldToTalk.tsx` | MediaRecorder → `/api/transcribe` (mocked) → editable text |
 | Fork moment | `ui/motion/forkMoment.ts` | GSAP choreography |
 | Interlude | `ui/middle/Interlude.tsx` | Title treatment + blink cuts over the world slot |
@@ -292,7 +303,7 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
   the card until only its footer showed. Now `.right` is one flex column: settings (≤40%), the
   dialogue (flex-basis 0, its own scroll, shrinks to 0), the card at its natural height. Nothing
   overlaps the card.
-- Settings fold to a one-line bar ("Life settings · 4 · nudges apply from 32") while a card is up,
+- *(Superseded by Pass 7: settings now live in the Steer tab.)* Settings fold to a one-line bar ("Life settings · 4 · nudges apply from 32") while a card is up,
   open again ~1.4 s after it resolves (or on click), and fold away for a big decision. One column
   unless the panel has ≥640 px of content; labels/values wrap; chips wrap into rows; hints are a
   muted line under the label. Slider key steps and chip bursts settle into one nudge.
@@ -337,3 +348,21 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
   question and your answer; slid ones hollow); big forks are diamonds with a tooltip; a "Key" button by the name opens a
   legend. The lives badge reads "3 other lives still running" (no clipped digit), with a tooltip; its popover shows each
   running life today. "Time slowed" now hangs under the keys instead of taking width.
+
+**Pass 7 (Sat Nov 7, owner's playtest: play screen), shots in `docs/screens/play-fixes/`**
+- **No page overflow.** Visually hidden file inputs at the foot of a scrolled left pane stretched the document (a blank
+  area under the app on a 2000×965 window). `.play` and `.pane` are positioned now; html/body don't scroll on the play
+  screen (only where `dvh` works, see §5).
+- **Draggable dividers** between the three columns (§5). The timeline grid follows.
+- **Readable decision card.** The question moved from the wide display width to the text width (21 px, lh ~1.3, steps
+  down when long); "Why I'm asking" is on its own line; tiles have a key-badge column and readable hints; two-up tiles
+  and a slightly larger question once the pane is widened.
+- **"Decisions | Steer this life" tabs replace the fold-away LIFE SETTINGS bar** (D-096). Steer opens with what a nudge
+  does and from which age, larger sliders with both ends labelled with their share, an "Applied · from N" tag per row,
+  a "Nudge applied" status line, and a dot on the tab until it is first seen. A new card brings Decisions forward
+  (unless they nudged in the last ~4 s; then Decisions says a card is waiting); a fork locks Steer. A half-typed answer
+  survives a look at Steer (both panels stay mounted). The phone's third tab is "Steer" too.
+- **Bio:** a compact currency select with a chevron; the move offer fits one line. Drifted people stay out of the People
+  list, closest first.
+- **WeChat's in-app browser** (older Chromium, no `dvh`): every `dvh` got a `vh` fallback and the scroll lock moved under
+  `@supports (height: 100dvh)` (D-099).

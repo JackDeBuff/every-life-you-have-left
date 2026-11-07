@@ -23,7 +23,8 @@ Older docs and prototypes describe rejected visuals. Use them only for content r
   - URL `https://aiplatform.googleapis.com/v1/projects/triangle-ai-hack-2026/locations/global/publishers/google/models/<model>:generateContent` (or `:streamGenerateContent?alt=sse`)
   - gpt-oss uses `.../locations/global/endpoints/openapi/chat/completions` with model `openai/gpt-oss-120b-maas`
 - Shell: zsh. Write `${VAR}:x`, never `$VAR:x`. Use `/usr/bin/curl` when you need raw response bodies.
-- **Only the Foundation agent deploys** to `every-life-you-have-left.supawich.workers.dev`. Everyone else tests locally (`npm run dev` / vite).
+- **Agents never push or deploy.** Only the lead deploys to `every-life-you-have-left.supawich.workers.dev`, after merging and verifying. Test locally (`npm run dev` / vite). Check `lsof -iTCP:4173` first: a stale `vite preview` from an old worktree can serve an old build.
+- **Spend:** real model calls cost real credit (`worker/engine/pricing.ts` has the real prices). Local runs use the local D1, so the production spend ledger (`worker/spend.ts`) doesn't count them. Keep eval and QA runs small, and report what each pass spent.
 
 ## Quality bar
 - This is the expo product. Judges use it.

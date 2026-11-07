@@ -3,6 +3,13 @@
 Sat Nov 7, 2:40-3:45am EST. Everything below was measured on our Agent Platform project. These are small samples
 (3-4 sessions per arm), so read them as strong signals, not statistics.
 
+> **Price correction (Sat Nov 7 afternoon, D-098).** Every $ figure in this file before the "Playtest round 1" section
+> was computed at the old `pricing.ts` prices. GCP Billing charges **twice** those for `gemini-3.8-flash`,
+> `gemini-3.6-flash` and `gemini-4-argon` (now $1.5/$7.5 and $4/$20 per 1M in/out). Flash-Lite ($0.3/$2.5) was right.
+> To correct an old figure, double its heavy-model share. Rough corrected figures: an Auto session ~$0.37 → **~$0.55-0.6**;
+> a full 1× life $1.38 → **~$2.0**; the Argon arm and the Argon judge cost twice what is shown. The figures are kept
+> as measured, not rewritten.
+
 Run it: `npm run eval` (8 personas x 4 heavy-path arms, judged by `gemini-4-argon`; it stops at the budget).
 Options: `--models a,b` (an arm can be a hybrid: `gemini-3.8-flash+auto:gemini-3.5-flash-lite`), `--personas key,key`,
 `--n 2`, `--budget 8`, `--concurrency 5`, `--no-judge`, `--verbose`.
@@ -66,7 +73,7 @@ ending and chat stay on 3.8 Flash.
 
 1. **Heavy model: `gemini-3.8-flash`, thinking low**, for the profile, big decisions, live settings, the ending,
    chat, and the years at 1x and 2x. It won every quality criterion, never produced an invalid year, and costs
-   **~$0.27-0.33 per Auto session**.
+   **~$0.27-0.33 per Auto session** (old prices; ~$0.45-0.55 at the real ones, see the price correction above).
 2. **Auto and 4x: the hybrid writer** (`models.yearsBySpeed = { auto, 4x: "gemini-3.5-flash-lite" }`,
    `forkLeadYears: 2`; this is now the engine default). Same judge overall score (5.0, believable 4.0 vs 5.0 on n=3
    vs 1), $0.24 per session, and it keeps a stretch ahead of 1.5 s/year playback. Rough timing for a 25-year-old's
@@ -93,12 +100,20 @@ ending and chat stay on 3.8 Flash.
 The main run stopped itself at its $7 projection gate after 15 of the 32 planned sessions. Argon and gpt-oss had
 already shown the same pattern on 3-4 personas each, so the remaining budget went to the confirmation run.
 
+**Price correction (Sat Nov 7).** These totals, the "Spend for this pass" lines below and the eval's own budget gate
+used the old half prices for 3.8/3.6 Flash and Argon (the Argon judge is in every judged run). The real bill was
+higher: by ~4:45pm Sat, ~$51 of the $100 credit was gone, mostly on development (evals, QA runs, Argon), not players.
+Since then `worker/spend.ts` counts live sessions against `SPEND_CAP_USD` (30) at the real prices. **Local evals and
+QA runs use the local D1, so the production ledger does not count them: keep dev runs small** and check GCP
+Billing → Reports.
+
 ## Auto judge run: timing, money and cost (Quality pass, Sat Nov 7 ~5-8am)
 
 Measured with `npx tsx scripts/judge-run.ts [url] --read <s>` against a local production build (`vite preview`,
 real engine). The script plays the client's part exactly as `src/ui` does (life clock, fork moment, world-driven
 interlude cuts, moment holds, reading time per card), so a hidden browser pane can't stall the numbers.
-Start click = 0. "answer → cuts" is what the user waits for after each fork.
+Start click = 0. "answer → cuts" is what the user waits for after each fork. The $ column is at the old prices
+(price correction above: roughly ×1.5 for Auto).
 
 | Run | Reading per card | Start → ending | First card | answer → cuts (5 forks) | Starved | Moments (held) | Net worth at 70 | $ |
 |---|---|---|---|---|---|---|---|---|
@@ -251,13 +266,15 @@ and every 9th opens a thread.
   The old path also showed far fewer cards. When an answer bumped the epoch, the second card of the same year was
   dropped: 6 cards in 10 years against 17.
 - **Where a 1× life's $1.38 goes:** hidden branches $0.45, year calls $0.32, small batches $0.20, big cards $0.18,
-  settings $0.11, folds $0.04, everything else $0.08.
+  settings $0.11, folds $0.04, everything else $0.08. *(Old prices. Year calls, big cards and settings run on 3.8
+  Flash, so they double at the real prices: ~$2.0 for the same life. Branches, small batches and folds are Flash-Lite
+  and unchanged.)*
 - **Speed.** The time from an answer to the next card in the same year was a median of **0.07 s** (max 1.9 s, 65
   cases); 81 of 86 cards came straight from the queue. 5 cards waited: 56 s in all, the longest 19.6 s. The run had 8
   answers that opened a thread, and each one drops the queue by design (the follow-up is written singly). They are the
   likely cause, and a `[small] waited` log line now records each wait. Never starved; the whole 1× life took 13 min.
 - **Pacing at 1×.** The clock runs at 0.5× while a card is up. There is one card at a time, and cards the playhead
-  passes are dropped. Answering in 3 s, the script saw 86 of the 150 planned cards (~3.5 per free year), so a person
+  passes are dropped (no longer true since D-091: the year now waits for its cards). Answering in 3 s, the script saw 86 of the 150 planned cards (~3.5 per free year), so a person
   sees as many as they answer. The first full run had 17 cards shelved by the fork that followed them. Now no new card
   starts in the last part of the year before a fork.
 - **Auto must not get worse:** $0.382 (list $0.412), 156 s, 5 forks; before: $0.37-0.43 for Alex (table above).
@@ -302,7 +319,7 @@ names each), the year before a fork is allowed, and a fork never shelves an on-s
 **Why 1× showed so few.** A 1× year is 6-12 s; a person answering in 10-15 s got one card a year, none in a fork's
 year, none started in the last 6 s before a fork, and a fork shelved the one that was open. Now 1× (the conversation)
 plans 3-4 cards in every year, a fork's year included once its consequence has played 3 s; the year doesn't end while
-a card is open or the next is being written (`state.smallDue`, 6 s at most); a "Let it slide" button lets one go. Two
+a card is open or the next is being written (`state.smallDue`, 6 s at most; since D-091 no cap, the year waits for every card planned in it); a "Let it slide" button lets one go. Two
 intermediate runs measured 1.73 and 1.64 a year: in a fork's year the agent wrote *next* year's card ahead during the
 quiet moment, and that blocked this year's (fixed).
 
@@ -356,6 +373,32 @@ same checker, so read them too: Sam at 27 got a mid-level promotion vs an LA lea
 "London promotes you to team lead"; Sam's father dies once, at Sam's 55, in the log.
 
 Spend for this pass: $2.00 (before $0.94, after $0.91, a 5-year smoke $0.16).
+
+## Playtest round 1 (Sat Nov 7 afternoon): 1× pacing, content, spend
+
+- **Live 1× check** (after D-091, a real session): **28 small cards over ages 28-34, 4 each**. It cost $0.37-0.38 for
+  the 8-year run at the old prices (≈ $0.55 at the real ones). Before the fix, the owner's own 1× run showed 4 cards in
+  8 years while ~23 slots were spent.
+- **Pacing simulation** (`npx tsx scripts/qa/pace-sim.ts`: the real planner and pacing code, a fake card writer, a
+  made-up 26-year-old, 10 years). The new policy shows **36 of 36** planned cards in every scenario, including slow
+  answers (12 s) with a slow writer (14-18 s) that drops its queue at every answer. Under the old policy the same
+  scenarios showed 16 and 0 of 36. The cost is time, not cards: the slowest scenario takes 10.8 min for the 10 years.
+  The plan for that persona's whole life is 147 small / 20 big.
+- **Content.** On two made-up eval personas (Noor 29, Ines 33), the baseline had **5 of 5 forks about work** in both
+  sessions. `scripts/eval/consistency.ts` now flags work-only fork streaks and repeated catastrophes, and `focus.ts`
+  rotates cards across life axes. `npm run check:qa` sections 6-8 cover shocks, card focus and grounding, with
+  made-up personas only.
+- **Grounding probe** (`scripts/eval/ground-probe.ts`, made-up personas): 2.2-3.1 s and 1-4 searches, $0.015-0.057
+  per session. It runs beside the ~10 s profile call, so it adds no wait.
+- **Auto session cost, re-read at the real prices.** The two Noor/Ines runs (`summary-2026-11-07T19-*.json`, 3.8 Flash,
+  no judge) logged $0.35-0.41 per session, of which $0.20-0.22 was heavy-model. At the real prices that is
+  **~$0.55-0.63**.
+- **Spend ledger** (`worker/spend.ts`, D-098). It went live at ~4:45pm with $58.76 of the credit left. App cap
+  `SPEND_CAP_USD=30`. Per session, small cards stop at `SESSION_SOFT_CAP_USD=2.5` and model calls stop at
+  `SESSION_HARD_CAP_USD=5`. Media are counted per call: portrait $0.08, TTS $0.02, transcription $0.002, and a
+  scanned PDF read $0.08. Read it with `/usr/bin/curl -s $URL/api/health` (`spend: {usd, cap, capped}`). A full 1× life,
+  at the corrected ~$2, sits just under the soft cap. A session that reaches the cap gets no more small cards for
+  the rest of its life.
 
 ## Method
 

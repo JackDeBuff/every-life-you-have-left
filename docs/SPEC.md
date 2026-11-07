@@ -18,26 +18,33 @@ running in the background: every life you have left.
 │        ◆ = big decision (a fork; hover → peek the lives you didn't choose)     │
 ├────────────────┬──────────────────────────────────────┬────────────────────────┤
 │ LEFT · BIO     │ MIDDLE · YOUR LIFE                   │ RIGHT · CONTROL CENTER │
-│ portrait       │ ┌──────────────────────────────────┐ │ LIVE SETTINGS          │
-│ (illustrated,  │ │                                  │ │ 3–5 generated controls │
-│ ages with you) │ │   3D WORLD (the chosen life,     │ │ (focus, investing,     │
-│ name · age     │ │   this year): rich, vibrant      │ │  work–life balance…)   │
-│ place · work   │ │                                  │ ├────────────────────────┤
-│ people · $     │ └──────────────────────────────────┘ │ CHAT (largest area)    │
-│                │ LIFE LOG                              │ small + big decisions, │
-│ STATUS         │ 2031 · 30  Promoted to senior analyst │ 4 answers + "say more" │
-│ 10 domains in  │   why ↗ "Money scares me." + stat     │ (type or voice)        │
-│ 4 families     │ 2030 · 29  …                          │                        │
-│ "tell me more" │                                       │                        │
+│ portrait       │ ┌──────────────────────────────────┐ │ [Decisions|Steer this  │
+│ (illustrated,  │ │                                  │ │  life]  (two tabs)     │
+│ ages with you) │ │   3D WORLD (the chosen life,     │ ├────────────────────────┤
+│ name · age     │ │   this year): rich, vibrant      │ │ Decisions: the chat    │
+│ place · work   │ │                                  │ │ small + big decisions, │
+│ people · $     │ └──────────────────────────────────┘ │ 4 answers + "say more" │
+│                │ LIFE LOG                              │ (type or voice)        │
+│ STATUS         │ 2031 · 30  Promoted to senior analyst │                        │
+│ 10 domains in  │   why ↗ "Money scares me." + stat     │ Steer: 3–5 generated   │
+│ 4 families     │ 2030 · 29  …                          │ controls (focus,       │
+│ "tell me more" │                                       │ investing, balance…)   │
 │ (uploads)      │                                       │                        │
 └────────────────┴──────────────────────────────────────┴────────────────────────┘
 ```
 
-- **Phone (<820px):** the 3D world is on top. Below it, tabs switch between Log, Bio and Settings,
+- **The column dividers can be dragged** (or focused and moved with the arrow keys; double-click or
+  Enter resets). The right pane ranges from 340 px to 55% of the window, and the middle column keeps
+  ≥380 px. Widths persist per browser. The play screen never scrolls the page (D-096).
+- **Viewport units:** every `dvh` has a `vh` fallback, and the page-scroll lock applies only where
+  `dvh` works (WeChat's in-app browser has none; D-099).
+
+- **Phone (<820px):** the 3D world is on top. Below it, tabs switch between Log, Bio and Steer,
   and the chat is a bottom sheet that rises for each decision. Phone layout matters less than
   desktop for the expo; it must work but needn't shine.
-- **One focus at a time.** When a big decision arrives, the other panes dim and the decision card
-  takes the right pane. Everything else stays quiet detail.
+- **One focus at a time.** When a big decision arrives, the other panes dim, the right pane switches
+  to Decisions (Steer is locked until the fork is answered), and the decision card takes it.
+  Everything else stays quiet detail.
 
 ## 2. Time and speed
 
@@ -46,7 +53,7 @@ The life runs from the user's current age to `endAge` (70, or current age + 15 i
 
 | Speed | Small decisions (whole life) | Big decisions | Pace (target) |
 |---|---|---|---|
-| 1× | ~150 (a conversation: 3–4 every year; the year waits for them) | ~20 | ~6 s per year (12 s while a card is up) + decisions (a long, deep session) |
+| 1× | ~150 (a conversation: 147 planned for a 26-year-old, 4 a year for ~20 years, then 2–3; the year waits for them) | ~20 (a fork every ~2 years) | ~6 s per year (12 s while a card is up) + decisions (a long, deep session) |
 | 2× | ~30 (1 every ~1.5 years) | ~10, evenly spaced | ~4 s per year |
 | 4× | ~15 (1 every ~3 years) | ~5 | ~2 s per year |
 | **Auto (judge mode)** | **0** | **5** | ~1.5 s per year. The whole run takes **≤3 min**, decisions included |
@@ -54,19 +61,26 @@ The life runs from the user's current age to `endAge` (70, or current age + 15 i
 - **Small decisions** don't stop time. They slide into the chat and the clock slows to 0.5×. If
   there's no answer within ~12 s (2×) / ~10 s (4×) of idle time (no limit at 1×), the decision
   fades as "let it slide". One small card at a time. 2×/4×: none in a fork's year or the year
-  after it. 1× (the conversation): 3–4 in every year, a fork's year included once its consequence
-  has played ~3 s; they come one after another, written ahead in batches (D-089) so each appears
-  at once, and the year doesn't end while one is open or the next is being written (a "Let it
-  slide" button lets one go). A fork never cuts off an open card: it waits for the answer (or the
-  slide). Cards the playhead passes are dropped, never queued up. (Amended Sat Nov 7 three times,
-  see D-081.)
-  That is logged, and the life follows its inertia. They are spread across the life and **weighted
+  after it. 1× (the conversation): every year holds its planned cards, a fork's year included once
+  its consequence has played ~3 s. Cards come one after another, only in their own year, written
+  ahead in batches (D-089) so each appears at once. **The year waits for every card planned in
+  it**: it doesn't end while one is open or still owed (a "Let it slide" button lets one go). Only
+  a card writer that brings nothing for 25 s gives the year's remaining cards up; they are
+  skipped, never piled up later. A fork never cuts off an open card: it waits for the answer (or
+  the slide). At 2×/4× cards the playhead passes are dropped. (Amended Sat Nov 7 four times, see
+  D-081 and D-091.)
+  A slid card is logged, and the life follows its inertia. They are spread across the life and **weighted
   toward the domains the user worries about**. Their job is to learn who the user is, so each one
-  should cover a gap in the profile.
+  should cover a gap in the profile. Cards rotate across the person's own life axes (`focus.ts`),
+  and the card after a life shock asks how they respond (D-093).
+- **Every small card is re-checked against the year it is served in** (place, work, people after
+  the latest fork). A card that no longer fits is dropped and the next one takes the slot (D-093).
+- **Spend caps** (D-098): once a session has spent $2.50 it gets no more small cards; at $5 its
+  model calls stop and the offline engine finishes the life.
 - **Big decisions** pause the clock. Other panes dim, and the card explains that this splits the
   life. The engine schedules them at real life-stage moments (job offer, moving, partner,
   kids, money, career pivot, caring for parents, retirement), personalized to the profile. Never
-  random.
+  random. Never two work forks in a row (D-093).
 - Changing speed mid-life rescales the remaining budget.
 - **Start (every mode):** first name, age, where you live, and one line, "what's on your mind
   lately?" (type or say it). Optional: a selfie (for the portrait), and CV / LinkedIn PDF / AI-app
@@ -105,9 +119,13 @@ thread). Voice goes to Gemini for transcription, and the transcript is shown so 
   written ahead (forks while the card is open, the 10-year one a few years early), and if they
   are late the lives that are ready play instead (their latest snapshots). Answer → life resumes
   in ≤ 10 s.
-- **Peek anytime.** Hovering or clicking a ◆ on the timeline, or opening the "Lives you have left"
-  drawer, shows each branch: portrait at that age, place, work, people, net worth, one line. It can
-  open the branch's 3D scene and log read-only.
+- **Peek anytime.** Clicking a past ◆ on the timeline opens **"the road not taken"** (D-097): the
+  question, what you chose and where it led you today, then each other answer as "If you'd chosen
+  X → today you'd be N: …" with place, work and net worth, and a plain status tag (Still running /
+  Faded out / Not followed / Being written). Branches snapshot every 5 years, so a row uses the
+  snapshot nearest the playhead and names its age when that isn't today's. The lives badge reads
+  "N other lives still running" and lists each running life today; a Key button explains the
+  marks. (No UI opens a branch's 3D scene or log yet; `peekBranch` exists only as an RPC.)
 - **At endAge:**
   1. your life + the 3 branches side by side, each with a one-line verdict (no life ranked best)
   2. the postcard from 70
@@ -116,8 +134,13 @@ thread). Voice goes to Gemini for transcription, and the transcript is shown so 
   4. **talk to any version of you at any age**: letters if we know little, a digital twin that
      writes like you if we know a lot (D-026)
 
-## 5. Live life settings (right pane, top)
+## 5. Live life settings ("Steer this life", the right pane's second tab)
 
+- They live in the **Steer this life** tab next to Decisions (D-096); the old fold-away settings
+  bar above the chat is gone. The tab opens with a short explainer (what a nudge does, and from
+  which age). Each row gets an "Applied · from N" tag once nudged, a "Nudge applied" status line
+  shows at the top, and a dot marks the tab until it is first opened. A new card brings Decisions
+  forward, and a fork locks Steer until it is answered.
 - After the start and after every big decision, the engine generates **3–5 controls from the
   user's own answers**. Examples:
   - "What you're focusing on" (choice chips)
@@ -200,6 +223,21 @@ Big-decision rows mark the fork.
   the user, and never a partner's or child's death; a parent's old-age death at most once, gently;
   money in real $ from base rates; every turning point cites a quoteId; no life ranked best; safety
   screen with 988 resources.
+- **Life shocks are code-owned** (D-092, `worker/engine/shocks.ts`): a per-life plan at real annual
+  odds (home disaster by region, break-in, property accident, scam, a friend in trouble, a parent's
+  health scare, windfall, lucky break, landlord sells, visa snag). Each type at most once per life,
+  at most one natural disaster, at most 1–3 per life by span (most get 0–2), ≥4 years apart; some
+  are good luck. The writer must show a planned shock; the validator rejects a repeated or invented
+  catastrophe. The world timeline rolls at most one pandemic per session at 0.6% a year (real: ~2%).
+- **Realism guards** (D-093, D-094): year-1 money anchored to savings minus debt and kept continuous
+  unless an event explains a jump (`money.ts`); no child unless the user opened that door
+  (`kids.ts`); names typed in answers join the people ledger, friends drift (`drifted`) and come
+  back only in a framed reunion; invented people get seeded names by place (`names.ts`).
+- **Grounding** (D-095): at the start, one Flash-Lite Google Search call (≤6 s) looks up the
+  employer, school and city they named; their own facts win (`profile.grounded`).
+- **Spend** (D-098, `worker/spend.ts`): an app-wide ledger in D1 stops every model call at
+  `SPEND_CAP_USD` (30) like the kill switch; per session, small cards stop at $2.50 and model calls
+  at $5. `GET /api/health` shows `spend: {usd, cap, capped}`.
 - **Models** (D-062, D-071):
   - heavy: `gemini-3.8-flash` (thinking low)
   - fast: `gemini-3.5-flash-lite`
