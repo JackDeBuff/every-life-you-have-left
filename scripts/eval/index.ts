@@ -33,6 +33,7 @@ const budget = Number(opt("budget") ?? 8);
 const concurrency = Number(opt("concurrency") ?? 5);
 const judge = !flag("no-judge");
 const smalls = Number(opt("smalls") ?? 0);
+const singleSmalls = flag("single-smalls");
 let personas = PERSONAS;
 if (opt("personas")) personas = PERSONAS.filter((p) => opt("personas")!.split(",").includes(p.key));
 if (opt("n")) personas = personas.slice(0, Number(opt("n")));
@@ -72,7 +73,7 @@ async function worker(id: number) {
     const tag = `[${job.p.key} | ${job.m}]`;
     const logs: string[] = [];
     const t0 = Date.now();
-    const result = await runSession(llm, job.p, job.m, ledger, (s) => logs.push(s), { smalls });
+    const result = await runSession(llm, job.p, job.m, ledger, (s) => logs.push(s), { smalls, singleSmalls });
     let verdict: Verdict | null = null;
     let judgeCost = 0;
     if (judge && result.transcript.profile && result.transcript.years.length) {
