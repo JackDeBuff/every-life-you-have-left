@@ -7,6 +7,10 @@
  *   so engine code never touches env. Node scripts (evals): `bindLlm(process.env as never)`.
  *   GENERATION_ENABLED="false" makes every call throw GenerationDisabledError (D-032 kill switch).
  *
+ * AI SDK CHECK (Sat Nov 7): `@ai-sdk/google-vertex` works with our key (express mode `apiKey`, and
+ * with project+location). We still use plain fetch here: it already does JSON schema, thinking
+ * level, fallback, image and TTS. Images: gemini-3.1-flash-image. TTS: gemini-3.8-flash-tts.
+ *
  * MODELS — `ModelRef` is a tier or an explicit model id:
  *   "heavy"   gemini-3.8-flash      → 3.6-flash → 3.5-flash-lite   (lives, years, profile)
  *   "fast"    gemini-3.5-flash-lite → 3.6-flash                    (decisions, chat, transcription)
@@ -322,7 +326,8 @@ function inlinePart(parts: Part[]): { mimeType: string; data: string } | null {
 // Image (portraits) — illustrated only, never photoreal (D-086)
 // ---------------------------------------------------------------------------------------------
 
-export const IMAGE_MODELS_DEFAULT = ["gemini-3.1-flash-image-preview", "gemini-2.5-flash-image"];
+/** Verified live Sat Nov 7: gemini-3.1-flash-image (~7s), gemini-2.5-flash-image (~4s). gemini-3-pro-image works too (~15s). */
+export const IMAGE_MODELS_DEFAULT = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
 
 export async function generateImage(
   prompt: string,
@@ -353,7 +358,8 @@ export async function generateImage(
 // TTS
 // ---------------------------------------------------------------------------------------------
 
-export const TTS_MODELS_DEFAULT = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"];
+/** Verified live Sat Nov 7: gemini-3.8-flash-tts returns audio/wav (~2.7s); 2.5-flash-tts returns raw L16 PCM. */
+export const TTS_MODELS_DEFAULT = ["gemini-3.8-flash-tts", "gemini-2.5-flash-tts"];
 /** Prebuilt Gemini voices. "future" reads as older and warmer. */
 export const VOICES = { future: "Gacrux", futureAlt: "Algenib", interviewer: "Sulafat" } as const;
 
