@@ -277,9 +277,9 @@ export function createEngine(deps: EngineDeps): Engine {
         verdictAtEnd: null,
         divergence: 0,
       }));
-      // A few calls at a time: a Worker holds ~6 open connections, and the chosen life's own
+      // Four calls at a time (one round for a first fork): a Worker holds ~6 open connections, and the chosen life's own
       // stream must never queue behind speculative work.
-      const limit = gate(3);
+      const limit = gate(4);
       const step = (b: Branch, years: number[]) => (years.length ? limit(() => stepBranchTo(env, state, b, years, false)).catch(() => b) : Promise.resolve(b));
       const [written, advanced] = await Promise.all([
         // Only the fork-year snapshot (what the interlude shows); kept branches are stepped on in
