@@ -32,8 +32,9 @@ function Screens() {
   useEffect(() => {
     if (phase === "start") setSun(0);
   }, [phase]);
-  // The agent opens the first fork straight from "start", so Play takes over once it exists.
-  const starting = phase === "start" || !hasProfile;
+  // Play takes over as soon as there is a profile (the agent sets a provisional one at once): the
+  // world builds "today" while the first card is written, instead of a spinner on the start form.
+  const starting = !hasProfile;
   return (
     <>
       {starting ? <Start /> : phase === "ended" ? <Ending /> : <Play />}

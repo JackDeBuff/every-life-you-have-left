@@ -23,7 +23,7 @@ import { WorldSlot } from "./WorldSlot";
 const World3D = lazy(() => import("../../world/World"));
 
 /** Seconds per interlude cut: shorter in Auto to keep the judge run near 3 minutes. */
-export const cutSecondsFor = (speed: string) => (speed === "auto" ? 1.9 : 2.6);
+export const cutSecondsFor = (speed: string) => (speed === "auto" ? 1.75 : 2.6);
 
 function webglOk(): boolean {
   try {
@@ -110,7 +110,7 @@ export function CurrentWorld() {
   useEffect(() => {
     if (!momentKey) return;
     clock.hold("moment", true);
-    const id = window.setTimeout(() => clock.hold("moment", false), speed === "auto" ? 1000 : speed === "4x" ? 2200 : 4600);
+    const id = window.setTimeout(() => clock.hold("moment", false), speed === "auto" ? 700 : speed === "4x" ? 2200 : 4600);
     return () => {
       window.clearTimeout(id);
       clock.hold("moment", false);
@@ -125,7 +125,7 @@ export function CurrentWorld() {
 
   // "Life is thinking…": the buffer is behind the playhead or the year isn't written yet. (While a
   // fork is being worked out, the "Meanwhile…" overlay says so instead.)
-  const thinking = (starved && phase === "playing") || (!raw && phase === "playing");
+  const thinking = (starved && phase === "playing") || (!raw && phase === "playing") || phase === "start";
 
   return (
     <>
