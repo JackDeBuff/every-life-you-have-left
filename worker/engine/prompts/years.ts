@@ -79,25 +79,32 @@ export interface YearsPromptParts {
   task: string;
 }
 
+/**
+ * Stable prefix first, volatile last (D-089), so Gemini's implicit cache reuses the prefix between
+ * calls: the base-rate table (the same in every call), then the person and their words (they
+ * change only when answers are folded, in batches), then the life so far (grows at its end), and
+ * only then what is specific to this call (which life, the NOW block, what must show, the
+ * code-rolled beats, the task).
+ */
 export function yearsPrompt(p: YearsPromptParts): string {
   return [
-    `THIS LIFE\n${p.lifeLabel}`,
+    `BASE RATES (statId: stat)\n${p.baseRates}`,
     `PERSON\n${p.person}`,
     `THEIR WORDS (cite these ids in cause.quoteId)\n${p.quotes}`,
-    p.focusQuotes ? `MOST RELEVANT RIGHT NOW\n${p.focusQuotes}` : "",
     `THE LIFE SO FAR (this life)\n${p.lifeSoFar}`,
-    p.now ? p.now : "",
-    p.avoid ? `ALREADY SAID (recent summaries and event titles; don't reuse these lines or near-copies of them)\n${p.avoid}` : "",
     `DECISIONS IN THIS LIFE\n${p.decisions}`,
-    p.mustShow ? `MUST SHOW\n${p.mustShow}` : "",
     `LIVE SETTINGS (how they're living it; nudges apply from the next year and must visibly shape it)\n${p.settings}`,
+    `THIS LIFE\n${p.lifeLabel}`,
+    p.now ? p.now : "",
+    p.focusQuotes ? `MOST RELEVANT RIGHT NOW\n${p.focusQuotes}` : "",
+    p.avoid ? `ALREADY SAID (recent summaries and event titles; don't reuse these lines or near-copies of them)\n${p.avoid}` : "",
+    p.mustShow ? `MUST SHOW\n${p.mustShow}` : "",
     `WORLD (shared by all their lives; the only world events allowed)\n${p.world}`,
     `BUDGET (turning points used so far in this life / max; cooldowns)\n${p.budget}`,
     `QUIET YEARS (code-chosen: no turning point in these years)\n${p.quiet}`,
     `MONEY ANCHORS (code set these for THIS life, its choices included: stay within ~25% of them unless an event explains it)\n${p.anchors}`,
     `BEATS FROM THE BASE RATES (code rolled the dice)\n${p.candidates}`,
     `ATTENTION (give these domains more scenes and words; it never changes the odds)\n${p.attention}`,
-    `BASE RATES (statId: stat)\n${p.baseRates}`,
     `TASK\n${p.task}`,
   ]
     .filter(Boolean)
