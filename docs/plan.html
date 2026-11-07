@@ -224,14 +224,14 @@ footer{padding-block:var(--s7);color:var(--muted);font-size:var(--t-sm)}
     <div class="look">
       <div style="min-width:0">
         <div class="tabs" role="tablist" aria-label="Prototype">
-          <button role="tab" id="tab-delta" aria-selected="true" aria-controls="stage" data-src="delta.html" data-name="The Delta">The Delta</button>
-          <button role="tab" id="tab-horizons" aria-selected="false" aria-controls="stage" data-src="horizons.html" data-name="Four Horizons">Four Horizons</button>
+          <button role="tab" id="tab-horizons" aria-selected="true" aria-controls="stage" data-src="horizons.html" data-name="Four Horizons v2">Four Horizons v2</button>
+          <button role="tab" id="tab-delta" aria-selected="false" aria-controls="stage" data-src="delta.html" data-name="The Delta">The Delta</button>
         </div>
-        <div class="stage" id="stage" role="tabpanel" aria-labelledby="tab-delta">
-          <iframe id="proto" src="delta.html" title="The Delta prototype" loading="lazy"></iframe>
+        <div class="stage" id="stage" role="tabpanel" aria-labelledby="tab-horizons">
+          <iframe id="proto" src="horizons.html" title="Four Horizons v2 prototype" loading="lazy"></iframe>
           <div class="cap">
-            <span class="mono" id="protoNote">The Delta: your past is one pencil line that splits into four ink rivers at today.</span>
-            <a id="protoOpen" href="delta.html" target="_blank" rel="noopener">Open full screen</a>
+            <span class="mono" id="protoNote">Four Horizons v2, Supawich's pick. Click a horizon to focus on one life. Stay to the end for the postcard and the five-year answer.</span>
+            <a id="protoOpen" href="horizons.html" target="_blank" rel="noopener">Open full screen</a>
           </div>
         </div>
       </div>
@@ -466,7 +466,7 @@ const DECISIONS = [
   ]},
   {g:"Visual", items:[
     ["D-050","locked","<strong>Nothing from 1 in 8 Billion's look:</strong> no bar meters, no year grid, no charcoal with pink and mint."],
-    ["D-051","open","<strong>Core visual: The Delta or Four Horizons.</strong> Pick above. The Book That Splits is the reduced-motion fallback either way."],
+    ["D-051","locked","<strong>Core visual: Four Horizons.</strong> Supawich's pick: cleaner, fewer things on screen, less text. v2 adds figures that age, seasons, focus mode, a cinematic ending and the five-year answer. Paul can still weigh in."],
     ["D-052","open","<strong>Theme and fonts.</strong> Pick above."],
     ["D-053","locked","<strong>No emoji as interface.</strong> Real icons, editorial type, motion that feels like time passing."]
   ]},
@@ -529,7 +529,7 @@ function renderLedger(){
 }
 
 /* prototype tabs */
-const notes = {"delta.html":"The Delta: your past is one pencil line that splits into four ink rivers at today.","horizons.html":"Four Horizons: four of you walk on through four stacked landscapes to 70."};
+const notes = {"delta.html":"The Delta: your past is one pencil line that splits into four ink rivers at today.","horizons.html":"Four Horizons v2, Supawich's pick. Click a horizon to focus on one life. Stay to the end for the postcard and the five-year answer."};
 document.querySelectorAll('.tabs button').forEach(btn => btn.addEventListener("click", () => {
   document.querySelectorAll('.tabs button').forEach(b => b.setAttribute("aria-selected", b === btn ? "true" : "false"));
   const src = btn.dataset.src; const f = $("#proto");

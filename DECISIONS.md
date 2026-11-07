@@ -71,7 +71,7 @@ Event: Triangle AI Hackathon. Submissions close Sun Nov 8, 9:30am; judging runs 
 | ID | Decision | Status |
 |---|---|---|
 | D-050 | **Don't copy *1 in 8 Billion*.** No 0–100 bar meters, no grid of year squares, no charcoal + pink/mint, no slab serif + mono labels, no passport cards, no pixel art. Credit it as inspiration in the pitch. | LOCKED |
-| D-051 | **Core visual concept: The Delta vs Four Horizons.** Clickable prototypes are in `prototypes/`, and the owner and Paul pick one in the plan artifact. "The Book That Splits" is the reduced-motion and fallback view either way. | OPEN |
+| D-051 | **Core visual: Four Horizons** (owner, Fri Nov 6: "cleaner, focuses on a few things, less text, no messy UI"). Four of you walk through four stacked landscapes, and the domains show up as the world (weather, places, companions, houses). v2 adds living figures that age, seasons, focus mode on one life, a cinematic ending and the five-year answer card. The Book That Splits stays the reduced-motion fallback. Paul can still weigh in. | LOCKED (owner) |
 | D-052 | **Theme** (Paper / Night / a wildcard) and **font pairing**: chosen in the prototypes. | OPEN |
 | D-053 | **No emoji as UI.** Use real icons (the better-icons MCP), editorial type, and motion that feels like time passing, not app chrome. | LOCKED (owner's global rule) |
 
