@@ -118,8 +118,11 @@ export function WorldScene(props: SceneProps) {
   // ----- which spec is on screen (life: the prop; interlude: the current cut) -----
   const [cutIndex, setCutIndex] = useState(0);
   const cutSpec = mode === "interlude" && cuts && cuts.length ? cuts[Math.min(cutIndex, cuts.length - 1)]!.scene : null;
-  const wanted = cutSpec ?? props.spec;
-  const deferred = useDeferredValue(wanted);
+  const wantedRaw = cutSpec ?? props.spec;
+  const stable = useRef<{ key: string; spec: SceneSpec }>({ key: "", spec: wantedRaw });
+  const wantedKey = JSON.stringify(wantedRaw);
+  if (stable.current.key !== wantedKey) stable.current = { key: wantedKey, spec: wantedRaw };
+  const deferred = useDeferredValue(stable.current.spec);
 
   // reduced motion: snapshot the old frame before applying a new spec, then crossfade in the DOM
   const [applied, setApplied] = useState<SceneSpec>(deferred);
@@ -174,7 +177,7 @@ export function WorldScene(props: SceneProps) {
 
   // prefetch the remaining kits when idle (lazy, after the first scene is up)
   useEffect(() => {
-    const id = window.setTimeout(() => ALL_KITS.forEach((k) => preloadKit(k)), 4000);
+    const id = window.setTimeout(() => ALL_KITS.forEach((k) => preloadKit(k)), 8000);
     return () => window.clearTimeout(id);
   }, []);
 
@@ -197,12 +200,13 @@ export function WorldScene(props: SceneProps) {
     const R = rig.current;
     if (mode === "interlude") return;
     const step = yearStep.current;
-    R.yaw = 38 + Math.sin(step * 1.7) * 11;
+    // the turntable: each year looks from a slightly different angle (fixed under reduced motion)
+    R.yaw = reduced ? 38 : 38 + Math.sin(step * 1.7) * 11;
     R.pitch = layout.indoor ? 37 : 30;
     R.dist = layout.indoor ? INDOOR_DIST : LIFE_DIST;
     R.focus.set(layout.focus[0], layout.focus[1], layout.focus[2]);
     R.shot = null;
-  }, [layout, mode]);
+  }, [layout, mode, reduced]);
 
   // ----- moments -----
   const momentToken = useRef(0);
@@ -266,7 +270,7 @@ export function WorldScene(props: SceneProps) {
     }
   });
 
-  const frozen = false;
+  const frozen = !!useMotion().paused;
   const top = islands.find((i) => i.leaving === null) ?? islands[islands.length - 1]!;
   return (
     <LookCtx.Provider value={eff}>

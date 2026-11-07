@@ -136,24 +136,29 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
 
 - **Hemisphere light** (sky and ground colours from the tables above) does most of the work: it
   is our fake GI.
-- **One directional sun** with a 2048 soft shadow map fitted tightly to the island (PCF soft,
+- **One directional sun** with a 2048 shadow map fitted tightly to the island (PCF with radius 4,
   normal bias for low-poly acne). The sun azimuth follows time of day; elevation follows season.
 - **N8AO** at half resolution, small radius, low intensity: just enough to ground objects and
   darken creases under eaves and furniture.
 - **Practical lights** at golden hour and night: window glass, lamp heads and string lights are
   emissive; the hero room gets one warm point light. No more than 2 real point lights per scene.
-- **Post chain** (in order): N8AO → Bloom (mipmap, threshold 0.8) → mood grade (custom effect:
-  saturation, exposure, split-toning) → tilt-shift (very light, blur only at the top and bottom
-  edges) → vignette → AgX tone mapping. No grain, no chromatic aberration.
+- **Post chain** (in order): N8AO → Bloom (mipmap, threshold 0.82) → mood grade (custom effect:
+  saturation, exposure, contrast, split-toning, interlude "memory") → neutral tone mapping →
+  tilt-shift (very light) → vignette. No grain, no chromatic aberration. (AgX was tried first and
+  greyed the palette; Khronos neutral keeps the swatches true.)
+- **Sky.** The camera looks ~30° down, so the visible backdrop is all below the true horizon. The
+  sky shader shifts its gradient so the frame reads sky-top colour at the top to horizon glow at
+  the bottom, with a sea of soft clouds below the island and a few puffs drifting around it.
 
 ## 5. Camera language
 
-- **Lens.** Perspective, narrow FOV (22°), far away. This flattens perspective toward isometric
-  while keeping depth cues, which reads as "miniature". Pitch ~32°, yaw ~40°.
+- **Lens.** Perspective, narrow FOV (22°), far away (23.5 units outdoors, 10.8 indoors). This
+  flattens perspective toward isometric while keeping depth cues, which reads as "miniature".
+  Pitch 30° (37° indoors), yaw ~38°.
 - **At rest.** A slow breathing orbit (±3° yaw over ~24 s) and a tiny vertical bob. Always on in
   life mode, off with reduced motion.
-- **A year turns.** The camera eases +12° around the island over 1.6 s (time passing as a turn of
-  the turntable). It never cuts.
+- **A year turns.** The camera eases to a new angle within ±11° of the base yaw (time passing as a
+  turn of the turntable, bounded so the back of the island never comes round). It never cuts.
 - **A place changes.** The old island sinks and fades into the fog below; clouds sweep across; the
   new island rises from below with a soft overshoot while the camera pulls back and settles.
 - **Indoors.** The camera dollies ~25% closer to the home and lowers a few degrees, so the
@@ -166,8 +171,9 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
 
 ## 6. Character style
 
-- Quaternius chibi characters (big heads, short limbs) at **toy scale**: about 1.2 units tall next
-  to ~3-unit houses. That exaggeration keeps people readable in a small pane.
+- Quaternius chibi characters (big heads, short limbs) at **toy scale**: 0.6 units tall next to
+  ~1.1-unit Kenney houses (about half a house). That exaggeration keeps people readable in a small
+  pane. The self always wears the hero coral shirt so "you" is findable at a glance.
 - **Skin, hair and clothing are recoloured** from our palette. The self uses `appearance` when
   given (skin swatch tone1–6, hair colour); otherwise a neutral mid tone and dark-brown hair.
   Other people get varied, seeded tones. Race is never inferred.
@@ -184,8 +190,12 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
   | senior | 0.96 | stoop (spine 10°, head 6°) | 85% grey | 0.7× |
 
 - The partner **walks in** when they first appear; a pet trots behind the self.
-- Poses come from the shared Quaternius clips: `Idle`, `Walk`, `Run`, `Wave`, `Sitting` (looped
-  hold of `SitDown`), `Walk_Carry`, `Victory`, `PickUp`.
+- Poses come from the shared Quaternius clips (shipped once): `Idle`, `Walk`, `SitDown` (played
+  once and held), `Walk_Carry`, `Victory`, `PickUp`. The pack has no wave or run, so **wave** is a
+  procedural arm on top of `Idle` and **jog** is `Walk` at 1.75×. Stoop and the sad head-dip are
+  procedural bone offsets, undone before each mixer update so they never accumulate.
+- Ambient walkers (muted clothes) stroll the sidewalks so towns feel lived in; they are not people
+  from the spec.
 
 ## 7. Transitions
 
@@ -223,12 +233,17 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
 ## 9. Performance
 
 - DPR capped at 1.5 (1.25 on small GPUs), AO half resolution, one shadow map.
-- Instanced vegetation and fences; shared materials per palette slot; geometry shared across
-  clones.
+- Shared materials per palette slot; geometry shared across clones; instanced clouds, bulbs,
+  confetti and particles (one draw each). A typical city year is ~540 draw calls (shadow + AO +
+  post included) and ~170k triangles.
+- Measured: **2.2 ms per frame** (useFrame work + full post chain, GPU-synchronised) at 800×450,
+  DPR 1.5 on the dev Mac. A MacBook Air GPU is roughly 3–4× slower, which still leaves the frame
+  well inside 16.7 ms.
 - `frameloop="demand"` when the world is hidden, off-screen or in reduced motion; `always` while it
   is visible and animating.
-- Kits are lazy-loaded per setting (`manifest.json` lists URLs and sizes); everything is meshopt
-  compressed with WebP textures.
+- Kits are lazy-loaded per setting (`manifest.json` lists URLs and sizes): the current spec's kits
+  load first (Suspense), the rest prefetch 8 s later so place changes do not wait. Everything is
+  meshopt compressed with WebP textures: **6.9 MB total** for 11 kits.
 - WebGL failure shows a static poster; dispose geometries and materials on unmount.
 
 ## 10. Component API
@@ -247,4 +262,28 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
 ```
 
 Lab: `/#world-lab` (every SceneSpec field, every moment, an "Alex's life" autoplay and an
-interlude demo).
+interlude demo). `/#world-lab-bare` hides the panel for screenshots. In dev, `window.__lab`
+(setSpec, setMode, setCuts, setPaused, setAuto), `window.__r3f`, `window.__momentT` (freeze a
+moment at t seconds) and `window.__camSnap` (no camera damping) exist for scripted captures.
+
+Behaviour notes for the UI:
+- A spec with a `moment` plays it once per distinct spec (content-compared, so re-renders with an
+  equal object never replay it). `onMomentDone` fires at the end (after 2.6 s under reduced motion).
+- Interlude: `onCut(i)` fires as cut `i` starts (~2.5 s each, joined by a 220 ms fade);
+  `onInterludeDone` after the last. Switching `mode` back to `"life"` restores the life spec.
+- `paused` freezes world time; anything that mounts while paused simply appears.
+
+## 11. Code map (`src/world/`)
+
+| File | Role |
+|---|---|
+| `World.tsx` | public component: Canvas, WebGL check + poster, reduced motion, visibility, pause clock, fades |
+| `layout.ts` | the composer: SceneSpec → Layout (setting templates, hero, rooms, stages, people, cars) |
+| `palette.ts` | swatches, flavour styles, `lookFor(spec)` and look blending |
+| `materials.ts` | shared palette materials, Quaternius material remaps |
+| `assets.ts` | manifest, kit loading, Kenney colour-map recolouring, templates |
+| `scene/WorldScene.tsx` | islands (rise/sink), look blending, camera, moments, interlude cuts |
+| `scene/Island.tsx`, `Procs.tsx`, `Pieces.tsx`, `Hero.tsx` | ground block, procedural set pieces, kit models, dollhouse hero |
+| `scene/People.tsx`, `Cars.tsx`, `Weather.tsx`, `Atmosphere.tsx` | characters, traffic, particles, sky/light/fog/clouds |
+| `scene/Moments.tsx`, `CameraRig.tsx`, `Post.tsx` | 16 cinematics, camera language, post chain + grade |
+| `Lab.tsx`, `alex.ts` | the lab page and Alex's 17 years + demo interlude cuts |
