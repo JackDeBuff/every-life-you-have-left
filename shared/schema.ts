@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import { BASE_RATE_IDS } from "./baseRates";
+import { CURRENCY_CODES } from "./currency";
 import { DOMAIN_KEYS } from "./domains";
 import { LIFE_KEYS } from "./lives";
 
@@ -192,6 +193,7 @@ export const Profile = z.object({
   age: int().min(18).max(110),
   birthYear: int(),
   country: z.string().describe("ISO 3166-1 alpha-2, e.g. US. Base rates are US (approximate elsewhere)."),
+  currency: z.enum(CURRENCY_CODES).optional().describe("Code-owned display currency (their pick, else the country's). Every number stays USD; the UI converts"),
   region: z.string().nullable().describe('State/province, e.g. "NC"'),
   city: z.string().nullable(),
   startYear: int().describe("The year the lives start (today)"),
@@ -219,6 +221,7 @@ export const ProfileDraft = Profile.omit({
   sessionId: true,
   profileVersion: true,
   gender: true,
+  currency: true,
   startYear: true,
   endAge: true,
   quotes: true,

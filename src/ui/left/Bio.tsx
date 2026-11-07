@@ -1,7 +1,8 @@
 /** Left pane: portrait, bio (name, rolling age, place, work, people, net worth), the life rose, tell me more. */
 import { useEffect, useRef, useState } from "react";
 import { pronounsFor } from "../../../shared/schema";
-import { money } from "../format";
+import type { CurrencyCode } from "../../../shared/currency";
+import { money, moneyHint, moneyNote, useCurrency } from "../format";
 import { gsap, reducedMotion } from "../motion";
 import { useSim } from "../session";
 import { LifeRose } from "./LifeRose";
@@ -36,6 +37,7 @@ export function Bio() {
   const endAge = useSim((s) => s.endAge);
   const yr = useSim((s) => s.years.find((y) => y.year === s.playhead.year) ?? null);
   const forks = useSim((s) => s.decisions.filter((d) => d.kind === "big" && d.status === "answered").length);
+  const cur = useCurrency();
   const places = useSim((s) => new Set(s.years.filter((y) => y.year <= s.playhead.year).map((y) => y.place)).size);
   if (!p) return null;
   const startAge = p.age;
@@ -85,8 +87,8 @@ export function Bio() {
         <div className="money-row">
           <dt className="label">Net worth</dt>
           <dd>
-            <Count value={yr?.money.netWorth ?? 0} className="money data" />
-            <span className="money-note">A projection, not a prediction. Today's dollars.</span>
+            <Count value={yr?.money.netWorth ?? 0} code={cur} className="money data" />
+            <span className="money-note">{moneyNote(cur)}</span>
           </dd>
         </div>
       </dl>
@@ -118,13 +120,13 @@ export function Roll({ value }: { value: number }) {
 }
 
 /** Money counts toward its new value instead of jumping. */
-export function Count({ value, className }: { value: number; className?: string }) {
+export function Count({ value, className, code = "USD" }: { value: number; className?: string; code?: CurrencyCode }) {
   const el = useRef<HTMLSpanElement>(null);
   const cur = useRef({ v: value });
   useEffect(() => {
     if (!el.current) return;
     if (reducedMotion()) {
-      el.current.textContent = money(value);
+      el.current.textContent = money(value, code);
       cur.current.v = value;
       return;
     }
@@ -133,16 +135,16 @@ export function Count({ value, className }: { value: number; className?: string 
       duration: 0.9,
       ease: "power2.out",
       onUpdate: () => {
-        if (el.current) el.current.textContent = money(cur.current.v);
+        if (el.current) el.current.textContent = money(cur.current.v, code);
       },
     });
     return () => {
       tw.kill();
     };
-  }, [value]);
+  }, [value, code]);
   return (
-    <span ref={el} className={className}>
-      {money(value)}
+    <span ref={el} className={className} title={moneyHint(value, code)}>
+      {money(value, code)}
     </span>
   );
 }

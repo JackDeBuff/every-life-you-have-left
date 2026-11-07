@@ -3,6 +3,7 @@
  * Compact matters: every year call carries this, so tokens here are paid ~10x per session.
  */
 import { BASE_RATES } from "../../shared/baseRates";
+import { CURRENCIES, displayCurrency, formatMoney } from "../../shared/currency";
 import { DOMAINS, DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Profile, WorldEvent } from "../../shared/schema";
 import type { Decision, DecisionAnswer, LiveSetting, SessionState, SettingNudge, SimYear } from "../../shared/sim";
@@ -32,6 +33,13 @@ export function personBlock(p: Profile): string {
       (m.supportsFamily ? ", supports family" : "") +
       (m.assumed ? " (partly guessed)" : ""),
   );
+  const cur = displayCurrency(p);
+  if (cur !== "USD") {
+    const c = CURRENCIES[cur];
+    lines.push(
+      `Currency: they think in ${c.name} (${c.symbol}). Number fields (inc, nw, money) stay USD. When a sentence they read names an amount, write it in ${cur} at 1 USD = ${c.perUsd} ${cur}, rounded (e.g. $1,500 -> ${formatMoney(1500, cur)}, $85,000 -> ${formatMoney(85000, cur)}).`,
+    );
+  }
   if (p.values.length) lines.push(`Values: ${p.values.map((v) => v.label).join(", ")}`);
   if (p.fears.length) lines.push(`Fears: ${p.fears.map((f) => `${f.text} (${f.kind})`).join("; ")}`);
   const top = topWorries(p, 3);

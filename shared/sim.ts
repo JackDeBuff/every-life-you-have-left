@@ -6,6 +6,7 @@
  * no unions except X | null, small string enums, header fields before big arrays.
  */
 import { z } from "zod";
+import { CURRENCY_CODES } from "./currency";
 import { BaseRateRef, Cause, DomainKey, DomainStates, Gender, Profile, Tone, Year } from "./schema";
 
 const int = () => z.number().int();
@@ -63,6 +64,8 @@ export const StartInput = z.object({
   speed: SpeedMode,
   appearance: Appearance.nullable(),
   hasSelfie: z.boolean(),
+  /** Display currency they picked (shared/currency.ts). The engine still computes in USD. null = from the country. */
+  currency: z.enum(CURRENCY_CODES).nullable().default(null),
 });
 export type StartInput = z.infer<typeof StartInput>;
 

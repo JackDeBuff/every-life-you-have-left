@@ -3,6 +3,7 @@
  * speed (Auto pre-selected for judges), optional look + selfie, optional "tell me more", consent.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CURRENCIES, CURRENCY_CODES, currencyForCountry, detectCurrency, type CurrencyCode } from "../../shared/currency";
 import { endAgeFor, pronounsFor, type Gender } from "../../shared/schema";
 import type { Appearance, SpeedMode, StartInput } from "../../shared/sim";
 import { fastForward, jumpParams } from "../ui/devJump";
@@ -35,7 +36,7 @@ export function parsePlace(raw: string): { city: string; region: string | null; 
   const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
   const city = parts[0] ?? "Somewhere";
   const known = KNOWN_PLACES[city.toLowerCase()];
-  if (parts.length === 1) return { city, region: known?.region ?? null, country: known?.country ?? "US" };
+  if (parts.length <= 1) return { city, region: known?.region ?? null, country: known?.country ?? "US" };
   const last = parts[parts.length - 1]!;
   const code = COUNTRY_NAMES[last.toLowerCase()];
   if (code) return { city, region: parts.length > 2 ? parts[1]! : null, country: code };
@@ -64,6 +65,8 @@ export default function Start() {
   const [docs, setDocs] = useState<(AddedDoc & { text: string; file: File | null })[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [adult, setAdult] = useState(demo);
+  /** null = automatic: the currency they write in, else the one where they live. */
+  const [currency, setCurrency] = useState<CurrencyCode | null>(null);
   const [open, setOpen] = useState<"look" | "more" | null>(null);
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -73,6 +76,9 @@ export default function Start() {
   const ready = name.trim().length > 0 && ageOk && place.trim().length > 1 && adult;
   const endAge = ageOk ? endAgeFor(ageN) : 70;
   const hasLook = Object.values(look).some((v) => v !== null);
+  const written = useMemo(() => detectCurrency(line), [line]);
+  const shownCurrency: CurrencyCode = currency ?? written ?? currencyForCountry(parsePlace(place).country);
+  const currencyWhy = currency ? "" : written ? "From what you wrote" : place.trim() ? "From where you live" : "";
 
   // Fetch the 3D world's chunk while the form is being filled, so the first year isn't a blank pane.
   useEffect(() => {
@@ -106,6 +112,7 @@ export default function Start() {
       speed,
       appearance: hasLook ? look : null,
       hasSelfie: !!selfie,
+      currency: shownCurrency,
     };
     if (!reducedMotion() && rootRef.current) {
       gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 0.4, duration: 0.5, stagger: 0.03 });
@@ -171,6 +178,7 @@ export default function Start() {
           </label>
         </div>
 
+        <div className="form-row split">
         <div className="field">
           <span className="label">
             <span>Gender · optional</span>
@@ -191,6 +199,20 @@ export default function Start() {
               </button>
             ))}
           </div>
+        </div>
+        <label className="field">
+          <span className="label">
+            <span>Money in</span>
+            <span className="faint">{currencyWhy}</span>
+          </span>
+          <select className="input" value={shownCurrency} onChange={(e) => setCurrency(e.target.value as CurrencyCode)}>
+            {CURRENCY_CODES.map((c) => (
+              <option key={c} value={c}>
+                {CURRENCIES[c].symbol} {c} · {CURRENCIES[c].name}
+              </option>
+            ))}
+          </select>
+        </label>
         </div>
 
         <div className="field">

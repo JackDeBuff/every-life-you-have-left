@@ -2,6 +2,7 @@
  * Profile: quotes are code-owned and verbatim (D-013); the model extracts facts, people, worries
  * and seeds and may only cite existing quote ids. Never infer race (D-011).
  */
+import { currencyForCountry, displayCurrency, fixUnconverted, statedAmounts, type CurrencyCode } from "../../shared/currency";
 import type { DocInput } from "../../shared/engine";
 import { DOMAIN_KEYS } from "../../shared/domains";
 import { endAgeFor, type DomainWeights, type Profile, type Quote } from "../../shared/schema";
@@ -49,6 +50,16 @@ export function knowMeScore(profile: Profile, answered: number): number {
 
 function defaultWorries(): DomainWeights {
   return Object.fromEntries(DOMAIN_KEYS.map((d) => [d, 0.1])) as DomainWeights;
+}
+
+/**
+ * Money fields are USD. If the model copied an amount they stated in another currency without
+ * converting it ("3 million baht" -> savingsUsd 3,000,000), use the code-converted USD instead.
+ */
+export function guardMoney(m: Profile["money"], text: string, prefer: CurrencyCode): Profile["money"] {
+  const stated = statedAmounts(text, prefer);
+  if (!stated.some((s) => s.code !== "USD")) return m;
+  return { ...m, incomeUsd: fixUnconverted(m.incomeUsd, stated), debtUsd: fixUnconverted(m.debtUsd, stated), savingsUsd: fixUnconverted(m.savingsUsd, stated) };
 }
 
 /** Turn the model's draft into Profile fields; ids assigned here; citations filtered to real quotes. */
@@ -165,6 +176,7 @@ export function emptyProfile(input: StartInput, startYear: number, sessionId: st
     age: input.age,
     birthYear: startYear - input.age,
     country: input.country.toUpperCase(),
+    currency: input.currency ?? currencyForCountry(input.country),
     region: input.region,
     city: input.city || null,
     startYear,
@@ -208,6 +220,7 @@ export async function buildStartProfile(call: Caller, input: StartInput, docs: D
     const draft = remapRefs(r.data, refMap);
     const quotes = applyShortForms([...lineQuotes, ...dq], draft);
     const p = applyDraft(base, draft, quotes);
+    p.money = guardMoney(p.money, [input.line, ...docs.map((d) => d.text)].join("\n"), displayCurrency(base));
     if (!p.facts.some((f) => f.key === "location")) p.facts.unshift(base.facts[0]!);
     return { ...p, knowMeScore: knowMeScore(p, 0) };
   } catch {
@@ -221,7 +234,7 @@ export async function enrich(call: Caller, profile: Profile, docs: DocInput[], f
   const allBefore = [...profile.quotes, ...textQuotes];
   const input: StartInput = {
     firstName: profile.firstName ?? "", age: profile.age, city: profile.city ?? "", region: profile.region, country: profile.country,
-    line: "", via: "text", speed: "auto", appearance: null, hasSelfie: false,
+    line: "", via: "text", speed: "auto", appearance: null, hasSelfie: false, currency: profile.currency ?? null,
   };
   try {
     const r = await call.json({
@@ -241,6 +254,7 @@ export async function enrich(call: Caller, profile: Profile, docs: DocInput[], f
     const draft = remapRefs(r.data, refMap);
     const quotes = applyShortForms([...allBefore, ...dq], draft);
     const merged = applyDraft(profile, draft, quotes);
+    merged.money = guardMoney(merged.money, [freeText ?? "", ...docs.map((d) => d.text)].join("\n"), displayCurrency(profile));
     const p = { ...merged, profileVersion: profile.profileVersion + 1, updatedAt: at };
     return { profile: { ...p, knowMeScore: knowMeScore(p, answeredCount(p)) }, quotes: [...textQuotes, ...dq] };
   } catch {
@@ -327,6 +341,7 @@ export async function foldAnswer(
             }
           : profile.money,
       };
+      next.money = guardMoney(next.money, text, displayCurrency(profile));
     }
   } catch {
     /* keep the quote even if the fold failed */

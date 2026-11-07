@@ -4,6 +4,7 @@
  * The lead swaps this for the real agent client in `src/ui/session.ts` (same shapes).
  */
 import { create } from "zustand";
+import { currencyForCountry } from "../../../shared/currency";
 import { DOMAIN_KEYS, type DomainKey } from "../../../shared/domains";
 import { endAgeFor, TWIN_THRESHOLD, type Profile, type Quote } from "../../../shared/schema";
 import {
@@ -526,6 +527,7 @@ export const useMockSim = create<Store>()((set, get) => {
         profileVersion: 1,
         firstName: input.firstName,
         gender: input.appearance?.gender ?? null,
+        currency: input.currency ?? currencyForCountry(input.country),
         age: input.age,
         birthYear: startYear - input.age,
         country: input.country,

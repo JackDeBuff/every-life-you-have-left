@@ -1,17 +1,20 @@
-export const money = (n: number): string => {
-  const sign = n < 0 ? "−" : "";
-  const a = Math.abs(n);
-  if (a >= 1_000_000) return `${sign}$${(a / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2)}M`;
-  return `${sign}$${Math.round(a).toLocaleString("en-US")}`;
-};
+import { CURRENCIES, RATES_AS_OF, displayCurrency, formatMoney, usdHint, type CurrencyCode } from "../../shared/currency";
+import { useSim } from "./session";
 
-export const moneyShort = (n: number): string => {
-  const sign = n < 0 ? "−" : "";
-  const a = Math.abs(n);
-  if (a >= 1_000_000) return `${sign}$${(a / 1_000_000).toFixed(1)}M`;
-  if (a >= 1000) return `${sign}$${Math.round(a / 1000)}k`;
-  return `${sign}$${Math.round(a)}`;
-};
+/** Money in the user's display currency (the engine's numbers are USD). */
+export const money = (usd: number, code: CurrencyCode = "USD"): string => formatMoney(usd, code);
+export const moneyShort = (usd: number, code: CurrencyCode = "USD"): string => formatMoney(usd, code, true);
+/** "≈ $85,000" for a title attribute; undefined in USD. */
+export const moneyHint = (usd: number, code: CurrencyCode): string | undefined => usdHint(usd, code) ?? undefined;
+
+/** The session's display currency: their pick on the start screen, else their country's. */
+export const useCurrency = (): CurrencyCode => useSim((s) => displayCurrency(s.profile));
+
+/** The note that always sits beside money (D-008): a projection, in today's money, at a fixed rate. */
+export const moneyNote = (code: CurrencyCode): string =>
+  code === "USD"
+    ? "A projection, not a prediction. Today's dollars."
+    : `A projection, not a prediction. Today's ${CURRENCIES[code].noun}, at $1 = ${CURRENCIES[code].symbol}${CURRENCIES[code].perUsd} (${RATES_AS_OF}).`;
 
 export const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
 

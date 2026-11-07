@@ -1,4 +1,5 @@
 /** Profile extraction: start line (+ CV / LinkedIn / AI export) → profile draft. Heavy model. */
+import { CURRENCIES, RATES_AS_OF, currencyForCountry, statedAmounts, type CurrencyCode } from "../../../shared/currency";
 import type { DocInput } from "../../../shared/engine";
 import type { Profile } from "../../../shared/schema";
 import type { StartInput } from "../../../shared/sim";
@@ -12,7 +13,7 @@ You read what the person told us (their quotes, verbatim, with ids) and any docu
 3. docQuotes: if there are documents, copy up to 6 sentences EXACTLY as written that reveal something personal (a goal, a worry, a role, a value). Never paraphrase inside docQuotes. [] if no documents.
 4. shortForms: for each quote, a <= 12 word excerpt copied verbatim from it, the part a person would recognise as theirs.
 5. People: only people they mentioned. Label them the way they did ("my mom" -> "Mom"). Never invent names. expectation only if said or clearly implied.
-6. Money: in USD per year (convert local currency). If they didn't say, estimate from their job, age and country, and set assumed=true with an assumption entry. feel = tight | okay | comfortable.
+6. Money: every money field is USD (income per year). Convert any amount they state in another currency with the rate in MONEY CONTEXT: 3,000,000 THB is about $85,000, never $3,000,000. When MONEY CONTEXT lists an amount already converted by code, use that number. Assets and savings they mention go in savingsUsd. If they didn't say, estimate from their job, age and country, and set assumed=true with an assumption entry. feel = tight | okay | comfortable.
 7. Worries: 0..1 per domain (default 0.1). What they keep coming back to gets 0.6-0.9. Worry means attention, not bad luck.
 8. Seeds, each <= 14 words, specific to them:
    - path: momentum, what happens if nothing changes.
@@ -23,11 +24,26 @@ You read what the person told us (their quotes, verbatim, with ids) and any docu
 9. Never record, guess or use race, ethnicity, religion, sexual orientation, gender, health diagnoses or immigration status (gender comes from the start screen, separately). If they volunteered one, keep only their own framing, as an "other" or "background" fact sourced to their quote.
 10. Facts use keys: occupation, education, location, living, relationship, children, background, health_habits, interests, other. Labels are 1-2 words ("Work", "Home", "Love").`;
 
+/** The currency they think in, the fixed rates, and every amount they wrote, converted by code. */
+export function moneyContext(input: Pick<StartInput, "currency" | "country">, text: string): string {
+  const prefer: CurrencyCode = input.currency ?? currencyForCountry(input.country);
+  const stated = statedAmounts(text, prefer);
+  const codes = [...new Set<CurrencyCode>([prefer, ...stated.map((s) => s.code)])].filter((c) => c !== "USD");
+  const lines = [`MONEY CONTEXT: every money field is USD. They think in ${prefer === "USD" ? "US dollars" : `${CURRENCIES[prefer].name} (${prefer})`}.`];
+  for (const c of codes) lines.push(`Fixed rate (${RATES_AS_OF}): 1 USD = ${CURRENCIES[c].perUsd} ${c}. To convert ${c} to USD, divide by ${CURRENCIES[c].perUsd}.`);
+  const foreign = stated.filter((s) => s.code !== "USD");
+  if (foreign.length)
+    lines.push(`Amounts they wrote, converted by code (use these USD numbers): ${foreign.map((s) => `"${s.text}" = ${s.amount.toLocaleString("en-US")} ${s.code} = about $${s.usd.toLocaleString("en-US")}`).join("; ")}.`);
+  else if (prefer !== "USD") lines.push(`A bare amount with no currency is probably ${prefer}.`);
+  return lines.join("\n");
+}
+
 export function profilePrompt(input: StartInput, quotes: { id: string; text: string }[], docs: DocInput[], existing: Profile | null): string {
   const parts: string[] = [];
   parts.push(
     `PERSON: ${input.firstName}, ${input.age}, lives in ${[input.city, input.region, input.country].filter(Boolean).join(", ")}. They answered "What's on your mind lately?" (${input.via}).`,
   );
+  parts.push(moneyContext(input, [input.line, ...quotes.map((q) => q.text), ...docs.map((d) => d.text)].join("\n")));
   parts.push(`THEIR WORDS (verbatim, cite these ids):\n${quotes.map((q) => `${q.id}: "${q.text}"`).join("\n") || "(none)"}`);
   if (existing) {
     parts.push(
