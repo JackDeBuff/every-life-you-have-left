@@ -77,3 +77,101 @@
 
 .sun-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--sun); margin-right: 4px; vertical-align: 0; }
 .seg-item[data-state="on"] .numeral, .seg-item[data-state="active"] .numeral { color: color-mix(in oklab, var(--panel) 70%, transparent); }
+
+/* ---------- Your words did this (D-013, told backwards) ---------- */
+.end-words { max-width: 1280px; grid-template-columns: minmax(0, 1fr); gap: var(--s8); }
+.end-words .sec-head { position: static; max-width: 40rem; }
+.words { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s8); counter-reset: none; }
+.word {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1.15fr) 104px minmax(0, 1fr);
+  align-items: center; gap: 0;
+}
+.word-fig { margin: 0; grid-column: 1; display: grid; gap: var(--s3); }
+.word-q { margin: 0; font-size: clamp(24px, 2.5vw, 34px); line-height: 1.28; color: var(--ink); text-wrap: pretty; }
+.word-mark {
+  background-image: linear-gradient(color-mix(in oklab, var(--sun) 22%, transparent), color-mix(in oklab, var(--sun) 22%, transparent));
+  background-repeat: no-repeat; background-size: 100% 34%; background-position: 0 90%;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  padding: 0 2px;
+}
+.word-mark .ww { display: inline; }
+.word-when { font-stretch: var(--w-data); }
+.word-threads { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.thread { fill: none; stroke: var(--ink-3); stroke-width: 1.25; stroke-dasharray: 1; stroke-dashoffset: 0; stroke-linecap: round; }
+.thread[data-kind="fork"] { stroke: var(--ink-2); stroke-width: 1.5; }
+.thread-end { fill: var(--ink-3); }
+.thread-end.fork { fill: var(--sun); stroke: var(--ink); stroke-width: 1.2; }
+.word-cons { grid-column: 3; list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.con {
+  width: 100%; display: grid; grid-template-columns: 76px minmax(0, 1fr) 14px; gap: var(--s3); align-items: baseline;
+  text-align: left; padding: 9px 10px; border: 1px solid transparent; border-radius: var(--r1);
+  background: transparent; color: var(--ink); font: inherit; cursor: pointer;
+  transition: background var(--t-micro) var(--e-press), border-color var(--t-micro) var(--e-press);
+}
+.con:hover { background: var(--raised); border-color: var(--hair); }
+.con-when { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+.con-title { font-size: 15.5px; font-weight: 560; line-height: 1.3; }
+.con[data-kind="fork"] .con-title { font-weight: 640; font-stretch: var(--w-wide); letter-spacing: -0.01em; }
+.con-go { color: var(--ink-3); opacity: 0; transition: opacity var(--t-micro); align-self: center; }
+.con:hover .con-go, .con:focus-visible .con-go { opacity: 1; }
+/* waiting to be revealed (set by JS only when it will animate) */
+.end-words.pre .ww, .end-words.pre .word-when, .end-words.pre .con, .end-words.pre .thread-end, .end-words.pre .word-head-sub { opacity: 0; }
+.end-words.pre .thread { stroke-dashoffset: 1; }
+.end-words.pre .word-mark { background-size: 0% 34%; }
+
+.year-pop { display: grid; gap: var(--s2); max-width: 380px; padding-right: var(--s7); }
+.year-pop-title { font-size: 16px; font-weight: 640; font-stretch: var(--w-wide); letter-spacing: -0.01em; line-height: 1.25; }
+.year-pop-why { padding-left: 10px; border-left: 2px solid var(--sun); }
+.year-pop-rate a { color: inherit; }
+.year-pop-log { display: grid; gap: 4px; margin-top: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--hair); }
+
+@media (max-width: 1100px) {
+  .word { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+  .word-cons { grid-column: 1; padding-left: 34px; }
+}
+@media (max-width: 600px) {
+  .word-q { font-size: 23px; }
+  .con { grid-template-columns: 1fr 14px; gap: 2px var(--s2); }
+  .con-when { grid-column: 1; }
+  .con-title { grid-column: 1; }
+  .con-go { grid-row: 1 / span 2; grid-column: 2; }
+}
+
+/* ---------- Share this postcard (D-031, opt-in) ---------- */
+.share-consent {
+  display: grid; gap: var(--s2); padding: var(--s4) var(--s5); max-width: 640px;
+  background: var(--raised); border: 1px solid var(--hair); border-left: 3px solid var(--sun); border-radius: var(--r1);
+  animation: rise var(--t-base) var(--e-settle);
+}
+.share-c-title { font-size: 17px; font-weight: 650; font-stretch: var(--w-wide); letter-spacing: -0.01em; }
+.share-c-actions { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s1); }
+.share-c-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.share-err { color: var(--tone-down); }
+.share-done {
+  display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: var(--s5); align-items: center;
+  padding: var(--s4); max-width: 640px; background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r1);
+  animation: rise var(--t-base) var(--e-settle);
+}
+.share-qr { width: 168px; height: 168px; display: block; border-radius: var(--r1); }
+.share-done-text { display: grid; gap: var(--s2); min-width: 0; }
+.share-url { font-size: 15px; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .share-done { grid-template-columns: 1fr; justify-items: start; }
+  .share-qr { width: 200px; height: 200px; }
+}
+
+/* "You at 60 is writing…" while a reply is on its way */
+.t-writing { border-style: dashed; }
+.t-writing-line { display: flex; align-items: center; gap: var(--s3); color: var(--ink-2); }
+.t-writing-line .voice { font-size: 16px; }
+.t-writing .pen { flex: none; overflow: visible; }
+.t-writing .pen path { fill: none; stroke: var(--sun); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: pen-write 2.2s var(--e-tide) infinite; }
+@keyframes pen-write {
+  0% { stroke-dashoffset: 1; opacity: 1; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-writing .pen path { animation: none; stroke-dashoffset: 0; }
+}

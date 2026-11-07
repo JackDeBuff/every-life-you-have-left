@@ -9,6 +9,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
+import { YourWords } from "../ui/ending/YourWords";
+import type { ShareInput } from "../ui/ending/share";
+import { fitQuote, HEART } from "../ui/ending/quote";
+import { yourWords } from "../ui/ending/influence";
 import { CURRENCIES, RATES_AS_OF } from "../../shared/currency";
 import { money, moneyHint, ROMAN, useCurrency } from "../ui/format";
 import { Icon } from "../ui/icons";
@@ -70,10 +74,12 @@ export default function Ending() {
   }, []);
 
   const quotes = p.quotes;
+  const hasWords = useMemo(() => yourWords(s, 1).length > 0, [s.profile, s.years, s.decisions, s.answers]); // eslint-disable-line react-hooks/exhaustive-deps
   // The postcard quotes the most "you" sentence: a want or a fear, not a job title.
-  const heartQuote =
-    [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
-  const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
+  // (Not something said in "talk to any version": the card shouldn't change while you chat.)
+  const lived = quotes.filter((q) => !q.questionId?.startsWith("talk:"));
+  const heartQuote = [...lived].reverse().find((q) => HEART.test(q.text)) ?? lived[lived.length - 1] ?? null;
+  const firstQuote = heartQuote ? fitQuote(heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
   // The letter is this life's own verdict plus the engine's postcard line for THIS life
   // (ending.postcard; no stock advice line: it read the same on every card); the picture's caption
@@ -81,6 +87,31 @@ export default function Ending() {
   const postcard = (s.ending as { postcard?: string } | null)?.postcard ?? "";
   const message = useMemo(() => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} ${postcard}`.trim(), [chosenLast, lives, p.city, postcard]);
   const caption = lives[0]!.path || `${p.firstName ? `${p.firstName}'s` : "Your"} life, ${p.age} to ${s.endAge}`;
+  // The opt-in share (D-031): only what's on the postcard. The portrait is copied by the Worker.
+  const portrait = [...s.portraits].sort((a, b) => b.forAge - a.forAge)[0] ?? null;
+  const fiveChosen = s.ending?.fiveYear.chosen ?? null;
+  const share = useMemo(
+    () => ({
+      sessionId: s.sessionId,
+      hasPortrait: !!portrait,
+      build: (): ShareInput => ({
+        sessionId: s.sessionId || null,
+        firstName: p.firstName ?? null,
+        endAge: s.endAge,
+        endYear,
+        place: chosenLast?.place ?? p.city ?? "",
+        lives: lives.map((l) => ({
+          numeral: l.numeral,
+          title: (l.id === "chosen" ? `The life ${p.firstName ?? "they"} chose` : l.title).slice(0, 80),
+          verdict: l.verdict.slice(0, 260),
+          you: l.id === "chosen",
+        })),
+        fiveYear: fiveChosen ? fiveChosen.slice(0, 1600) : null,
+        portraitUrl: portrait?.url ?? null,
+      }),
+    }),
+    [s.sessionId, s.endAge, endYear, chosenLast, p.firstName, p.city, lives, fiveChosen, portrait],
+  );
 
   return (
     <div className="ending scroll" ref={root}>
@@ -146,9 +177,11 @@ export default function Ending() {
         <p className="lives-note small faint">Side by side, not ranked. Money is a projection in today's {CURRENCIES[cur].noun}, not a prediction{cur === "USD" ? "" : ` ($1 = ${CURRENCIES[cur].symbol}${CURRENCIES[cur].perUsd}, ${RATES_AS_OF})`}.</p>
       </section>
 
+      <YourWords label="Two" />
+
       <section className="end-sec post-sec">
         <div className="sec-head">
-          <p className="label">Two</p>
+          <p className="label">{hasWords ? "Three" : "Two"}</p>
           <h2>A postcard from {s.endAge}</h2>
         </div>
         <Postcard
@@ -162,12 +195,13 @@ export default function Ending() {
           quote={firstQuote}
           states={chosenLast?.states ?? null}
           from={{ age: p.age, city: p.city ?? "", year: p.startYear }}
+          share={s.ending ? share : undefined}
         />
       </section>
 
       <section className="end-sec">
         <div className="sec-head">
-          <p className="label">Three</p>
+          <p className="label">{hasWords ? "Four" : "Three"}</p>
           <h2>Where do you see yourself in five years?</h2>
           <p className="muted">Every interview asks. Here's your answer, in your words, for each life.</p>
         </div>
@@ -176,7 +210,7 @@ export default function Ending() {
 
       <section className="end-sec" ref={talkRef}>
         <div className="sec-head">
-          <p className="label">Four</p>
+          <p className="label">{hasWords ? "Five" : "Four"}</p>
           <h2>Talk to any version of you</h2>
           <p className="muted">
             {p.knowMeScore >= TWIN_THRESHOLD
@@ -270,9 +304,18 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
   const lifeObj = lives.find((l) => l.id === life) ?? lives[0]!;
   const minAge = life === "chosen" ? startAge + 1 : startAge + 1;
 
+  // Waiting on them: your message is the last word, or their reply has started but has no words yet.
+  const last = thread[thread.length - 1];
+  const writing = !!last && (last.role === "you" || (last.role === "future" && last.streaming && !last.text.trim()));
+  // The voice for a reply is fetched the moment its text is complete, so "Read it aloud" starts at once.
+  const doneReply = last && last.role === "future" && !last.streaming && last.text.length > 1 ? last.text : "";
+  useEffect(() => {
+    if (doneReply) warmVoice(doneReply, sessionId);
+  }, [doneReply, sessionId]);
+
   useEffect(() => {
     box.current?.scrollTo({ top: box.current.scrollHeight, behavior: "smooth" });
-  }, [thread.length, thread[thread.length - 1]?.text]);
+  }, [thread.length, thread[thread.length - 1]?.text, writing]);
 
   const send = (t?: string) => {
     const msg = (t ?? text).trim();
@@ -309,7 +352,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
           </p>
         )}
         {thread.map((c) =>
-          c.role === "you" ? (
+          c.role === "future" && c.streaming && !c.text.trim() ? null : c.role === "you" ? (
             <div key={c.id} className="t-you">
               <span className="label">You, now</span>
               <p className="voice">{c.text}</p>
@@ -331,6 +374,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
             </div>
           ),
         )}
+        {writing && <Writing age={age} letter={!twin} where={lifeObj.id === "chosen" ? "your life" : lifeObj.title} />}
       </div>
       {!twin && !thread.length && (
         <div className="chips starters">
@@ -359,6 +403,30 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
           <Icon name={twin ? "send" : "letter"} size={14} />
         </button>
       </div>
+    </div>
+  );
+}
+
+/** "You at 60 is writing…": a pen line writes itself while the reply is on its way. */
+function Writing({ age, letter, where }: { age: number; letter: boolean; where: string }) {
+  return (
+    <div className={`t-future t-writing ${letter ? "letter" : "message"}`} role="status">
+      <span className="label">
+        You at {age} · {where}
+      </span>
+      <p className="t-writing-line">
+        <svg className="pen" width="64" height="18" viewBox="0 0 64 18" aria-hidden="true">
+          <path d="M2 12 C8 3, 12 3, 14 10 S20 16, 24 8 S31 2, 34 10 S41 15, 45 8 S52 4, 55 11 L62 9" pathLength={1} />
+        </svg>
+        <span className="voice">
+          You at {age} {letter ? "is writing you a letter" : "is writing"}
+          <span className="dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </span>
+      </p>
     </div>
   );
 }

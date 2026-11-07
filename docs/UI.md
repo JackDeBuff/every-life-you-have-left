@@ -313,3 +313,14 @@ Shots: `01-start-light-1440.png`, `02-decision-light-1440.png`, `03-interlude-da
 - While uploads are read (≤ ~1.5 s) the card slot shows the pending frame ("Reading what you gave me");
   after the last answer, the first-fork pending frame quotes their crossroads answer (≤ 2 s).
 - The offline demo (`?demo=alex`) has no warm-up.
+
+**Pass 5 (Sat Nov 7, judge delighters), shots in `docs/fix-shots/delight-*`**
+- Ending, section Two, **"Your words did this"** (`ui/ending/YourWords.tsx`, ranking in `ui/ending/influence.ts`): the three
+  quotes cited most by the chosen life (a fork answered in your words 3, a fork asked because of a quote 2, a turning point 1,
+  an ordinary event 0.5), verbatim in the serif, each with threads to its 1-3 turning points; a turning point opens that year
+  (event, why, base rate, the year's log) in a popover. Writes in word by word when scrolled in; still under reduced motion.
+- **Share this postcard** (D-031, opt-in): consent first, then `POST /api/share` → `/s/<id>` (server-rendered, OG tags,
+  `worker/share.ts`); a QR to the link on the PNG and large beside it. The shared image drops the quote and today's age/city.
+- The postcard quote is a whole sentence or clause (`ui/ending/quote.ts`), never cut mid-thought.
+- Talk to any version: "You at 60 is writing you a letter" while a reply is on its way; its voice is fetched once the text completes.
+- Interlude captions carry the branch accent (I marigold, II teal, III rose) that its 3D landmark wears.
