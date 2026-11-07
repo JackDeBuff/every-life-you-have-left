@@ -315,7 +315,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     this.cur = st && st.sessionId ? { ...initialAgentState(this.name), ...st } : initialAgentState(this.name);
     if (this.cur.usage) {
       const u = this.cur.usage;
-      this.spend = { ...freshSpend(), usd: u.usd, listUsd: u.listUsd ?? u.usd, calls: u.calls, byPurpose: { ...u.byPurpose }, detail: { ...(u.detail ?? {}) }, smalls: { ...freshSpend().smalls, ...(u.smalls ?? {}) } };
+      this.spend = { ...freshSpend(), usd: u.usd, listUsd: u.listUsd ?? u.usd, calls: u.calls, byPurpose: { ...u.byPurpose }, detail: { ...(u.detail ?? {}) }, byModel: { ...(u.byModel ?? {}) }, smalls: { ...freshSpend().smalls, ...(u.smalls ?? {}) } };
     }
     // Know-me never drops on screen: after a cold start (eviction, a deploy) the floor is the score
     // the user last saw, not 0 (QA: 45% -> 33% when a later answer was counted from scratch).
@@ -384,6 +384,11 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     d.inTok += u.inputTokens;
     d.cachedTok += u.cachedTokens ?? 0;
     d.outTok += u.outputTokens + u.thoughtTokens;
+    const m = (this.spend.byModel[u.model] ??= { calls: 0, usd: 0, inTok: 0, outTok: 0 });
+    m.calls++;
+    m.usd += c;
+    m.inTok += u.inputTokens;
+    m.outTok += u.outputTokens + u.thoughtTokens;
     this.publishSpend();
     this.checkSoftCap();
   };
@@ -406,6 +411,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
           calls: sp.calls,
           byPurpose: Object.fromEntries(Object.entries(sp.byPurpose).map(([a, b]) => [a, r(b)])),
           detail: Object.fromEntries(Object.entries(sp.detail).map(([a, b]) => [a, { ...b, usd: r(b.usd) }])),
+          byModel: Object.fromEntries(Object.entries(sp.byModel).map(([a, b]) => [a, { ...b, usd: r(b.usd) }])),
           smalls: { ...sp.smalls },
         },
       });
@@ -2321,6 +2327,7 @@ function freshSpend() {
     calls: 0,
     byPurpose: {} as Record<string, number>,
     detail: {} as NonNullable<SessionUsage["detail"]>,
+    byModel: {} as NonNullable<SessionUsage["byModel"]>,
     smalls: { served: 0, fromQueue: 0, waitMs: 0, maxWaitMs: 0, batches: 0, discarded: 0, followUps: 0, folds: 0, folded: 0 },
   };
 }
