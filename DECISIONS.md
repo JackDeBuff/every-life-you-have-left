@@ -14,6 +14,24 @@ Event: Triangle AI Hackathon. Submissions close Sun Nov 8, 9:30am; judging runs 
 
 ---
 
+## v2: the final design (Supawich + Paul, Sat Nov 7, ~2am). Wins over everything below.
+
+Full spec: `docs/SPEC.md`. Contracts: `shared/sim.ts`. Earlier visual concepts (Delta, Four Horizons, Marginalia, Window) and the D-054 ban list are **superseded**.
+
+| ID | Decision | Status |
+|---|---|---|
+| D-080 | **The layout is inspired by 1 in 8 Billion: three panes plus a timeline bar.** Left = bio (generated illustrated face) + status. Middle = a rich 3D world of the chosen life + a generated life log. Right = live life settings + the chatbot (the largest area). Top = the timeline with speed controls. The visual identity is our own. The team may refine it Saturday. | LOCKED |
+| D-081 | **Speed sets decision density.** 1×: ~200 small / ~20 big. 2×: 100/10. 4×: 50/5. Auto (judge): 0 small / 5 big, ≤3 min total. Small decisions don't stop time (they slow it and slide if unanswered at 2×/4×). Big decisions pause time. | LOCKED |
+| D-082 | **The decision card:** the question, a one-line "why I'm asking", 4 pre-made answers, and an always-visible "say more" box (type or voice) that also works on top of a tapped answer. The user's own words count more than taps and become quotes for the why thread. | LOCKED |
+| D-083 | **The four lives come from forks.** Each big decision's unchosen answers become branches that keep simulating hidden (at most 3, the most different ones). The middle pane only shows the chosen life. A "Meanwhile, in your other lives…" interlude plays after every big decision (and every 10 years at 1×/2×). The user can peek anytime from the timeline. The ending shows yours + 3. | LOCKED |
+| D-084 | **Live life settings:** 3–5 controls (select / slider / chips / toggle) generated from the user's answers after the start and after each big decision (focus, investing, work-life balance…). Changing one is a logged nudge from next year on. | LOCKED |
+| D-085 | **The middle pane is a 3D world:** React Three Fiber, a big library of pre-made pieces driven by a per-year `SceneSpec`, CC0 assets (Kenney, Quaternius/poly.pizza; downloads approved by owner), credits in `ASSETS.md`. Heavy effort goes into 3D, animation and UI aesthetics, with research first. | LOCKED |
+| D-086 | **Portrait:** an optional selfie turned by Gemini's image model into an illustrated portrait (never photoreal), plus aged versions at ~35/50/70. Without a selfie, it is drawn from a look the user picks. Race is never inferred. | LOCKED |
+| D-087 | **Stack:** React 19 + Vite + TS; R3F/drei/postprocessing; GSAP for UI choreography; Radix primitives; Zustand; Cloudflare Agents SDK (one Durable Object per session) + AI SDK for chat/decisions; DO SQLite + D1 (admin copy) + R2. This supersedes D-067 (Motion and d3 are dropped). If the AI SDK Google provider rejects our key, use our own Gemini adapter. | DEFAULT |
+| D-088 | **Kept from earlier:** the why thread (D-013), content rules (D-005..D-009), money in $ (D-008), save all data (D-030), letters / digital twin (D-026), the five-year answer card (D-046), the "where do you see yourself" hook (D-045), the model plan (D-062, D-071), and the final cleanup of main (D-070). | LOCKED |
+
+---
+
 ## Product
 
 | ID | Decision | Status |
