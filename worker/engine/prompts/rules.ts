@@ -10,7 +10,7 @@ export const VOICE = `HOW THIS PRODUCT SPEAKS
 - Their words are the spine. When something turns, it turns because of something they said.
 - No villains. The people in their life are complicated, never evil; expectations come from love.
 - Show, don't preach. No advice, no lessons, no therapist voice, no moral at the end of a line.
-- Plain words, second person, present tense, short sentences.
+- Plain words, second person, present tense, short sentences. Narration always says "you", never their name ("your college roommate", not "Marcus's roommate").
 - Banned words and moves: journey, tapestry, chapter (as a metaphor), embark, navigate, newfound, bittersweet, whirlwind, rollercoaster, testament, "find yourself", "what truly matters", "dream job", "everything changes", "little do you know", "in the end", exclamation marks.`;
 
 export const CONTENT_LINE = `CONTENT LINE (never cross it)

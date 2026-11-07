@@ -21,6 +21,13 @@ export interface EngineModels {
   branch: string;
   /** Validator repair calls. Default = heavy. */
   repair: string;
+  /**
+   * Chosen-life years model per playback speed (falls back to `heavy`). Auto plays a year every
+   * 1.5 s, so its writer must produce a year in < 1.5 s; 1x plays one every 6 s.
+   */
+  yearsBySpeed: Partial<Record<"1x" | "2x" | "4x" | "auto", string>>;
+  /** Fallback model raced in when a request and its hedge both stall ("" = none). Default gemini-3.6-flash. */
+  fallback: string;
   /** Thinking level for Gemini 3.x heavy calls ("low" per D-062). */
   heavyThinking: ThinkingLevel;
 }
@@ -30,6 +37,8 @@ export const DEFAULT_MODELS: EngineModels = {
   fast: "gemini-3.5-flash-lite",
   branch: "gemini-3.5-flash-lite",
   repair: "gemini-3.8-flash",
+  fallback: "gemini-3.6-flash",
+  yearsBySpeed: {},
   heavyThinking: "low",
 };
 
@@ -217,6 +226,8 @@ export function createCaller(deps: CallerDeps) {
     maxOutputTokens?: number;
     /** Start a duplicate stream if no first token arrives within this long. 0 = never. */
     hedgeMs?: number;
+    /** Use this model instead of the tier's (e.g. the per-speed years model). */
+    model?: string;
   }
 
   type Chunk = { text: string; usage?: LlmUsage };
@@ -284,7 +295,7 @@ export function createCaller(deps: CallerDeps) {
    * set) and plain text. Usage is reported when the stream ends.
    */
   async function* stream(c: StreamCall): AsyncGenerator<string> {
-    const model = modelFor(models, c.tier);
+    const model = c.model || modelFor(models, c.tier);
     const jsonSchema = c.schema ? geminiSchema(c.schema) : undefined;
     type First = { kind: "ok"; s: Src; chunk: Chunk | null } | { kind: "err"; s: Src; err: unknown };
     const hedgeMs = c.hedgeMs ?? 0;
@@ -298,20 +309,25 @@ export function createCaller(deps: CallerDeps) {
       })().catch((err: unknown): First => ({ kind: "err", s, err }));
     const sources: Src[] = [];
     const pending = new Map<Src, Promise<First>>();
-    const add = () => {
-      const s = open(c, model, jsonSchema);
+    const add = (m = model) => {
+      const s = open(c, m, jsonSchema);
       sources.push(s);
       pending.set(s, firstText(s));
     };
+    // Third racer: the fallback model (D-062 chain), if the request and its hedge both stall.
+    const fallbackModel = models.fallback && models.fallback !== model && !isOpenAIModel(model) ? models.fallback : null;
+    const t0 = Date.now();
     add();
     let winner: Src | null = null;
     let firstChunk: Chunk | null = null;
-    const deadline = Date.now() + FIRST_TOKEN_DEADLINE_MS;
+    const deadline = t0 + FIRST_TOKEN_DEADLINE_MS;
     while (!winner) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let stop: ReturnType<typeof setTimeout> | undefined;
-      const racers: Promise<First | { kind: "hedge" } | { kind: "deadline" }>[] = [...pending.values()];
-      if (hedgeMs && sources.length === 1) racers.push(new Promise((r) => (timer = setTimeout(() => r({ kind: "hedge" }), hedgeMs))));
+      const racers: Promise<First | { kind: "hedge" } | { kind: "fallback" } | { kind: "deadline" }>[] = [...pending.values()];
+      if (hedgeMs && sources.length === 1) racers.push(new Promise((r) => (timer = setTimeout(() => r({ kind: "hedge" }), Math.max(0, t0 + hedgeMs - Date.now())))));
+      else if (hedgeMs && sources.length === 2 && fallbackModel)
+        racers.push(new Promise((r) => (timer = setTimeout(() => r({ kind: "fallback" }), Math.max(0, t0 + 2.5 * hedgeMs - Date.now())))));
       racers.push(new Promise((r) => (stop = setTimeout(() => r({ kind: "deadline" }), Math.max(0, deadline - Date.now())))));
       const got = await Promise.race(racers);
       if (timer) clearTimeout(timer);
@@ -324,9 +340,15 @@ export function createCaller(deps: CallerDeps) {
         add();
         continue;
       }
+      if (got.kind === "fallback") {
+        add(fallbackModel!);
+        continue;
+      }
       if (got.kind === "err") {
         pending.delete(got.s);
-        if (sources.length < 2 && !(got.err instanceof LlmError && !got.err.retryable)) add();
+        const fatal = got.err instanceof LlmError && !got.err.retryable && got.err.status !== 404;
+        if (sources.length < 2 && !fatal) add();
+        else if (pending.size === 0 && fallbackModel && sources.length < 3) add(fallbackModel);
         else if (pending.size === 0) throw got.err;
         continue;
       }

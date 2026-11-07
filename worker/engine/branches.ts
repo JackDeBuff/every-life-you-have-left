@@ -102,11 +102,18 @@ export async function stepBranchTo(env: BranchEnv, state: SessionState, branch: 
   ]
     .filter(Boolean)
     .join("\n");
-  const focus = [decision?.whyQuoteId, ...(state.profile?.seeds.leap.quoteIds ?? []), ...(state.profile?.seeds.unjudged.quoteIds ?? [])].filter(
-    (x): x is string => Boolean(x),
+  // The branch knows the person as they were at the fork: answers to the chosen life's later
+  // decisions describe events this life never had, so they are left out (they leaked chosen-life
+  // plot into branches and cut divergence in the first eval run).
+  const laterDecisionIds = new Set(state.decisions.filter((d) => d.year > branch.forkYear).map((d) => d.id));
+  const profile = env.writer.profile;
+  const branchProfile = { ...profile, quotes: profile.quotes.filter((q) => !q.questionId || !laterDecisionIds.has(q.questionId)) };
+  const known = new Set(branchProfile.quotes.map((q) => q.id));
+  const focus = [decision?.whyQuoteId, ...profile.seeds.leap.quoteIds, ...profile.seeds.unjudged.quoteIds].filter(
+    (x): x is string => Boolean(x) && known.has(x!),
   );
   const written = await writeYears(
-    env.writer,
+    { ...env.writer, profile: branchProfile },
     {
       idPrefix: branch.id,
       lifeLabel: branchLabel(state, decision, branch),

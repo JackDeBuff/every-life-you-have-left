@@ -7,7 +7,7 @@ import type { Caller } from "./models";
 import { BIG_DECISION_SYSTEM, bigDecisionPrompt, SMALL_DECISION_SYSTEM, smallDecisionPrompt } from "./prompts/decision";
 import { DecisionLLM, LEANS, type DecisionLLM as DecisionDraft } from "./schemas";
 import { parseSlotReason } from "./slots";
-import { rng, shuffled, truncateWords } from "./util";
+import { rng, shuffled, truncateClean, truncateWords } from "./util";
 import { worldTimeline } from "./world";
 
 const IDS = ["a", "b", "c", "d"] as const;
@@ -30,8 +30,8 @@ function finalize(state: SessionState, slot: DecisionSlot, draft: DecisionDraft,
   const order = shuffled(opts, rng(`opts:${profile.sessionId}:${slot.year}:${kind}`));
   const options: DecisionOption[] = order.map((o, i) => ({
     id: IDS[i]!,
-    label: truncateWords(o.label, 12),
-    hint: o.hint ? truncateWords(o.hint, 14) : null,
+    label: truncateClean(o.label, 11),
+    hint: o.hint ? truncateClean(o.hint, 13) : null,
     branchTitle: kind === "big" ? truncateWords(o.branchTitle?.trim() || o.label, 4) : null,
   }));
   const domains = draft.domains.filter((d) => (DOMAIN_KEYS as readonly string[]).includes(d)).slice(0, 3);

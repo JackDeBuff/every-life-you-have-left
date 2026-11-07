@@ -38,6 +38,20 @@ export function truncateWords(s: string, n: number): string {
   return w.slice(0, n).join(" ").replace(/[,;:\-–—]+$/, "");
 }
 
+const DANGLING = /\s+(and|or|but|to|the|a|an|your|my|with|for|of|in|on|at|by|so)$/i;
+
+/** Like truncateWords, but allows a little slack and cuts at a comma or a whole word, never on "and". */
+export function truncateClean(s: string, n: number): string {
+  const w = words(s);
+  if (w.length <= n + 2) return s.trim();
+  const head = w.slice(0, n + 2).join(" ");
+  const comma = head.lastIndexOf(",");
+  if (comma > head.length * 0.5) return head.slice(0, comma).trim();
+  let out = w.slice(0, n).join(" ").replace(/[,;:\-–—]+$/, "");
+  while (DANGLING.test(out)) out = out.replace(DANGLING, "");
+  return out;
+}
+
 /** Split text into sentences, keeping the original wording verbatim. */
 export function sentences(text: string): string[] {
   const t = text.replace(/\s+/g, " ").trim();

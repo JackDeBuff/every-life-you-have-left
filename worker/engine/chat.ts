@@ -103,15 +103,22 @@ export async function* reply(
     });
   }
   const turns = history.slice(-12).map((h) => ({ role: h.role, text: h.text }));
-  for await (const d of call.stream({
-    tier: "heavy",
-    purpose: life === "interviewer" ? "chat.interviewer" : "chat.self",
-    system,
-    prompt: text,
-    history: turns,
-    maxOutputTokens: 800,
-    hedgeMs: 5000,
-  })) {
-    yield d;
+  let said = false;
+  try {
+    for await (const d of call.stream({
+      tier: "heavy",
+      purpose: life === "interviewer" ? "chat.interviewer" : "chat.self",
+      system,
+      prompt: text,
+      history: turns,
+      maxOutputTokens: 800,
+      hedgeMs: 5000,
+    })) {
+      said = true;
+      yield d;
+    }
+  } catch (e) {
+    if (said) throw e;
+    yield "Sorry, I lost my train of thought for a second. Ask me that again?";
   }
 }

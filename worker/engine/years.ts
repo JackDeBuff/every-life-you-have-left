@@ -58,6 +58,8 @@ export interface LifeSpec {
   settings: string;
   coarse: boolean;
   tier: Tier;
+  /** Overrides the tier model (per-speed years model). */
+  model?: string;
   /** decisionIds per year (engine-owned). */
   decisionIdsFor: (year: number) => string[];
 }
@@ -207,7 +209,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     task,
   });
   const system = spec.coarse ? `${YEARS_SYSTEM}\n\n${COARSE_ADDENDUM}` : YEARS_SYSTEM;
-  const model = call.model(spec.tier);
+  const model = spec.model || call.model(spec.tier);
   const extractor = createArrayItemExtractor("years");
   let emitted = 0;
   const quotesText = quotesBlock(profile);
@@ -280,6 +282,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   try {
     for await (const delta of call.stream({
       tier: spec.tier,
+      model: spec.model,
       purpose: spec.coarse ? "branch.coarse" : spec.idPrefix === "you" ? "years" : "branch.fine",
       system,
       prompt,

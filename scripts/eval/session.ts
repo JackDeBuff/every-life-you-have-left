@@ -104,7 +104,8 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
     usages.push(u);
     ledger.add(u);
   };
-  const engine = createEngine({ llm, models: { heavy }, onUsage, onMetric: (m) => metrics.push(m) });
+  // fallback off: each arm is judged on its own reliability (production keeps gemini-3.6-flash)
+  const engine = createEngine({ llm, models: { heavy, fallback: "" }, onUsage, onMetric: (m) => metrics.push(m) });
   const state = initialState(persona);
   const result: SessionResult = {
     persona: persona.key, heavy, ok: false, error: null,

@@ -21,7 +21,7 @@ EACH YEAR (compact keys)
 - e: events, 0-3. Most years have 0 or 1. Each event:
   - t: title <= 8 words. n: 1-2 concrete sentences (<= 30 words), present tense, second person; name their real people, places, job.
   - c: category (catalog value; "texture" for small colour). d: the domain it touches. tone: up | down | mixed.
-  - tp: true only for real forks or shifts (a new job, a move, meeting someone, a child, a loss, a breakthrough). Roughly one every 3-5 years; at least 30% of years have none.
+  - tp: true only for real forks or shifts (a new job, a move, meeting someone, a child, a loss, a breakthrough). Roughly one every 3-5 years; at least 30% of years have none. A turning point never has c = texture: give it its real category.
   - q + why: REQUIRED on every turning point. q = the id of the quote from THEIR WORDS that truly explains it; why = one sentence, second person, linking their words to this event ("You said you can't say no to your mom, so the transfer was never really a question."). Texture events: null, null.
   - st: a statId from BASE RATES only when the stat genuinely backs the event (a layoff -> displacement; marrying at 31 -> marriage_age; a first home at 39 -> first_home). Otherwise null. Never force one.
   - w: for c = world_context only, the world event id (only the given world events, from the year they start); else null.
@@ -45,6 +45,7 @@ Return JSON: {"years":[...]} with exactly the years asked for.`;
 export const COARSE_ADDENDUM = `COARSE MODE (a hidden branch, simulated cheaply)
 - Each item is a SNAPSHOT of one year, 5 years apart. Its events (0-3) are the most important things that happened in the 5 years leading up to it; say when in n ("In 2029, ...").
 - inc, nw, k and sc describe the snapshot year itself. States may move up to +-35 between snapshots.
+- Never repeat an event from an earlier snapshot; each snapshot moves the life on.
 - Keep it honest and specific; fewer words, same rules.`;
 
 export interface YearsPromptParts {

@@ -12,6 +12,28 @@
  * Models: heavy = gemini-3.8-flash (thinking low) for lives/big decisions/profile/ending/chat;
  * fast = gemini-3.5-flash-lite for small decisions, answer folding, safety, captions and the
  * coarse hidden branches. Calls are hedged against the slow-first-token tail.
+ *
+ * WIRING (for the session agent; this is what scripts/eval/session.ts does):
+ *   start(input)      profile = startProfile(input, docs); state.endAge = profile.endAge
+ *                     slots = planSlots(state); budgets = budgetsFor(slots)
+ *                     in parallel: settingsFor(state) and makeDecision(state, slots[0])  (slot 0 = today)
+ *   answer(a)         safety(a.text) first (flagged → crisis card, stop)
+ *                     { profile, quote } = applyAnswer(state, decision, a); store a.quoteId = quote?.id
+ *                     decision.status = "answered"; then IN PARALLEL:
+ *                       spawnBranches(state, decision, a.optionId) → replaces the active branches
+ *                         (anything not returned is retired)
+ *                       generateYears(state, decision.year, 4..5, onYear)  (stream years to the client)
+ *                       settingsFor(state)
+ *                     then interlude(state) → 3 cuts ("Meanwhile, in your other lives...")
+ *   tick(year)        keep >= 2 years buffered: generateYears(state, lastYear + 1, 3..5, onYear);
+ *                     before a slot's year, makeDecision(state, slot) so the card is ready
+ *   nudge(id, to)     push a SettingNudge {year: playhead.year}; regenerate from playhead.year + 1
+ *   setSpeed(s)       planSlots(state) again (it rescales the remaining budget)
+ *   peekBranch(id)    stepBranch(state, branch, playhead.year, true)
+ *   end               ending(state) → verdicts + five-year answers
+ *   sayTo(life, age)  replyAs(...) streams text; safety() the user's text first
+ * Years returned for year >= fromYear replace the provisional ones in state.years.
+ * interlude()/ending() also write advanced branch years back into state.branches (in place).
  */
 import type { DocInput, Engine } from "../../shared/engine";
 import type { Branch, Decision, DecisionAnswer, SessionState, SimYear } from "../../shared/sim";
@@ -56,6 +78,7 @@ export function createEngine(deps: EngineDeps): Engine {
     ...DEFAULT_MODELS,
     ...deps.models,
     repair: deps.models?.repair ?? deps.models?.heavy ?? DEFAULT_MODELS.repair,
+    yearsBySpeed: { ...DEFAULT_MODELS.yearsBySpeed, ...deps.models?.yearsBySpeed },
   };
   const call = createCaller({ llm: deps.llm, models, onUsage: deps.onUsage });
   const at = () => nowIso(deps.now);
@@ -173,6 +196,7 @@ export function createEngine(deps: EngineDeps): Engine {
         settings: settingsBlock(state.settings, state.nudges, last),
         coarse: false,
         tier: "heavy" as const,
+        model: models.yearsBySpeed[state.speed],
         decisionIdsFor: decisionIdsIn(state.decisions),
       };
       return writeYears(writerEnv(state), spec, years, onYear);
