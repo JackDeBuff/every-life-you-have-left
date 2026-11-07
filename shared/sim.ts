@@ -189,6 +189,8 @@ export const YearLifePerson = z.object({
   role: z.enum(["partner", "child", "pet", "parent", "sibling", "grandchild", "other"]),
   relation: z.string(),
   age: int().nullable(),
+  /** 0..1, code-owned. Only people still close are listed (friends who drifted apart are left out). */
+  closeness: z.number().optional(),
 });
 export const YearLife = z.object({
   work: z.string().describe("<= 8 words, e.g. 'Senior nurse, St. Luke's ER' or 'Retired'"),

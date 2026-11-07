@@ -14,8 +14,9 @@
  */
 import type { Profile } from "../../shared/schema";
 import type { Branch, SceneSpec, SessionState, SimYear } from "../../shared/sim";
-import { chosenOf } from "./answers";
-import { hash32 } from "./util";
+import { chosenOf, peopleSaid } from "./answers";
+import { nameCandidates, type NameRole } from "./names";
+import { clamp, hash32 } from "./util";
 
 export type Role = "partner" | "child" | "pet" | "parent" | "sibling" | "grandchild" | "other";
 
@@ -32,10 +33,19 @@ export interface LedgerPerson {
   /** born came from something stated (start line, a birth, a stated age); else an estimate. */
   ageKnown: boolean;
   since: number;
-  status: "here" | "ended" | "gone";
+  /** "drifted": a friend they lost touch with (said so, or a place/job left years ago). Not in People, never a card option; may come back as a reunion. */
+  status: "here" | "ended" | "gone" | "drifted";
   until: number | null;
   /** Pets: the year old age takes them (code-owned). */
   goneAt: number | null;
+  /** 0..1, code-owned. Friends decay with time and (faster) distance unless renewed; household and parents don't. */
+  closeness: number;
+  /** The last year they were renewed (named by the user, or in the life's own text). */
+  lastContact: number;
+  /** Friends: the city (cityOf) they belong to; set the first year they are in the life. */
+  anchor: string | null;
+  /** Colleagues: the work line they came with (norm); a new job fades them like a move. */
+  anchorWork: string | null;
 }
 
 /**
@@ -49,8 +59,8 @@ export interface YearLife {
   work: string;
   /** People changes made this year, normalised: "+partner:Sam", "-partner:Sam", "+child:Bea", "+pet:dog:Barnaby", "-pet:Barnaby", "-parent:Mom", "=born:Bea:2010". */
   ch: string[];
-  /** Who is in their life at the end of this year (from the ledger; ages computed in code). */
-  people: { name: string; role: Role; relation: string; age: number | null }[];
+  /** Who is in their life at the end of this year (from the ledger; ages computed in code). Friends only while close. */
+  people: { name: string; role: Role; relation: string; age: number | null; closeness?: number }[];
 }
 export type SimYearL = SimYear & { life?: YearLife | null };
 export const lifeOf = (y: SimYear): YearLife | null => (y as SimYearL).life ?? null;
@@ -69,6 +79,14 @@ export interface LifeNow {
   money: { income: number; netWorth: number } | null;
   /** Forks taken so far, oldest first ("Take the Startup" at 21). */
   path: { year: number; age: number; title: string }[];
+  /** People cues from their own words (peopleCues), applied in year order during the replay. */
+  cues?: PeopleCue[];
+  /** How many cues have been applied so far. */
+  cueAt?: number;
+  /** The year closeness was last decayed to. */
+  driftAt?: number;
+  /** For invented names (names.ts): the session, where they're from, their own name. */
+  who?: { sessionId: string; country: string; firstName: string };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -177,7 +195,31 @@ export function roleOf(relation: string, label = ""): Role {
 
 const GENERIC_NAME = /^(your |my |the )?(?:(?:younger|older|little|big|baby|elder|eldest|youngest|kid) )?(partner|wife|husband|spouse|girlfriend|boyfriend|fianc[eé]e?|mom|mum|mother|dad|father|parents?|son|daughter|child|kid|baby|sister|brother|dog|cat|pet)\b/i;
 /** Relations outside the household that are still part of the life (shown in People, role "other"). */
-const CLOSE_OTHER = /\b(friend|best friend|bestie|godmother|godfather|godparent|aunt|auntie|uncle|cousin|grandmother|grandfather|grandma|grandpa|granny|nana|abuela|abuelo|lola|lolo|mentor|roommate|flatmate)\b/i;
+const CLOSE_OTHER = /\b(friend|best friend|bestie|buddy|pal|mate|godmother|godfather|godparent|aunt|auntie|uncle|cousin|grandmother|grandfather|grandma|grandpa|granny|nana|abuela|abuelo|lola|lolo|mentor|roommate|flatmate|housemate|neighbou?r|classmate)\b/i;
+/** People met through work: in People only when they named them in their own typed words. */
+const WORK_OTHER = /\b(colleague|coworker|co-worker|teammate|work friend)\b/i;
+/** Extended family: fades from the featured list with time, never silently "drifts". */
+const FAMILY_OTHER = /\b(godmother|godfather|godparent|aunt|auntie|uncle|cousin|grandmother|grandfather|grandma|grandpa|granny|nana|abuela|abuelo|lola|lolo|niece|nephew)\b/i;
+
+// ---------------------------------------------------------------------------------------------
+// Closeness (owner playtest, Sat Nov 7): the same friends were offered decades later, after the
+// life had moved continents. Friends now decay with time, much faster once the life left their
+// city (or, for colleagues, the job), unless the user keeps naming them; below DRIFT_AT they have
+// drifted (out of People, never a card option, a rare reunion at most). Household and parents
+// never drift silently.
+// ---------------------------------------------------------------------------------------------
+/** At or above: featured, shown in People. */
+export const CLOSE_MIN = 0.35;
+/** Below: drifted apart. */
+export const DRIFT_AT = 0.15;
+const DECAY_NEAR = 0.02;
+const DECAY_FAR = 0.13;
+const ROLE_CLOSENESS: Record<Role, number> = { partner: 1, child: 1, pet: 0.9, parent: 0.8, sibling: 0.7, grandchild: 0.8, other: 0.6 };
+
+/** A fresh ledger person with the closeness defaults for its role. */
+function person(p: Pick<LedgerPerson, "key" | "name" | "generic" | "role" | "relation" | "born" | "ageKnown" | "since"> & Partial<LedgerPerson>): LedgerPerson {
+  return { status: "here", until: null, goneAt: null, closeness: ROLE_CLOSENESS[p.role], lastContact: p.since, anchor: null, anchorWork: null, ...p };
+}
 /** People in a stable order: the household first (the bio shows the first five). */
 const ROLE_ORDER: Record<Role, number> = { partner: 0, child: 1, pet: 2, parent: 3, sibling: 4, grandchild: 5, other: 6 };
 
@@ -203,11 +245,14 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
   const start = profile.startYear;
   const corpus = [...profile.quotes.map((q) => q.text), ...profile.facts.map((f) => f.value)].join("\n");
   const out: LedgerPerson[] = [];
-  const add = (p: Omit<LedgerPerson, "key" | "since" | "status" | "until" | "goneAt"> & { goneAt?: number | null; since?: number }) => {
+  const add = (p: Pick<LedgerPerson, "name" | "generic" | "role" | "relation" | "born" | "ageKnown"> & { goneAt?: number | null; since?: number; closeness?: number }) => {
     const key = personKey(p.role, p.name);
     if (out.some((x) => x.key === key)) return;
-    out.push({ ...p, key, since: p.since ?? start, status: "here", until: null, goneAt: p.goneAt ?? null });
+    const { closeness, ...rest } = p;
+    out.push(person({ ...rest, key, since: p.since ?? start, goneAt: p.goneAt ?? null, ...(closeness !== undefined ? { closeness } : {}) }));
   };
+  // quotes they typed themselves (a decision answer, the warm-up), as opposed to upload text
+  const typed = new Set(profile.quotes.filter((q) => q.source === "answer").map((q) => q.id));
   // Someone first named in a decision answer ("d-<age>-<n>") enters the life in that decision's
   // year, not on day one (Elena, named at 29, must not be the partner of a branch forked at 21).
   const quoteYear = new Map(
@@ -226,7 +271,9 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     const role = roleOf(pp.relation, pp.label);
     // Close friends and family beyond the household are in the life too (QA: Margo's best friend
     // Hanna, from her AI export, never reached People). Exes and people met through work are not.
-    if (role === "other" && (!CLOSE_OTHER.test(`${pp.relation} ${pp.label}`) || /\bex\b|\bex-|former/i.test(`${pp.relation} ${pp.label}`) || !/^[A-Z][\p{L}'-]+/u.test(pp.label.trim()) || /^(my|your|the|our)\b/i.test(pp.label.trim()))) continue;
+    // A colleague counts only when they named them in their own typed words (a CV's managers don't).
+    const closeOther = CLOSE_OTHER.test(`${pp.relation} ${pp.label}`) || (WORK_OTHER.test(pp.relation) && pp.quoteIds.some((id) => typed.has(id)));
+    if (role === "other" && (!closeOther || /\bex\b|\bex-|former/i.test(`${pp.relation} ${pp.label}`) || !/^[A-Z][\p{L}'-]+/u.test(pp.label.trim()) || /^(my|your|the|our)\b/i.test(pp.label.trim()))) continue;
     // a plural label ("my kids", "parents", "the girls") is several people, not one named "my kids"
     if (/\b(kids|children|sons|daughters|parents|sisters|brothers|siblings|girls|boys|twins)\b/i.test(`${pp.label} ${pp.relation}`)) {
       if (role === "parent") {
@@ -255,8 +302,15 @@ export function initialPeople(profile: Profile): LedgerPerson[] {
     }
     if (!ageKnown && role === "parent") born = profile.birthYear - 30;
     const species = role === "pet" ? speciesOf(`${pp.relation} ${pp.label}`) : null;
+    // how close they said they are: friends as stated; family never starts below "featured"
+    const stated = typeof pp.closeness === "number" && Number.isFinite(pp.closeness) ? clamp(pp.closeness, 0, 1) : null;
+    const closeness =
+      role === "other" ? (WORK_OTHER.test(pp.relation) ? (stated ?? 0.45) : Math.max(0.45, stated ?? ROLE_CLOSENESS.other))
+      : role === "parent" || role === "sibling" ? Math.max(0.5, stated ?? ROLE_CLOSENESS[role])
+      : ROLE_CLOSENESS[role];
     add({
       since: sinceOf(pp.quoteIds),
+      closeness,
       name, generic, role, relation: role === "pet" && species ? species : pp.relation.toLowerCase(), born, ageKnown,
       // a pet with a stated age lives out a real lifespan from its birth; one they "just adopted" /
       // a puppy is young; otherwise assume it's already a few years old
@@ -339,7 +393,13 @@ export function normChange(raw: string, year: number): string | null {
   if (/^(partner|spouse|wife|husband|girlfriend|boyfriend|fianc)/.test(kind)) kind = "partner";
   else if (/^(child|baby|son|daughter|kid)/.test(kind)) kind = "child";
   else if (/^(parent|mother|father|mom|mum|dad)/.test(kind)) kind = "parent";
-  else if (/^(pet|dog|cat|puppy|kitten|rabbit|parrot)/.test(kind)) {
+  // "+friend:Kai[:relation]" (a friend joins or is renewed), "-friend:Kai" (they drifted apart)
+  else if (/^(friend|best friend|close friend|bestie|buddy|colleague|coworker|co-worker|neighbou?r|mentor|roommate|flatmate|other)$/.test(kind)) {
+    const parts = rest.split(":").map((x) => x.trim()).filter(Boolean);
+    if (!parts.length || !/^\p{Lu}/u.test(parts[0]!)) return null;
+    const relation = parts[1] ?? (kind === "other" ? "friend" : kind);
+    return op === "+" ? `+friend:${parts[0]}:${relation}` : `-friend:${parts[0]}`;
+  } else if (/^(pet|dog|cat|puppy|kitten|rabbit|parrot)/.test(kind)) {
     if (kind !== "pet") rest = `${kind}:${rest}`;
     kind = "pet";
   } else return null;
@@ -375,6 +435,12 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
     if (p && !p.ageKnown) (p.born = Number(born[2])), (p.ageKnown = true);
     return;
   }
+  const fr = change.match(/^([+-])friend:([^:]+)(?::(.+))?$/);
+  if (fr) {
+    if (fr[1] === "+") joinPerson(people, fr[2]!, fr[3] ?? "friend", year, { strength: 0.65 });
+    else driftPerson(people, fr[2]!, year);
+    return;
+  }
   const m = change.match(/^([+-])(partner|child|pet|parent):(.+)$/);
   if (!m) return;
   const [, op, kind, rest] = m as unknown as [string, "+" | "-", "partner" | "child" | "pet" | "parent", string];
@@ -396,7 +462,10 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
       if (cur) (cur.status = "ended"), (cur.until = year);
       const old = findByName(people, name, "partner");
       if (old) return void ((old.status = "here"), (old.until = null), (old.since = Math.min(old.since, year)));
-      people.push({ key: personKey("partner", name), name: generic ? "your partner" : name, generic, role: "partner", relation: "partner", born: null, ageKnown: false, since: year, status: "here", until: null, goneAt: null });
+      // a friend who becomes the partner moves out of the friends list (one person, one entry)
+      const friend = generic ? undefined : findByName(people.filter((p) => p.role === "other" && p.status !== "ended"), name);
+      if (friend) (friend.status = "ended"), (friend.until = year);
+      people.push(person({ key: personKey("partner", name), name: generic ? "your partner" : name, generic, role: "partner", relation: "partner", born: null, ageKnown: false, since: year }));
     } else if (cur) (cur.status = "ended"), (cur.until = year);
     return;
   }
@@ -410,17 +479,19 @@ export function applyChange(people: LedgerPerson[], change: string, year: number
       return;
     }
     const n = here("child").length;
-    people.push({
-      key: personKey("child", generic ? `baby${n + 1}` : name!), name: generic ? (n ? `your child ${n + 1}` : "your child") : name!, generic, role: "child",
-      relation: "child", born: yr ? Number(yr) : year, ageKnown: true, since: yr ? Number(yr) : year, status: "here", until: null, goneAt: null,
-    });
+    people.push(
+      person({
+        key: personKey("child", generic ? `baby${n + 1}` : name!), name: generic ? (n ? `your child ${n + 1}` : "your child") : name!, generic, role: "child",
+        relation: "child", born: yr ? Number(yr) : year, ageKnown: true, since: yr ? Number(yr) : year,
+      }),
+    );
     return;
   }
   if (kind === "pet") {
     if (op === "+") {
       const [species, name] = rest.split(":") as [string, string];
       if (findByName(here("pet"), name)) return;
-      people.push({ key: personKey("pet", name), name, generic: false, role: "pet", relation: species, born: year, ageKnown: false, since: year, status: "here", until: null, goneAt: year + petYears(name, species) });
+      people.push(person({ key: personKey("pet", name), name, generic: false, role: "pet", relation: species, born: year, ageKnown: false, since: year, goneAt: year + petYears(name, species) }));
     } else {
       const p = findByName(here("pet"), rest) ?? (here("pet").length === 1 ? here("pet")[0] : undefined);
       if (p) (p.status = "gone"), (p.until = year);
@@ -438,6 +509,257 @@ export const roleWord = (s: string) => {
   const t = s.toLowerCase();
   return /mother|mom|mum|mama|nanay|amma/.test(t) ? "mother" : /father|dad|papa|tatay|appa/.test(t) ? "father" : t;
 };
+
+// ---------------------------------------------------------------------------------------------
+// People over time: new people from their own words, closeness, drift, reunions
+// ---------------------------------------------------------------------------------------------
+
+const capFirst = (s: string) => s.trim().split(/\s+/)[0] ?? "";
+const sameFirst = (p: LedgerPerson, name: string) => !p.generic && firstWord(p.name) === name.toLowerCase();
+const DRIFTABLE: Role[] = ["other", "sibling", "parent"];
+
+function renew(p: LedgerPerson, year: number, to: number): void {
+  if (p.status === "drifted") (p.status = "here"), (p.until = null);
+  p.closeness = Math.max(p.closeness, to);
+  p.lastContact = Math.max(p.lastContact, year);
+}
+
+/**
+ * Someone they named ("my friend Kai", "+friend:Kai:climbing buddy") joins the ledger in `year`, or
+ * is renewed when already in it (a drifted friend comes back). A partner goes through the partner
+ * change; a stand-in parent, sibling or lone child gets the name. Exes and the dead never join.
+ */
+export function joinPerson(people: LedgerPerson[], name: string, relation: string, year: number, o: { strength?: number } = {}): LedgerPerson | null {
+  const nm = capFirst(name).replace(/['’]s$/, "");
+  if (!/^\p{Lu}[\p{L}'’-]+$/u.test(nm)) return null;
+  const rel = relation.toLowerCase().trim() || "friend";
+  const known = people.find((p) => sameFirst(p, nm) && p.status !== "ended");
+  if (known) {
+    known.since = Math.min(known.since, year);
+    if (DRIFTABLE.includes(known.role)) renew(known, year, 0.7);
+    return known;
+  }
+  if (people.some((p) => sameFirst(p, nm))) return null; // an ex: not again through a mention
+  if (/\b(?:ex|former|late)\b|\bex-/i.test(rel)) return null;
+  const role = roleOf(rel);
+  const stand = (r: Role, ok: (p: LedgerPerson) => boolean = () => true) => {
+    const gs = people.filter((p) => p.role === r && p.generic && p.status === "here" && ok(p));
+    return gs.length === 1 ? gs[0]! : undefined;
+  };
+  if (role === "partner") {
+    applyChange(people, `+partner:${nm}`, year);
+    return people.find((p) => p.role === "partner" && p.status === "here" && sameFirst(p, nm)) ?? null;
+  }
+  if (role === "child" || role === "parent" || role === "sibling") {
+    const g = stand(role, (p) => role !== "parent" || roleWord(p.relation) === roleWord(rel));
+    if (g) {
+      g.name = nm;
+      g.generic = false;
+      g.key = personKey(role, nm);
+      if (role !== "child") g.relation = rel;
+      return g;
+    }
+    if (role !== "sibling") return null; // children arrive by birth, parents are known from the start
+    const p = person({ key: personKey(role, nm), name: nm, generic: false, role, relation: rel, born: null, ageKnown: false, since: year });
+    people.push(p);
+    return p;
+  }
+  if (role !== "other" || !(CLOSE_OTHER.test(rel) || WORK_OTHER.test(rel))) return null;
+  const closeness = o.strength ?? (/\bbest\b|\bclosest\b|bestie/.test(rel) ? 0.8 : WORK_OTHER.test(rel) ? 0.45 : 0.65);
+  const p = person({ key: personKey("other", nm), name: nm, generic: false, role: "other", relation: rel, born: null, ageKnown: false, since: year, closeness });
+  people.push(p);
+  return p;
+}
+
+/** They said they lost touch: a friend has drifted; a parent or sibling stays (never silently gone) but is no longer featured. */
+export function driftPerson(people: LedgerPerson[], name: string, year: number): LedgerPerson | null {
+  const p = people.find((x) => sameFirst(x, capFirst(name)) && x.status === "here" && x.since <= year && DRIFTABLE.includes(x.role));
+  if (!p) return null;
+  if (p.role === "other") (p.status = "drifted"), (p.until = year), (p.closeness = Math.min(p.closeness, 0.1));
+  else p.closeness = Math.min(p.closeness, 0.2);
+  return p;
+}
+
+/** What one of their quotes says about people, in the year it was said. */
+export interface PeopleCue {
+  year: number;
+  joins: { name: string; relation: string }[];
+  drifted: string[];
+  mentioned: string[];
+}
+
+/** The year a quote was said: a decision answer ("d-<age>-<n>") at that age, anything else at the start. */
+export function quoteYearOf(profile: Pick<Profile, "birthYear" | "startYear">, q: { questionId: string | null }): number {
+  const m = q.questionId?.match(/^d-(\d+)-/);
+  return m ? profile.birthYear + Number(m[1]) : profile.startYear;
+}
+
+const cueCache = new WeakMap<object, PeopleCue[]>();
+/** People cues from every quote, oldest first (only typed answers can add someone or renew them). */
+export function peopleCues(profile: Profile): PeopleCue[] {
+  const hit = cueCache.get(profile.quotes);
+  if (hit) return hit;
+  const out: PeopleCue[] = [];
+  for (const q of profile.quotes) {
+    const said = peopleSaid(q.text);
+    const typed = q.source === "answer";
+    const cue: PeopleCue = { year: quoteYearOf(profile, q), joins: typed ? said.joins : [], drifted: said.drifted, mentioned: typed ? said.mentioned : [] };
+    if (cue.joins.length || cue.drifted.length || cue.mentioned.length) out.push(cue);
+  }
+  out.sort((a, b) => a.year - b.year);
+  cueCache.set(profile.quotes, out);
+  return out;
+}
+
+/** Apply the cues said up to `upto` (in order; each once). */
+function applyCues(now: LifeNow, upto: number): void {
+  const cues = now.cues ?? [];
+  const me = (now.who?.firstName ?? "").toLowerCase();
+  let i = now.cueAt ?? 0;
+  for (; i < cues.length && cues[i]!.year <= upto; i++) {
+    const c = cues[i]!;
+    for (const j of c.joins) if (j.name.toLowerCase() !== me) joinPerson(now.people, j.name, j.relation, c.year);
+    // naming someone again in their own words keeps them close (they keep choosing them)
+    for (const n of c.mentioned)
+      for (const p of now.people) if (sameFirst(p, n) && DRIFTABLE.includes(p.role) && p.status !== "ended" && p.since <= c.year) renew(p, c.year, 0.7);
+    for (const n of c.drifted) driftPerson(now.people, n, c.year);
+  }
+  now.cueAt = i;
+}
+
+const sig = (s: string) => new Set(norm(s).split(" ").filter((w) => w.length > 3));
+/** A colleague's job is "left" when the work line shares no real word with the one they came with. */
+const leftWork = (p: LedgerPerson, work: string) => p.anchorWork !== null && ![...sig(p.anchorWork)].some((w) => sig(work).has(w));
+const isFar = (p: LedgerPerson, now: LifeNow) => (p.anchor !== null && p.anchor !== cityOf(now.place)) || leftWork(p, now.work);
+
+/** Closeness decays from the last decay year to `year`: slowly where they are, fast once the life left their city or job. */
+function driftTo(now: LifeNow, year: number): void {
+  const from = now.driftAt ?? year;
+  if (year > from)
+    for (const p of now.people) {
+      if (p.status !== "here" || p.role !== "other") continue;
+      const n = year - Math.max(from, p.since);
+      if (n <= 0) continue;
+      if (FAMILY_OTHER.test(p.relation)) {
+        p.closeness = Math.max(DRIFT_AT + 0.05, p.closeness - 0.01 * n);
+        continue;
+      }
+      p.closeness = Math.max(0, p.closeness - n * (isFar(p, now) ? DECAY_FAR : DECAY_NEAR));
+      if (p.closeness < DRIFT_AT) (p.status = "drifted"), (p.until = year);
+    }
+  now.driftAt = Math.max(from, year);
+}
+
+/** Friends belong to the city (and colleagues to the job) the life had when they joined. */
+function settle(now: LifeNow, year: number): void {
+  for (const p of now.people) {
+    if (p.role !== "other" || p.since > year) continue;
+    if (p.anchor === null) p.anchor = cityOf(now.place);
+    if (p.anchorWork === null && WORK_OTHER.test(p.relation)) p.anchorWork = norm(now.work);
+  }
+}
+
+const REUNION = /\b(reunion|reunit\w*|reconnect\w*|again after|after (?:\w+ )?years|ran into|runs? into|bump\w* into|catch(?:es)? up|caught up|out of the blue|looks? (?:you|them|her|him) up|first time in (?:\w+ )?years)\b/i;
+
+/** The life's own text names a friend: a small renewal (less from afar); a drifted friend comes back only in a reunion. */
+function textRenewals(now: LifeNow, y: SimYear): void {
+  const parts = [y.summary, ...y.events.map((e) => `${e.title}. ${e.narrative}`)];
+  for (const p of now.people) {
+    if (p.generic || p.since > y.year || (p.role !== "other" && p.role !== "sibling")) continue;
+    const re = new RegExp(`\\b${esc(p.name.split(/\s+/)[0]!)}\\b`);
+    const hits = parts.filter((t) => re.test(t));
+    if (!hits.length) continue;
+    if (p.status === "here") {
+      p.closeness = Math.max(p.closeness, Math.min(0.8, p.closeness + (isFar(p, now) ? 0.02 : 0.05)));
+      p.lastContact = y.year;
+    } else if (p.status === "drifted" && hits.some((t) => REUNION.test(t))) {
+      renew(p, y.year, 0.45);
+      p.anchor = cityOf(now.place);
+    }
+  }
+}
+
+/** Time passes to `year`: closeness decays, then what they said by then applies. */
+function tick(now: LifeNow, year: number): void {
+  driftTo(now, year);
+  applyCues(now, year);
+}
+
+export interface Featured {
+  person: LedgerPerson;
+  /** Closeness, with a small bump for someone seen in the last year. */
+  score: number;
+  /** A drifted friend offered as a rare reunion (frame it as one). */
+  reunion: boolean;
+}
+
+/**
+ * People to feature this year (small cards, scenes, letters), closest first: the household, family,
+ * and only the friends still close. Drifted people are never featured, except, with
+ * `reunion: true`, about one year in twelve one of them as a reunion (deterministic per session).
+ */
+export function featuredPeople(now: LifeNow, o: { max?: number; reunion?: boolean } = {}): Featured[] {
+  const out: Featured[] = here(now)
+    .filter((p) => !offScreen(p, now.year) && p.closeness >= CLOSE_MIN)
+    .map((p) => ({ person: p, score: Math.min(1, p.closeness + (p.role === "other" && p.lastContact >= now.year - 1 ? 0.05 : 0)), reunion: false }))
+    .sort((a, b) => b.score - a.score || ROLE_ORDER[a.person.role] - ROLE_ORDER[b.person.role]);
+  const drifted = now.people.filter((p) => p.status === "drifted" && p.until !== null && p.until < now.year);
+  const seed = `${now.who?.sessionId ?? ""}:${now.path.map((x) => x.title).join(">")}:${now.year}`;
+  if (o.reunion && drifted.length && hash32(`reunion:${seed}`) % 12 === 0)
+    out.push({ person: drifted[hash32(`reunion-who:${seed}`) % drifted.length]!, score: 0.3, reunion: true });
+  return out.slice(0, o.max ?? 8);
+}
+
+const tagOf = (p: LedgerPerson, year: number) => {
+  if (p.generic) return p.name;
+  const a = p.ageKnown && !offScreen(p, year) ? ageOf(p, year) : null;
+  return `${p.name} (${p.relation}${a !== null && p.role !== "pet" ? `, ${a}` : ""})`;
+};
+
+/**
+ * One prompt line: who to feature this year, closest first, and who has drifted (never a card
+ * option). For prompts that pick people (small cards, scenes): WIRE INTO prompts/decision.ts
+ * smallBatchPrompt and prompts/years.ts (owned by the content agent).
+ */
+export function featuredPeopleLine(now: LifeNow): string {
+  const f = featuredPeople(now, { reunion: true });
+  const close = f.filter((x) => !x.reunion).map((x) => tagOf(x.person, now.year));
+  const reunion = f.find((x) => x.reunion);
+  const drifted = now.people.filter((p) => p.status === "drifted");
+  return [
+    `People to feature in ${now.year}, closest first: ${close.join("; ") || "(no one close nearby: new people, colleagues, neighbours)"}.`,
+    drifted.length ? ` Drifted apart (never a card option or a scene; they are not part of this life now): ${drifted.map((p) => p.name).join(", ")}.` : "",
+    reunion ? ` If it fits, ${reunion.person.name} may come back this year as a reunion, framed as one (years apart, a surprise).` : "",
+  ].join("");
+}
+
+/** A card or text that features a drifted person without framing it as a reunion (for the validators: WIRE INTO consistency.ts / smalls.ts smallIssues). */
+export function driftedIssues(text: string, now: LifeNow): { name: string; msg: string }[] {
+  const out: { name: string; msg: string }[] = [];
+  for (const p of now.people.filter((x) => x.status === "drifted" && !x.generic)) {
+    const re = new RegExp(`\\b${esc(p.name.split(/\s+/)[0]!)}\\b`);
+    const s = text.split(/(?<=[.!?])\s+/).find((x) => re.test(x));
+    if (s && !REUNION.test(s)) out.push({ name: p.name, msg: `${p.name} (${p.relation}) drifted out of this life in ${p.until}; don't feature them (a reunion only, framed as one)` });
+  }
+  return out;
+}
+
+/** Names for someone new in this life (names.ts), never one already in the ledger. */
+export function newNameCandidates(now: LifeNow, role: NameRole, n = 4): string[] {
+  if (!now.who) return [];
+  const used = [now.who.firstName, ...now.people.filter((p) => !p.generic).map((p) => p.name)];
+  return nameCandidates({ sessionId: now.who.sessionId, lifeId: now.path.map((p) => p.title).join(">") || "you", role, country: now.who.country, place: now.place, used }, n);
+}
+
+/** The NOW block's naming line: someone new in this life takes one of these names. */
+export function newNamesLine(now: LifeNow): string {
+  if (!now.who) return "";
+  const parts: string[] = [];
+  if (!here(now, "partner").length) parts.push(`a partner: ${newNameCandidates(now, "partner").join(", ")}`);
+  if (now.age < 50) parts.push(`a baby: ${newNameCandidates(now, "child").join(", ")}`);
+  parts.push(`a friend or colleague: ${newNameCandidates(now, "friend").join(", ")}`);
+  return `- New people's names (only if someone new enters this life): ${parts.join("; ")}. Pick from these, never a name already used above or in another of their lives.`;
+}
 
 /** Fallback when a year carries no `life`: infer people changes from its turning points. */
 export function inferChanges(y: SimYear, people: LedgerPerson[]): string[] {
@@ -494,6 +816,7 @@ function step(now: LifeNow, y: SimYear): string[] {
   }
   now.retired = isRetired(now.work);
   now.money = { ...y.money };
+  textRenewals(now, y);
   return changes;
 }
 
@@ -524,14 +847,23 @@ export function lifeAt(profile: Profile, years: SimYear[], atYear: number, path:
     people: initialPeople(profile).map((p) => ({ ...p })),
     money: null,
     path: path.filter((p) => p.year <= atYear),
+    cues: peopleCues(profile),
+    cueAt: 0,
+    driftAt: profile.startYear,
+    who: { sessionId: profile.sessionId, country: profile.country, firstName: profile.firstName ?? "" },
   };
   now.retired = isRetired(now.work);
+  settle(now, profile.startYear);
   const ys = years.filter((y) => y.year <= atYear).sort((a, b) => a.year - b.year);
   for (const y of ys) {
     agePets(now.people, y.year);
+    tick(now, y.year);
     step(now, y);
+    settle(now, y.year);
   }
   agePets(now.people, atYear);
+  tick(now, atYear);
+  settle(now, atYear);
   return now;
 }
 
@@ -539,7 +871,9 @@ export function lifeAt(profile: Profile, years: SimYear[], atYear: number, path:
 export function advance(prev: LifeNow, y: SimYear): { now: LifeNow; changes: string[] } {
   const now: LifeNow = { ...prev, year: y.year, age: y.age, people: prev.people.map((p) => ({ ...p })), pastPlaces: [...prev.pastPlaces], pastWork: [...prev.pastWork] };
   agePets(now.people, y.year);
+  tick(now, y.year);
   const changes = step(now, y);
+  settle(now, y.year);
   return { now, changes };
 }
 
@@ -583,12 +917,14 @@ export function yearLife(now: LifeNow, work: string, ch: string[]): YearLife {
   return {
     work: work || now.work,
     ch,
+    // friends only while close (the UI's People list); family never silently leaves
     people: here(now)
-      .slice()
-      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
+      .filter((p) => p.role !== "other" || p.closeness >= CLOSE_MIN)
+      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || (a.role === "other" ? b.closeness - a.closeness : 0))
       .map((p) => ({
         name: p.name, role: p.role, relation: p.relation,
         age: offScreen(p, now.year) ? null : p.ageKnown || p.role === "parent" ? ageOf(p, now.year) : null,
+        closeness: Math.round(p.closeness * 100) / 100,
       })),
   };
 }
@@ -658,8 +994,14 @@ export function peopleBlock(now: LifeNow, from = now.year, to = from): string {
     lines.push(`- Pets: ${pets.length ? pets.map((p) => personLine(p, from, to)).join("; ") : "none now"}${gonePets.length ? `. No longer in the story (never mention again): ${gonePets.map((p) => p.name).join(", ")}` : ""}`);
   const fam = [...here(now, "parent"), ...here(now, "sibling"), ...here(now, "grandchild")];
   if (fam.length) lines.push(`- Family: ${fam.map((p) => personLine(p, from, to)).join("; ")}`);
-  const others = here(now, "other");
-  if (others.length) lines.push(`- Close friends and other family: ${others.map((p) => personLine(p, from, to)).join("; ")}`);
+  const others = here(now, "other").sort((a, b) => b.closeness - a.closeness);
+  const close = others.filter((p) => p.closeness >= CLOSE_MIN);
+  const fading = others.filter((p) => p.closeness < CLOSE_MIN);
+  if (close.length) lines.push(`- Close friends and other family: ${close.map((p) => personLine(p, from, to)).join("; ")}`);
+  if (fading.length) lines.push(`- Out of touch lately (another city or job now; a message at most, never a card option): ${fading.map((p) => (p.generic ? p.name : `${p.name} (${p.relation})`)).join(", ")}`);
+  const drifted = now.people.filter((p) => p.status === "drifted");
+  if (drifted.length)
+    lines.push(`- Drifted apart (not part of this life now: never a card option or in a scene; at most a rare reunion, framed as one): ${drifted.map((p) => `${p.name} (${p.relation}, since ${p.until})`).join(", ")}`);
   const goneFam = now.people.filter((p) => p.role === "parent" && p.status === "gone");
   if (goneFam.length) lines.push(`- Gone (a parent's old-age death, already happened; at most a gentle memory): ${goneFam.map((p) => `${p.name} (${p.until})`).join(", ")}`);
   return lines.join("\n");
@@ -683,6 +1025,8 @@ export function nowBlock(now: LifeNow, opts: { from?: number; to?: number; title
     `- Work: ${now.work}${now.workSince > now.year - now.age ? ` (since ${now.workSince})` : ""}${now.retired ? `. RETIRED: no job offers, promotions, bosses or shifts unless the moment is explicitly about coming out of retirement` : ""}${pastWork.length ? `. Before (past only): ${pastWork.map((w) => `${w.work} ${span(w.from, w.to)}`).join("; ")}` : ""}`,
   );
   lines.push(peopleBlock(now, from, to));
+  const names = newNamesLine(now);
+  if (names) lines.push(names);
   if (now.money) lines.push(`- Money last year: income ~$${Math.round(now.money.income / 1000)}k/yr, net worth ~$${Math.round(now.money.netWorth / 1000)}k`);
   if (now.path.length) lines.push(`- Forks taken in this life: ${now.path.map((p) => `"${p.title}" (${p.age}, ${p.year})`).join(" -> ")}`);
   lines.push(
