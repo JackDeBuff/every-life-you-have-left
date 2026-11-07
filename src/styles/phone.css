@@ -32,6 +32,7 @@
 .ph-settings .settings { max-height: none; border-bottom: 0; }
 .ph-settings .settings-head { padding-left: 0; padding-right: 0; }
 .ph-settings .settings-grid { padding-left: 0; padding-right: 0; }
+.ph-settings .settings-body { -webkit-mask-image: none; mask-image: none; }
 
 .phone[data-dim="true"] .ph-world, .phone[data-dim="true"] .ph-body { opacity: 0.35; filter: saturate(0.4); transition: opacity var(--t-slow), filter var(--t-slow); }
 

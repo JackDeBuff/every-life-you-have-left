@@ -43,7 +43,7 @@
  */
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .tile {
-  position: relative; display: block; min-width: 0; text-align: left;
+  position: relative; display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; text-align: left;
   padding: 10px 12px 11px 10px; min-height: 64px;
   background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r1);
   overflow-wrap: anywhere;
@@ -54,6 +54,7 @@
 .tile:active:not(:disabled) { transform: translateY(1px); }
 .tile[data-on="true"] { border-color: var(--ink); background: var(--raised); box-shadow: inset 3px 0 0 var(--sun); }
 .tile:disabled { cursor: default; }
+.tile-in { display: block; width: 100%; min-width: 0; }
 .kc {
   float: left; width: 20px; height: 18px; margin: 0 8px 0 0; display: grid; place-items: center;
   border: 1px solid var(--hair-2); border-bottom-width: 2px; border-radius: 3px;

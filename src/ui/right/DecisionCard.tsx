@@ -195,12 +195,15 @@ export function DecisionCard({ d }: { d: Decision }) {
               setEngaged(true);
             }}
           >
-            <span className="kc" aria-hidden="true">
-              {sel === o.id ? <Icon name="check" size={11} /> : i + 1}
+            {/* A block inside the (flex) button: buttons centre their content, the text should sit at the top. */}
+            <span className="tile-in">
+              <span className="kc" aria-hidden="true">
+                {sel === o.id ? <Icon name="check" size={11} /> : i + 1}
+              </span>
+              {big && o.branchTitle && <span className="tile-fork">{o.branchTitle}</span>}
+              <span className="tile-label">{o.label}</span>
+              {o.hint && <span className="tile-hint">{o.hint}</span>}
             </span>
-            {big && o.branchTitle && <span className="tile-fork">{o.branchTitle}</span>}
-            <span className="tile-label">{o.label}</span>
-            {o.hint && <span className="tile-hint">{o.hint}</span>}
           </button>
         ))}
       </div>
