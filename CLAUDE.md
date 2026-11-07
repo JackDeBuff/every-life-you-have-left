@@ -11,6 +11,7 @@ re-tune all four lives. Then postcards from 70, and letters / a digital-twin cha
 of you at any age.
 
 ## Read before working
+0. **`docs/HANDOFF.md` — start here** (current state, what's in flight, how we work, next steps).
 1. `DECISIONS.md` — what's decided (wins over everything else, including `IDEA.md`).
 2. `docs/PLAN.md` — architecture, contracts, work packages, timeline.
 3. The research doc for your area in `research/` (01 science+naming, 02 UI concepts, 03 questions +
