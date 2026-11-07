@@ -8,7 +8,7 @@ import type { SessionState, SimYear } from "../../shared/sim";
 import { cardFocus } from "../../worker/engine/focus";
 import type { LlmPort } from "../../worker/engine/llm-port";
 import { createCaller, DEFAULT_MODELS } from "../../worker/engine/models";
-import { groundFacts } from "../../worker/engine/profile";
+import { groundFacts, namedByThem } from "../../worker/engine/profile";
 import { YEARS_SYSTEM } from "../../worker/engine/prompts/years";
 import { GroundLLM } from "../../worker/engine/schemas";
 import { maxShocks, planShocks, SHOCK_GAP, shocksFor } from "../../worker/engine/shocks";
@@ -179,7 +179,10 @@ export async function groundAsync(): Promise<{ name: string; pass: boolean; deta
   const ms = Date.now() - t0;
   const noPort = createCaller({ llm: { ...hangingPort, groundedText: undefined } as LlmPort, models: DEFAULT_MODELS });
   const r2 = await groundFacts(noPort, { age: 33, city: "Durham", region: "NC", country: "US", line: "I work at a bank." }, []);
+  const cv = "Software Engineer, Paystack-style payments startup, Lagos. B.Sc., University of Lagos.";
+  const named = namedByThem("University of Lagos", cv) && namedByThem("SAS", "I'm a UX researcher at SAS") && !namedByThem("Paystack", cv) && !namedByThem("Google", "a company like Google");
   return [
+    { name: "grounded facts only about what they named ('Paystack-style' and 'like Google' are not employers)", pass: named, detail: String(named) },
     { name: "a hanging grounded call returns null within its time box", pass: r === null && ms < 1000, detail: `${ms} ms` },
     { name: "a port without grounding (mock engine) gives no grounded facts, no error", pass: r2 === null, detail: String(r2) },
   ];

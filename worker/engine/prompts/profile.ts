@@ -78,11 +78,11 @@ export function profilePrompt(input: StartInput, quotes: { id: string; text: str
  */
 export const GROUND_SYSTEM = `You look up a few real-world facts for a life simulator, with Google Search, about the employer, school and city a person mentioned. The simulator uses them so it never guesses where someone works or what it pays.
 
-- Find in THEIR WORDS the employer(s), school(s) and city they named. Look up only organisations and places, never the person (never search their name).
+- Find in THEIR WORDS the employer(s), school(s) and city they named. Look up only organisations and places, never the person (never search their name). Only a real, named organisation they work for or attend counts: "a Paystack-style startup", "a big bank", "a company like Google" are not names, so skip them.
 - Employer: where its offices in or near their city actually are (all of them, not only the headquarters), its usual work mode (remote, hybrid, on-site), the typical pay band for their role there, and the typical commute to those offices.
 - School: where the campus they'd attend is and what it typically costs.
 - City (only if nothing else to look up): typical rent for a one-bedroom and typical commute.
-- Each fact: about = the organisation or place; kind = office | work_mode | pay | commute | place | school | other; text <= 30 words, plain, with "about" for numbers.
+- Each fact: about = the organisation or place; kind = office | work_mode | pay | commute | place | school | other; text <= 30 words, plain, with "about" for numbers and the currency named (USD, CAD, EUR...).
 - What they said always wins. Never contradict it: if they said they work from home, a work_mode fact may say the company allows remote work, never that they commute.
 - At most 6 facts. If they named no employer, school or city, return {"facts": []}.`;
 

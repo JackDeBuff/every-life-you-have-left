@@ -268,10 +268,21 @@ export async function groundFacts(call: Caller, input: Pick<StartInput, "age" | 
   const r = await call.grounded({ purpose: "profile.ground", system: GROUND_SYSTEM, prompt: groundPrompt(input, docs), schema: GroundLLM, timeoutMs: GROUND_TIMEOUT_MS });
   if (!r) return null;
   const facts = r.data.facts
-    .filter((f) => f.text.trim() && f.about.trim())
+    .filter((f) => f.text.trim() && f.about.trim() && namedByThem(f.about, [input.line, ...docs.map((d) => d.text)].join(" ")))
     .slice(0, 6)
     .map((f) => ({ about: truncateWords(f.about.trim(), 8), kind: f.kind, text: truncateWords(f.text.trim(), 32) }));
   return facts.length ? facts : null;
+}
+
+/**
+ * A grounded fact counts only if it is about something they actually named: its name is in their
+ * words, and not as a comparison ("a Paystack-style startup", "a company like Google").
+ */
+export function namedByThem(about: string, text: string): boolean {
+  const name = about.trim().split(/\s+/).find((w) => /^[\p{Lu}\d]/u.test(w) && w.length >= 2) ?? about.trim().split(/\s+/)[0]!;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!new RegExp(`\\b${esc}\\b`, "i").test(text)) return false;
+  return !new RegExp(`\\b${esc}[- ](?:style|like|type|esque)\\b|\\b(?:like|such as|similar to)\\s+(?:a\\s+)?${esc}\\b`, "i").test(text);
 }
 
 export async function buildStartProfile(call: Caller, input: StartInput, docs: DocInput[], startYear: number, at: string): Promise<Profile> {
