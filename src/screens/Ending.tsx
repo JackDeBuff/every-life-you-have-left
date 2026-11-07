@@ -10,6 +10,7 @@ import { TWIN_THRESHOLD } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
 import { YourWords } from "../ui/ending/YourWords";
+import type { ShareInput } from "../ui/ending/share";
 import { yourWords } from "../ui/ending/influence";
 import { CURRENCIES, RATES_AS_OF } from "../../shared/currency";
 import { money, moneyHint, ROMAN, useCurrency } from "../ui/format";
@@ -84,6 +85,31 @@ export default function Ending() {
   const postcard = (s.ending as { postcard?: string } | null)?.postcard ?? "";
   const message = useMemo(() => `I'm writing from ${chosenLast?.place ?? p.city}. ${lives[0]!.verdict} ${postcard}`.trim(), [chosenLast, lives, p.city, postcard]);
   const caption = lives[0]!.path || `${p.firstName ? `${p.firstName}'s` : "Your"} life, ${p.age} to ${s.endAge}`;
+  // The opt-in share (D-031): only what's on the postcard. The portrait is copied by the Worker.
+  const portrait = [...s.portraits].sort((a, b) => b.forAge - a.forAge)[0] ?? null;
+  const fiveChosen = s.ending?.fiveYear.chosen ?? null;
+  const share = useMemo(
+    () => ({
+      sessionId: s.sessionId,
+      hasPortrait: !!portrait,
+      build: (): ShareInput => ({
+        sessionId: s.sessionId || null,
+        firstName: p.firstName ?? null,
+        endAge: s.endAge,
+        endYear,
+        place: chosenLast?.place ?? p.city ?? "",
+        lives: lives.map((l) => ({
+          numeral: l.numeral,
+          title: (l.id === "chosen" ? `The life ${p.firstName ?? "they"} chose` : l.title).slice(0, 80),
+          verdict: l.verdict.slice(0, 260),
+          you: l.id === "chosen",
+        })),
+        fiveYear: fiveChosen ? fiveChosen.slice(0, 1600) : null,
+        portraitUrl: portrait?.url ?? null,
+      }),
+    }),
+    [s.sessionId, s.endAge, endYear, chosenLast, p.firstName, p.city, lives, fiveChosen, portrait],
+  );
 
   return (
     <div className="ending scroll" ref={root}>
@@ -167,6 +193,7 @@ export default function Ending() {
           quote={firstQuote}
           states={chosenLast?.states ?? null}
           from={{ age: p.age, city: p.city ?? "", year: p.startYear }}
+          share={s.ending ? share : undefined}
         />
       </section>
 

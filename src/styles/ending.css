@@ -137,3 +137,26 @@
   .con-title { grid-column: 1; }
   .con-go { grid-row: 1 / span 2; grid-column: 2; }
 }
+
+/* ---------- Share this postcard (D-031, opt-in) ---------- */
+.share-consent {
+  display: grid; gap: var(--s2); padding: var(--s4) var(--s5); max-width: 640px;
+  background: var(--raised); border: 1px solid var(--hair); border-left: 3px solid var(--sun); border-radius: var(--r1);
+  animation: rise var(--t-base) var(--e-settle);
+}
+.share-c-title { font-size: 17px; font-weight: 650; font-stretch: var(--w-wide); letter-spacing: -0.01em; }
+.share-c-actions { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s1); }
+.share-c-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.share-err { color: var(--tone-down); }
+.share-done {
+  display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: var(--s5); align-items: center;
+  padding: var(--s4); max-width: 640px; background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r1);
+  animation: rise var(--t-base) var(--e-settle);
+}
+.share-qr { width: 168px; height: 168px; display: block; border-radius: var(--r1); }
+.share-done-text { display: grid; gap: var(--s2); min-width: 0; }
+.share-url { font-size: 15px; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .share-done { grid-template-columns: 1fr; justify-items: start; }
+  .share-qr { width: 200px; height: 200px; }
+}
