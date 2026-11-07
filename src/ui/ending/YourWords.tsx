@@ -47,7 +47,7 @@ export function YourWords({ label }: { label: string }) {
       tl.fromTo(q(".word-head-sub"), { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "sine.inOut" });
       q(".word").forEach((row, i) => {
         const r = gsap.utils.selector(row);
-        const at = i === 0 ? 0.2 : ">-0.55";
+        const at = i === 0 ? 0.2 : ">-1.0";
         const ws = r(".ww");
         tl!.fromTo(ws, { opacity: 0, y: 7, filter: "blur(3px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: Math.min(0.06, 0.8 / Math.max(1, ws.length)) }, at);
         tl!.fromTo(r(".word-mark"), { backgroundSize: "0% 34%" }, { backgroundSize: "100% 34%", duration: 0.7, ease: "expo.out" }, "-=0.25");

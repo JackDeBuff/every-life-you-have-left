@@ -11,6 +11,7 @@ import type { SimYear } from "../../shared/sim";
 import { Postcard } from "../ui/ending/Postcard";
 import { YourWords } from "../ui/ending/YourWords";
 import type { ShareInput } from "../ui/ending/share";
+import { fitQuote, HEART } from "../ui/ending/quote";
 import { yourWords } from "../ui/ending/influence";
 import { CURRENCIES, RATES_AS_OF } from "../../shared/currency";
 import { money, moneyHint, ROMAN, useCurrency } from "../ui/format";
@@ -75,9 +76,10 @@ export default function Ending() {
   const quotes = p.quotes;
   const hasWords = useMemo(() => yourWords(s, 1).length > 0, [s.profile, s.years, s.decisions, s.answers]); // eslint-disable-line react-hooks/exhaustive-deps
   // The postcard quotes the most "you" sentence: a want or a fear, not a job title.
-  const heartQuote =
-    [...quotes].reverse().find((q) => /if nobody|scare|afraid|want|wish|dream|love|never|always|can't|miss/i.test(q.text)) ?? quotes[quotes.length - 1] ?? null;
-  const firstQuote = heartQuote ? (heartQuote.shortForm ?? heartQuote.text) : null;
+  // (Not something said in "talk to any version": the card shouldn't change while you chat.)
+  const lived = quotes.filter((q) => !q.questionId?.startsWith("talk:"));
+  const heartQuote = [...lived].reverse().find((q) => HEART.test(q.text)) ?? lived[lived.length - 1] ?? null;
+  const firstQuote = heartQuote ? fitQuote(heartQuote.text) : null;
   const chosenLast = lives[0]!.last;
   // The letter is this life's own verdict plus the engine's postcard line for THIS life
   // (ending.postcard; no stock advice line: it read the same on every card); the picture's caption
