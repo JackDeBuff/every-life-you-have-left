@@ -28,7 +28,8 @@ export function Interlude({ cuts }: { cuts: InterludeCut[] }) {
     if (!el) return;
     const reduce = reducedMotion();
     const q = gsap.utils.selector(el);
-    const cutDur = speed === "auto" ? 1.75 : 2.4;
+    // Auto keeps the whole run under three minutes: ~8 s here, ~10 s at 1×/2×.
+    const cutDur = speed === "auto" ? 1.45 : 2.2;
     const tl = gsap.timeline({ onComplete: finish });
     const blink = (to: number) => {
       if (reduce) {
@@ -37,27 +38,31 @@ export function Interlude({ cuts }: { cuts: InterludeCut[] }) {
         tl.to(q(".il-stage"), { opacity: 1, duration: 0.2 });
         return;
       }
-      tl.to(q(".lid"), { scaleY: 1, duration: 0.18, ease: "expo.in" });
+      tl.to(q(".lid"), { scaleY: 1, duration: 0.17, ease: "expo.in" });
       tl.call(() => setI(to));
-      tl.to({}, { duration: 0.07 });
-      tl.to(q(".lid"), { scaleY: 0, duration: 0.28, ease: "expo.out" });
+      tl.to({}, { duration: 0.06 });
+      tl.to(q(".lid"), { scaleY: 0, duration: 0.24, ease: "expo.out" });
     };
     tl.set(q(".lid"), { scaleY: 0 });
-    tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "sine.inOut" });
+    tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "sine.inOut" });
     if (!reduce) {
-      tl.fromTo(q(".il-title .ln"), { yPercent: 110 }, { yPercent: 0, duration: 0.8, ease: "expo.out", stagger: 0.12 }, "<0.05");
-      tl.fromTo(q(".il-dots i"), { opacity: 0 }, { opacity: 1, duration: 0.2, stagger: 0.16 }, "-=0.35");
+      tl.fromTo(q(".il-title .ln"), { yPercent: 110 }, { yPercent: 0, duration: 0.75, ease: "expo.out", stagger: 0.1 }, "<0.05");
+      tl.fromTo(q(".il-dots i"), { opacity: 0 }, { opacity: 1, duration: 0.18, stagger: 0.14 }, "-=0.4");
     }
-    tl.to({}, { duration: 0.35 });
-    tl.to(q(".il-title"), { opacity: 0, y: -10, duration: 0.35, ease: "expo.in" });
+    tl.to({}, { duration: 0.2 });
     cuts.forEach((_, k) => {
       blink(k);
-      if (!reduce) tl.fromTo(q(".il-cap"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.5, ease: "expo.out" }, "-=0.1");
+      if (k === 0) {
+        // The title shrinks into a running header while the first life opens.
+        tl.to(q(".il-title"), { opacity: 0, y: -8, duration: 0.3, ease: "expo.in" }, "<");
+        tl.fromTo(q(".il-head"), { opacity: 0 }, { opacity: 1, duration: 0.4 }, "<0.1");
+      }
+      if (!reduce) tl.fromTo(q(".il-cap"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.45, ease: "expo.out" }, "-=0.1");
       tl.to({}, { duration: cutDur });
-      if (!reduce) tl.to(q(".il-cap"), { opacity: 0, duration: 0.2 });
+      if (!reduce) tl.to(q(".il-cap"), { opacity: 0, duration: 0.15 });
     });
     blink(-2);
-    tl.to(el, { opacity: 0, duration: 0.35, ease: "sine.inOut" });
+    tl.to(el, { opacity: 0, duration: 0.3, ease: "sine.inOut" });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         tl.kill();
@@ -92,23 +97,29 @@ export function Interlude({ cuts }: { cuts: InterludeCut[] }) {
           </span>
         </span>
       </h2>
-      {cut && (
-        <div className="il-cap" key={cut.branchId}>
-          <p className="il-meta">
-            <span className="numeral">{ROMAN[i]}</span>
-            <span className="label">{cut.title}</span>
-            <span className="label faint">
-              {cut.age} · {cut.scene.placeLabel}
-            </span>
-          </p>
-          <p className="il-line">{cut.caption.replace(/^[^.]+\.\s*/, "")}</p>
-        </div>
-      )}
-      {cut && (
-        <p className="il-count label" aria-hidden="true">
-          {i + 1} / {cuts.length}
-        </p>
-      )}
+      <div className="il-cap">
+        {cut && (
+          <>
+            <p className="il-meta">
+              <span className="numeral">{ROMAN[i]}</span>
+              <span className="label">{cut.title}</span>
+              <span className="label faint">
+                {cut.age} · {cut.scene.placeLabel}
+              </span>
+            </p>
+            <p className="il-line">{cut.caption.replace(/^[^.]+\.\s*/, "")}</p>
+          </>
+        )}
+      </div>
+      <p className="il-head label" aria-hidden="true">
+        Meanwhile, in your other lives
+        {cut && (
+          <span className="il-count">
+            {" "}
+            · {i + 1} of {cuts.length}
+          </span>
+        )}
+      </p>
       <div className="lid top" />
       <div className="lid bottom" />
       <button className="il-skip btn quiet sm" onClick={finish}>

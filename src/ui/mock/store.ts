@@ -56,7 +56,7 @@ interface Internal {
   baseTraj: Traj | null;
   /** Effects decided at the start of a year that must be applied before generating it. */
   pendingEffects: Map<number, Effect[]>;
-  branchTraj: Map<string, { traj: Traj; full: SimYear[] }>;
+  branchTraj: Map<string, { traj: Traj; full: SimYear[]; atFive?: Traj }>;
   drafts: Map<string, DecisionDraft>;
   slots: Slot[];
   usedStages: Set<string>;
@@ -382,6 +382,7 @@ export const useMockSim = create<Store>()((set, get) => {
         const { traj, year } = stepYear(bt.traj, last, ageAt(last), branchCtx(b.id));
         bt.traj = traj;
         bt.full.push(year);
+        if (last === I.ctx!.startYear + 5) bt.atFive = structuredClone(traj);
       }
       return { ...b, years: coarse(bt.full, b.forkYear), divergence: divergenceOf(bt.traj, bt.full[bt.full.length - 1]) };
     });
@@ -418,9 +419,26 @@ export const useMockSim = create<Store>()((set, get) => {
     });
     patch({ branches: [...get().branches, ...born] });
     stepBranches(d.year);
-    // Keep the three most different lives running; retire the rest quietly.
-    const active = get().branches.filter((b) => b.status === "active").sort((a, b) => b.divergence - a.divergence);
-    const keep = new Set(active.slice(0, 3).map((b) => b.id));
+    // Keep the three most different lives running (state distance AND variety of path): always the
+    // most divergent of this fork's newcomers, then the most divergent others, penalising a fork that
+    // already has a life kept. Retire the rest quietly.
+    const active = get().branches.filter((b) => b.status === "active");
+    const newcomers = active.filter((b) => b.forkDecisionId === d.id).sort((a, b) => b.divergence - a.divergence);
+    const keep = new Set<string>(newcomers.slice(0, 1).map((b) => b.id));
+    const perFork = new Map<string, number>();
+    if (keep.size) perFork.set(d.id, 1);
+    while (keep.size < 3) {
+      let best: Branch | null = null;
+      let score = -Infinity;
+      for (const b of active) {
+        if (keep.has(b.id)) continue;
+        const sc = b.divergence - 0.22 * (perFork.get(b.forkDecisionId) ?? 0);
+        if (sc > score) (score = sc), (best = b);
+      }
+      if (!best) break;
+      keep.add(best.id);
+      perFork.set(best.forkDecisionId, (perFork.get(best.forkDecisionId) ?? 0) + 1);
+    }
     patch({ branches: get().branches.map((b) => (b.status === "active" && !keep.has(b.id) ? { ...b, status: "retired" as const } : b)) });
   };
 
@@ -449,7 +467,8 @@ export const useMockSim = create<Store>()((set, get) => {
     stepBranches(endYear());
     const r = rngFrom(hash(I.seed, "ending"));
     const myT = I.trajAt.get(endYear()) ?? I.baseTraj!;
-    const verdict = verdictFor(myT, r);
+    const used = new Set<string>();
+    const verdict = verdictFor(myT, r, used);
     const branchVerdicts: Record<string, string> = {};
     const fiveYear: Record<string, string> = {};
     const quotes = s.profile!.quotes;
@@ -457,11 +476,12 @@ export const useMockSim = create<Store>()((set, get) => {
     const branches = get().branches.map((b) => {
       if (b.status !== "active") return b;
       const bt = I.branchTraj.get(b.id)!;
-      const v = verdictFor(bt.traj, rngFrom(hash(I.seed, b.id)));
+      const v = verdictFor(bt.traj, rngFrom(hash(I.seed, b.id)), used);
       branchVerdicts[b.id] = v;
       const before = s.years.filter((y) => y.year < b.forkYear);
       const atFive = bt.full.find((y) => y.year === I.ctx!.startYear + 5);
-      fiveYear[b.id] = fiveYearFor(I.input!.firstName, I.ctx!.startYear, [...before, ...bt.full], atFive ? { ...bt.traj, place: atFive.place } : bt.traj, quotes);
+      const fiveT = bt.atFive ?? (b.forkYear > I.ctx!.startYear + 5 ? I.trajAt.get(I.ctx!.startYear + 5) : undefined) ?? bt.traj;
+      fiveYear[b.id] = fiveYearFor(I.input!.firstName, I.ctx!.startYear, [...before, ...bt.full], atFive ? { ...fiveT, place: atFive.place } : fiveT, quotes);
       return { ...b, verdictAtEnd: v, years: bt.full };
     });
     patch({ branches, verdictAtEnd: verdict, ending: { verdict, branchVerdicts, fiveYear }, phase: "ended" });

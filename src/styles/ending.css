@@ -73,3 +73,6 @@
   .end-bar { padding: 0 var(--s4); }
   .five-a { font-size: 19px; }
 }
+
+.sun-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--sun); margin-right: 4px; vertical-align: 0; }
+.seg-item[data-state="on"] .numeral, .seg-item[data-state="active"] .numeral { color: color-mix(in oklab, var(--panel) 70%, transparent); }

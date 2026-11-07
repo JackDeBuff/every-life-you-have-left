@@ -14,6 +14,8 @@ export const EASE = {
 export const DUR = { press: 0.09, micro: 0.14, quick: 0.22, base: 0.36, slow: 0.64 } as const;
 
 gsap.defaults({ ease: EASE.settle, duration: DUR.base });
+// Choreography follows real time: a throttled frame should not stretch the fork moment or the interlude.
+gsap.ticker.lagSmoothing(0);
 
 /** The sun drifts gold → amber → evening coral as the life goes on. t in [0, 1]. */
 const STOPS: [number, [number, number, number]][] = [

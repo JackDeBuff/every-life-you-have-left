@@ -58,7 +58,7 @@ interface Props {
 }
 
 export function LifeRose({ states, log = [], size = 232 }: Props) {
-  const R = size / 2 - 30;
+  const R = size / 2 - 16;
   const r0 = R * 0.14;
   const cur = useRef<Record<DomainKey, number> | null>(null);
   const prev = useRef<DomainStates | null>(null);
@@ -158,12 +158,14 @@ export function LifeRose({ states, log = [], size = 232 }: Props) {
         <circle r={r0 - 3} fill="var(--panel)" />
         <circle r="2.5" fill="var(--sun)" />
         {FAMILIES.map((f) => {
-          const a = FAMILY_MID[f.key];
-          const lr = R + 16;
-          const cx = lr * Math.cos(rad(a));
-          const cy = lr * Math.sin(rad(a));
+          // Labels sit in the corners of their quadrant, editorial-style, never over the petals.
+          const a = rad(FAMILY_MID[f.key]);
+          const right = Math.cos(a) > 0;
+          const down = Math.sin(a) > 0;
+          const x = (right ? 1 : -1) * (size / 2 - 1);
+          const y = (down ? 1 : -1) * (size / 2 - 4) + (down ? 0 : 8);
           return (
-            <text key={f.key} x={cx} y={cy + 3.5} textAnchor={Math.abs(cx) < 8 ? "middle" : cx > 0 ? "start" : "end"} className="rose-fam" fill={famVar(f.key)}>
+            <text key={f.key} x={x} y={y} textAnchor={right ? "end" : "start"} className="rose-fam" fill={famVar(f.key)}>
               {f.label}
             </text>
           );

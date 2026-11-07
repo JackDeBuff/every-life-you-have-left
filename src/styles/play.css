@@ -247,7 +247,8 @@
 .il-meta .label { color: rgb(255 255 255 / 0.92); font-size: 12px; }
 .il-meta .label.faint { color: rgb(255 255 255 / 0.65); }
 .il-line { font-size: 24px; font-weight: 640; font-stretch: var(--w-wide); letter-spacing: -0.015em; line-height: 1.15; max-width: 28ch; text-shadow: 0 1px 18px rgb(0 0 0 / 0.4); }
-.il-count { position: absolute; top: var(--s4); left: var(--s6); color: rgb(255 255 255 / 0.7); }
+.il-head { position: absolute; top: var(--s4); left: var(--s6); color: rgb(255 255 255 / 0.78); opacity: 0; z-index: 2; }
+.il-count { color: rgb(255 255 255 / 0.55); }
 .lid { position: absolute; left: 0; right: 0; height: 50.5%; background: #050a0d; transform: scaleY(0); z-index: 3; }
 .lid.top { top: 0; transform-origin: top; border-radius: 0 0 50% 50% / 0 0 18% 18%; }
 .lid.bottom { bottom: 0; transform-origin: bottom; border-radius: 50% 50% 0 0 / 18% 18% 0 0; }

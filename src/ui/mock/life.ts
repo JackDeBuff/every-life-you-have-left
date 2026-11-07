@@ -44,6 +44,7 @@ export interface Traj {
   risk: number;
   craftNoun: string;
   craftVerb: string;
+  craftPerson: string;
   flags: Record<string, number>;
   /** Events a decision queued for upcoming years. */
   queued: QueuedEvent[];
@@ -491,8 +492,8 @@ export function stepYear(prev: Traj, year: number, age: number, ctx: LifeCtx): {
   // Money.
   const growth = t.workKind === "retired" ? 0 : t.workKind === "founder" ? (r() - 0.35) * 0.22 : 0.025 + t.drive * 0.02;
   t.income = Math.max(18000, Math.round(t.income * (1 + growth)));
-  const savingsRate = Math.max(0.02, 0.05 + t.caution * 0.16 - t.kids.length * 0.025 - (t.caring ? 0.02 : 0));
-  const ret = { cash: 0.01, index: 0.052, property: 0.042, business: t.workKind === "founder" ? 0.08 : 0.035 }[t.invest];
+  const savingsRate = Math.max(0.02, 0.04 + t.caution * 0.12 - t.kids.length * 0.025 - (t.caring ? 0.02 : 0));
+  const ret = { cash: 0.008, index: 0.042, property: 0.035, business: t.workKind === "founder" ? 0.06 : 0.03 }[t.invest];
   const worldHit = ctx.world[year] ? -0.12 * (t.invest === "cash" ? 0.1 : 1) : 0;
   t.netWorth = Math.round(t.netWorth * (1 + (t.netWorth > 0 ? ret + worldHit : 0.05)) + t.income * savingsRate);
   t.risk = Math.max(6, Math.round(t.risk * 0.82 + (t.workKind === "founder" ? 8 : 0)));
@@ -586,7 +587,7 @@ function band(age: number): SceneSpec["people"][number]["ageBand"] {
 function peopleFor(t: Traj, age: number, year: number): SceneSpec["people"] {
   const out: SceneSpec["people"] = [{ role: "self", ageBand: band(age) }];
   if (t.partner !== "none") out.push({ role: "partner", ageBand: band(age + 1) });
-  for (const b of t.kids) if (year >= b && year - b < 22) out.push({ role: "child", ageBand: band(year - b) });
+  for (const b of t.kids) if (year >= b) out.push({ role: "child", ageBand: band(year - b) });
   if (t.caring) out.push({ role: "parent", ageBand: "senior" });
   return out.slice(0, 6);
 }
@@ -603,16 +604,16 @@ export interface StartFacts {
   line: string;
 }
 
-export function craftOf(line: string): { noun: string; verb: string } {
+export function craftOf(line: string): { noun: string; verb: string; person: string } {
   const l = line.toLowerCase();
-  if (/paint|painting/.test(l)) return { noun: "paintings", verb: "paint" };
-  if (/draw|illustrat|art school|art/.test(l)) return { noun: "drawings", verb: "draw" };
-  if (/music|band|song|guitar|piano/.test(l)) return { noun: "songs", verb: "make music" };
-  if (/write|writing|novel|book|poem/.test(l)) return { noun: "writing", verb: "write" };
-  if (/film|video|photo/.test(l)) return { noun: "films", verb: "make films" };
-  if (/cook|bake|restaurant|food/.test(l)) return { noun: "food", verb: "cook" };
-  if (/code|app|startup|build/.test(l)) return { noun: "work", verb: "build your own thing" };
-  return { noun: "work", verb: "make your own thing" };
+  if (/paint|painting/.test(l)) return { noun: "paintings", verb: "paint", person: "Painter" };
+  if (/draw|illustrat|art school|art/.test(l)) return { noun: "drawings", verb: "draw", person: "Illustrator" };
+  if (/music|band|song|guitar|piano/.test(l)) return { noun: "songs", verb: "make music", person: "Musician" };
+  if (/write|writing|novel|book|poem/.test(l)) return { noun: "writing", verb: "write", person: "Writer" };
+  if (/film|video|photo/.test(l)) return { noun: "films", verb: "make films", person: "Filmmaker" };
+  if (/cook|bake|restaurant|food/.test(l)) return { noun: "food", verb: "cook", person: "Cook" };
+  if (/code|app|startup|build/.test(l)) return { noun: "work", verb: "build your own thing", person: "Founder" };
+  return { noun: "work", verb: "make your own thing", person: "Maker" };
 }
 
 export function parentOf(line: string): string {
@@ -666,6 +667,7 @@ export function initialTraj(f: StartFacts): Traj {
     risk: 22,
     craftNoun: craft.noun,
     craftVerb: craft.verb,
+    craftPerson: craft.person,
     flags: {},
     queued: [],
     states: {

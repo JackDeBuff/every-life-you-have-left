@@ -182,6 +182,10 @@ export default function Ending() {
   );
 }
 
+function LifeMark({ id, numeral }: { id: string; numeral: string }) {
+  return id === "chosen" ? <span className="sun-dot" aria-hidden="true" /> : <span className="numeral">{numeral}</span>;
+}
+
 function peopleLine(y: SimYear) {
   const ps = y.scene.people.filter((x) => x.role !== "self");
   if (!ps.length) return "Friends, mostly";
@@ -230,7 +234,7 @@ function FiveYear({ lives }: { lives: LifeCol[] }) {
       <Tabs.List className="seg five-tabs" aria-label="Pick a life">
         {lives.map((l) => (
           <Tabs.Trigger key={l.id} value={l.id} className="seg-item">
-            <span className="numeral">{l.numeral}</span> {l.id === "chosen" ? "Your life" : l.title}
+            <LifeMark id={l.id} numeral={l.numeral} /> {l.id === "chosen" ? "Your life" : l.title}
           </Tabs.Trigger>
         ))}
       </Tabs.List>
@@ -291,7 +295,7 @@ function TalkTo({ lives, life, setLife }: { lives: LifeCol[]; life: string; setL
         <div className="seg" role="radiogroup" aria-label="Which life">
           {lives.map((l) => (
             <button key={l.id} role="radio" aria-checked={life === l.id} className="seg-item" data-state={life === l.id ? "on" : "off"} onClick={() => setLife(l.id)}>
-              <span className="numeral">{l.numeral}</span> {l.id === "chosen" ? "Your life" : l.title}
+              <LifeMark id={l.id} numeral={l.numeral} /> {l.id === "chosen" ? "Your life" : l.title}
             </button>
           ))}
         </div>

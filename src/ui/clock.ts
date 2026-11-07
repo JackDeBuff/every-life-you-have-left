@@ -59,7 +59,7 @@ class LifeClock {
     this.scale += (target - this.scale) * k;
     if (Math.abs(this.scale - target) < 0.002) this.scale = target;
     const spy = SPEED_CONFIG[s.speed].secondsPerYear;
-    if (running || this.scale > 0) this.progress += ((Math.min(dtMs, 64) / 1000) * this.scale) / spy;
+    if (running || this.scale > 0) this.progress += ((Math.min(dtMs, 250) / 1000) * this.scale) / spy;
     if (this.progress >= 1 && this.awaiting === null) {
       this.progress = 1;
       this.awaiting = s.playhead.year + 1;

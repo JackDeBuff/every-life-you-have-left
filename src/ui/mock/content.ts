@@ -136,7 +136,7 @@ function forkOffer(c: Ctx, place: string): DecisionDraft {
     },
     {
       label: `Turn it down and ${t.craftVerb} instead`, hint: "Less money, all of your own hours", branchTitle: `Quit to ${t.craftVerb.split(" ")[0]}`,
-      effect: { workKind: "creative", work: `${cap(t.craftVerb)}, freelancing on the side`, incomeMul: 0.55, craft: 0.42, balance: 0.12, risk: 30, leap: true,
+      effect: { workKind: "creative", work: `${t.craftPerson}, freelancing on the side`, incomeMul: 0.55, craft: 0.42, balance: 0.12, risk: 30, leap: true,
         queue: [{ inYears: 0, domain: "lifeGoals", category: "career_change", title: "You hand in your notice", narrative: "Your manager says the door is open. You don't look back at it.", tone: "mixed", baseRate: "occ_switch", moment: null, activity: "studio_creating" }] },
     },
     {
@@ -160,7 +160,7 @@ function forkCraft(c: Ctx): DecisionDraft {
     { label: "Say not yet. Keep it a hobby", hint: "Safer, and it stays private", branchTitle: "Keep it a hobby", effect: { caution: 0.12, craft: -0.1, drive: 0.08 } },
     { label: "Cut to four days a week to make room", hint: "Less money, more of you", branchTitle: "Four-day week", effect: { incomeMul: 0.8, craft: 0.22, balance: 0.2 } },
     { label: `Quit and ${t.craftVerb} full time`, hint: "All in. Savings for a year", branchTitle: `${cap(t.craftVerb)} full time`,
-      effect: { workKind: "creative", work: `${cap(t.craftVerb)} full time`, incomeMul: 0.45, craft: 0.45, risk: 32, leap: true } },
+      effect: { workKind: "creative", work: `${t.craftPerson}, full time`, incomeMul: 0.45, craft: 0.45, risk: 32, leap: true } },
   ]);
 }
 
@@ -310,7 +310,7 @@ function forkNext(c: Ctx): DecisionDraft {
     `You said ${said(why)} The last fork is about what's left.`, why, [
     { label: "Retire early and live smaller", hint: "Time over money", branchTitle: "Retire early", effect: { retireAge: c.age + 1, balance: 0.25 } },
     { label: "Keep working. It's who you are", hint: "Purpose, and a later finish line", branchTitle: "Keep going", effect: { retireAge: 69, drive: 0.1 } },
-    { label: "Start the thing you never did", hint: "A late beginning", branchTitle: "A late start", effect: { craft: 0.4, workKind: "creative", work: "Making things, finally", leap: true } },
+    { label: "Start the thing you never did", hint: "A late beginning", branchTitle: "A late start", effect: { craft: 0.4, workKind: "creative", work: `${c.t.craftPerson}, finally`, leap: true } },
     { label: "Move somewhere new, near water", hint: "A last big move", branchTitle: "Move to the coast", effect: { move: moveTo("Charleston", false), balance: 0.2, retireAge: c.age + 2 } },
   ]);
 }
@@ -415,30 +415,55 @@ export function nudgeLine(id: string, label: string, toLabel: string, age: numbe
 // ---------------------------------------------------------------------------------------------
 // Endings, five-year answers, future selves
 // ---------------------------------------------------------------------------------------------
-export function verdictFor(t: Traj, r: Rng): string {
+export function verdictFor(t: Traj, r: Rng, used: Set<string> = new Set()): string {
   const lines: string[] = [];
-  if (t.workKind === "creative" || t.craft > 0.6) lines.push("You made things, and some of them outlived the doubt.");
-  if (t.farFromHome) lines.push("Further from home than you planned, and closer to yourself.");
+  if (t.workKind === "creative" || t.craft > 0.6) lines.push("You made things, and some of them outlived the doubt.", `More ${t.craftNoun} than money. You'd sign up again.`);
+  if (t.farFromHome) lines.push("Further from home than you planned, and closer to yourself.", `${t.city} became home somewhere around year five.`);
   if (t.kids.length > 1) lines.push("A loud house, a full table, and people who stayed.");
-  if (t.kids.length === 1) lines.push("One child, many Saturdays, no regrets about the sleep.");
-  if (t.caution > 0.7) lines.push("Safe and solid, with a few doors you never opened.");
-  if (t.drive > 0.7) lines.push("Louder than you planned. You'd tell them to rest more.");
-  if (t.balance > 0.65) lines.push("Quieter than you planned, and mostly on your own terms.");
+  if (t.kids.length === 1) lines.push("One child, a thousand Saturdays, no regrets about the sleep.");
+  if (t.caution > 0.7) lines.push("Safe and solid, with a few doors you never opened.", "Nothing fell through. A few things never got tried.");
+  if (t.drive > 0.7) lines.push("Louder than you planned. You'd tell yourself to rest more.", "You got to the top floor and found you liked the stairs better.");
+  if (t.balance > 0.65) lines.push("Quieter than you planned, and mostly on your own terms.", "Long mornings, short commutes, enough.");
   if (t.workKind === "founder") lines.push("Your name on the door. It cost sleep, and it was yours.");
+  if (t.workKind === "teacher") lines.push("Hundreds of students, and a few who still write.");
   if (t.caring) lines.push("You showed up for family when it counted.");
-  if (!lines.length) lines.push("Steady, and quieter than you planned.");
-  return lines.length > 1 ? lines[Math.floor(r() * lines.length)]! : lines[0]!;
+  if (t.partner === "married" && t.partnerName && t.partnerName !== "your partner") lines.push(`${t.partnerName} is still the first person you tell things.`);
+  lines.push("Steady, and quieter than you planned.", "Not the life you pictured at the start. A good one anyway.");
+  const fresh = lines.filter((l) => !used.has(l));
+  const pool = fresh.length ? fresh : lines;
+  const v = pool[Math.floor(r() * Math.min(pool.length, 3))]!;
+  used.add(v);
+  return v;
 }
 
-export function fiveYearFor(name: string, startYear: number, years: { year: number; age: number; place: string; summary: string; events: { title: string }[] }[], t: Traj, quotes: Quote[]): string {
+const PAST: [RegExp, string][] = [
+  [/^You meet /, "I've met "], [/^You marry /, "I've married "], [/^You launch /, "I've launched "], [/^You land in /, "I've landed in "],
+  [/^You hand in your notice/, "I've handed in my notice"], [/^You start /, "I've started "], [/^You graduate/, "I've graduated"],
+  [/^Your first child is born/, "I've become a parent"], [/^Your /, "my "], [/^Promoted to /, "I've been promoted to "], [/^A new job/, "I've got a new job"],
+  [/^Keys to a place of your own/, "I've got keys to a place of my own"], [/^The raise comes through/, "the raise has come through"],
+  [/^You move in together/, "we've moved in together"], [/ moves in$/, " has moved in"],
+];
+const toFirstPerson = (title: string) => {
+  for (const [re, to] of PAST) if (re.test(title)) return title.replace(re, to);
+  return lowerFirst(title);
+};
+
+function doing(work: string): string {
+  if (work === "Retired") return "finally retired";
+  if (/^(Working|Running|Teaching|Making|Starting|Student)/.test(work)) return lowerFirst(work);
+  const w = lowerFirst(work);
+  return `working as ${/^[aeiou]/i.test(w) ? "an" : "a"} ${w}`;
+}
+
+export function fiveYearFor(name: string, startYear: number, years: { year: number; age: number; place: string; summary: string; events: { title: string; category: string }[] }[], t: Traj, quotes: Quote[]): string {
   const span = years.filter((y) => y.year > startYear && y.year <= startYear + 5);
   const end = span[span.length - 1] ?? years[years.length - 1];
-  const milestones = span.flatMap((y) => y.events.map((e) => e.title.replace(/^You /, "I ").replace(/^Your /, "My "))).slice(0, 2);
+  const milestones = span.flatMap((y) => y.events.filter((e) => e.category !== "texture").map((e) => toFirstPerson(e.title))).slice(0, 2);
   const youSaid = quotes[quotes.length - 1] ?? quotes[0];
   const place = end?.place ?? t.place;
   const parts = [
-    `In five years I see myself in ${place}, ${t.work === "Retired" ? "finally retired" : lowerFirst(t.work)}.`,
-    milestones.length ? `By then: ${milestones.map(lowerFirst).join(", and ")}.` : "It won't look dramatic from the outside, and that's on purpose.",
+    `In five years I see myself in ${place}, ${doing(t.work)}.`,
+    milestones.length ? `By then ${milestones.join(", and ")}.` : "It won't look dramatic from the outside, and that's on purpose.",
     youSaid ? `Not long ago I said “${youSaid.shortForm ?? shortOf(youSaid.text, 12)}” I'm building toward the version of me who doesn't have to say that anymore.` : "",
     `That's my honest answer${name ? `, from ${name}` : ""}.`,
   ];
