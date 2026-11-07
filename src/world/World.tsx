@@ -14,6 +14,7 @@ import type { InterludeCut } from "../../shared/engine";
 import type { Appearance, SceneSpec } from "../../shared/sim";
 import { MotionCtx, type WorldMotion } from "./scene/anim";
 import { WorldScene } from "./scene/WorldScene";
+import { withStory, type WorldStory } from "./story";
 import "./world.css";
 
 export interface WorldProps {
@@ -31,6 +32,11 @@ export interface WorldProps {
   paused?: boolean;
   /** Interlude: seconds per cut (default 2.5). The UI shortens it in Auto to keep the run ≤3 min. */
   cutSeconds?: number;
+  /**
+   * This year's story (src/world/story.ts: storyFor(year, prevYear)): names over the characters,
+   * ledger people the scene should show, and the beat the camera eases toward. Life mode only.
+   */
+  story?: WorldStory | null;
   className?: string;
 }
 
@@ -91,7 +97,7 @@ export function Poster({ caption }: { caption?: string }) {
   );
 }
 
-export function World({ spec, mode = "life", cuts, appearance = null, onMomentDone, onCut, onInterludeDone, paused = false, cutSeconds, className }: WorldProps) {
+export function World({ spec, mode = "life", cuts, appearance = null, onMomentDone, onCut, onInterludeDone, paused = false, cutSeconds, story = null, className }: WorldProps) {
   const reduced = usePrefersReducedMotion();
   const [gl] = useState(webglAvailable);
   const host = useRef<HTMLDivElement>(null);
@@ -150,6 +156,11 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
   );
 
   const active = visible && pageVisible && !paused && !reduced;
+  // The story only belongs to the life itself (interlude cuts are other lives, captioned by the UI).
+  const tellStory = mode === "life" ? story : null;
+  const shown = useMemo(() => withStory(spec, tellStory), [spec, tellStory]);
+  // name tags: DOM nodes positioned every frame from inside the canvas (scene/Tags.tsx)
+  const tags = useMemo(() => new Map<string, HTMLElement>(), []);
   const fade = useCallback((on: boolean) => setFadeOn(on), []);
   const snapshot = useCallback((url: string) => setSnap({ url, id: performance.now() }), []);
   useEffect(() => {
@@ -215,7 +226,9 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
             {watch && <PerformanceMonitor ms={400} iterations={8} bounds={(hz) => (hz > 90 ? [55, 85] : [44, 57])} flipflops={3} onDecline={() => step(-1)} onIncline={() => step(1)} />}
             <DemandTicker on={!active && visible && pageVisible} />
             <WorldScene
-              spec={spec}
+              spec={shown}
+              story={tellStory}
+              tags={tags}
               mode={mode}
               cuts={cuts}
               appearance={appearance}
@@ -231,6 +244,24 @@ export function World({ spec, mode = "life", cuts, appearance = null, onMomentDo
         </Canvas>
       </Boundary>
       {mode === "interlude" && <div className="world-letterbox" aria-hidden />}
+      {tellStory && (
+        <div className="world-tags" aria-hidden>
+          {tellStory.cast.map((c) => (
+            <span
+              key={c.key}
+              className="world-tag"
+              data-self={c.key === "self0" || undefined}
+              data-new={c.isNew || undefined}
+              ref={(el) => {
+                if (el) tags.set(c.key, el);
+                else tags.delete(c.key);
+              }}
+            >
+              {c.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="world-fade" data-on={fadeOn} aria-hidden />
       {snap && <img key={snap.id} className="world-snap" src={snap.url} alt="" aria-hidden />}
     </div>

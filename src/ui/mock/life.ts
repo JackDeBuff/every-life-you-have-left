@@ -6,7 +6,7 @@
 import type { BaseRateId } from "../../../shared/baseRates";
 import type { DomainKey } from "../../../shared/domains";
 import type { DomainStates, EventCategory, LifeEvent, Quote } from "../../../shared/schema";
-import type { SceneSpec, SimYear } from "../../../shared/sim";
+import type { SceneSpec, SimYear, YearLife } from "../../../shared/sim";
 import { clamp, hash, pick, rngFrom, type Rng } from "./rng";
 
 export type WorkKind = "employee" | "founder" | "creative" | "teacher" | "caregiver" | "retired";
@@ -565,8 +565,31 @@ export function stepYear(prev: Traj, year: number, age: number, ctx: LifeCtx): {
 
   return {
     traj: t,
-    year: { year, age, place: t.place, summary, states: t.states, money: { income: t.income, netWorth: t.netWorth }, events, scene, decisionIds: [] },
+    year: { year, age, place: t.place, summary, states: t.states, money: { income: t.income, netWorth: t.netWorth }, events, scene, decisionIds: [], life: ledgerFor(prev, t, year, age) },
   };
+}
+
+const KID_NAMES = ["Mia", "Theo", "Noor", "Kai"];
+
+/**
+ * The demo's stand-in for the engine's life ledger (worker/engine/ledger.ts -> SimYear.life): who
+ * is in the life this year, with names and ages, and what changed. The 3D world names people
+ * from it and stages arrivals; the bio lists them.
+ */
+function ledgerFor(prev: Traj, t: Traj, year: number, age: number): YearLife {
+  const people: YearLife["people"] = [];
+  if (t.partner !== "none") people.push({ name: t.partnerName ?? "your partner", role: "partner", relation: t.partner === "married" ? "spouse" : "partner", age: age + 1 });
+  t.kids.forEach((b, i) => {
+    if (year >= b) people.push({ name: KID_NAMES[i % KID_NAMES.length]!, role: "child", relation: "child", age: year - b });
+  });
+  if (t.parent !== "your parents" && !t.flags.careEnd) people.push({ name: t.parent, role: "parent", relation: t.parent === "Dad" ? "father" : t.parent === "Mom" ? "mother" : "grandmother", age: null });
+  const ch: string[] = [];
+  if (prev.partner === "none" && t.partner !== "none") ch.push(`+partner:${t.partnerName ?? "your partner"}`);
+  if (prev.partner !== "none" && t.partner === "none") ch.push(`-partner:${prev.partnerName ?? "your partner"}`);
+  t.kids.forEach((b, i) => {
+    if (b === year) ch.push(`+child:${KID_NAMES[i % KID_NAMES.length]}`);
+  });
+  return { work: t.work, ch, people };
 }
 
 function reasonFor(d: Draft, q: Quote): string {

@@ -27,6 +27,8 @@ import { Procs } from "./Procs";
 import { markShadows, ShadowDirector } from "./shadows";
 import { PracticalLights } from "./practical";
 import { warmShaders } from "./warmup";
+import type { WorldStory } from "../story";
+import { BeatDirector, NameTags } from "./Story";
 import { Weather } from "./Weather";
 
 export interface SceneProps {
@@ -45,6 +47,10 @@ export interface SceneProps {
   snapshot: (dataUrl: string) => void;
   /** Quality tier (World.tsx): 2 high, 1 medium, 0 low. */
   tier: 0 | 1 | 2;
+  /** This year's story (names, beat); null in interludes. */
+  story: WorldStory | null;
+  /** Name-tag DOM nodes by cast key (World.tsx renders them; <NameTags> positions them). */
+  tags: Map<string, HTMLElement>;
 }
 
 interface IslandItem {
@@ -120,7 +126,7 @@ function preloadFor(layout: Layout) {
 }
 
 export function WorldScene(props: SceneProps) {
-  const { mode, cuts, appearance, onMomentDone, onCut, onInterludeDone, fade, snapshot, tier } = props;
+  const { mode, cuts, appearance, onMomentDone, onCut, onInterludeDone, fade, snapshot, tier, story, tags } = props;
   const cutLen = Math.max(1.2, props.cutSeconds ?? 2.5);
   const { time, reduced } = useMotion();
   const { gl, invalidate } = useThree();
@@ -335,6 +341,8 @@ export function WorldScene(props: SceneProps) {
           <MomentDirector key={moment.token} moment={moment.kind} token={moment.token} layout={layout} self={self} rig={rig} memory={memory} glowBoost={glowBoost} onDone={momentDone} />
         </Suspense>
       )}
+      <NameTags tags={tags} self={self} hidden={mode !== "life" || !story} rising={top.rise ? top.born : null} />
+      {mode === "life" && <BeatDirector story={story} applied={applied} layout={layout} self={self} rig={rig} moment={!!moment} />}
       <Post memory={memory as MutableRefObject<number>} tier={tier} />
     </LookCtx.Provider>
   );

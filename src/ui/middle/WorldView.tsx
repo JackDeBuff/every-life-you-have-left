@@ -8,6 +8,8 @@
  *   moments     only on a real turning point and at most one every few years (src/ui/pacing.ts);
  *               the clock holds for each so the cinematic finishes before the next year arrives
  *   paused      while a big decision dims the pane
+ *   story       this year's story from the life ledger (src/world/story.ts): names over the
+ *               people, who arrived, and the one beat the camera eases toward (+ a caption line)
  *
  * The World only re-renders when one of these props changes (a year turns, a phase changes); the
  * per-frame playhead never touches React.
@@ -20,6 +22,7 @@ import { cutSecondsFor, MOMENT_RULES, playableMoments } from "../pacing";
 import { sim, useSim } from "../session";
 import { useUi } from "../uiStore";
 import { WorldSlot } from "./WorldSlot";
+import { beatLine, storyFor, type WorldStory } from "../../world/story";
 
 const World3D = lazy(() => import("../../world/World"));
 
@@ -94,6 +97,8 @@ export function CurrentWorld() {
   const speedMode = useSim((s) => s.speed);
   const playable = useMemo(() => playableMoments(years, speedMode), [years, speedMode]);
   const exact = years.find((y) => y.year === year);
+  const prevYear = years.find((y) => y.year === year - 1);
+  const story = useMemo(() => storyFor(exact ?? null, prevYear ?? null), [exact, prevYear]);
   const shownMoment = exact?.scene.moment && playable.has(year) ? exact.scene.moment : null;
   const spec = useMemo(() => (base && base.moment !== shownMoment ? { ...base, moment: shownMoment } : base), [base, shownMoment]);
   const appearance = useSim((s) => s.appearance);
@@ -149,8 +154,9 @@ export function CurrentWorld() {
             onInterludeDone={onInterludeDone}
             paused={pendingBig && !forking}
             cutSeconds={cutSecondsFor(speed)}
+            story={story}
           />
-          {!showInterlude && <Caption spec={spec} />}
+          {!showInterlude && <Caption spec={spec} story={story} />}
         </Suspense>
       ) : (
         <WorldSlot spec={spec} />
@@ -184,12 +190,23 @@ function Thinking() {
   );
 }
 
-/** Place + caption over the 3D world (the 2D slot draws its own). */
-function Caption({ spec }: { spec: SceneSpec }) {
+/**
+ * Place + caption over the 3D world (the 2D slot draws its own), plus the year's beat (who
+ * arrived, a move, new work) as a short line, and, for screen readers, who is in the scene.
+ */
+function Caption({ spec, story }: { spec: SceneSpec; story: WorldStory | null }) {
+  const beat = beatLine(story?.beat ?? null, spec.caption);
+  const others = story?.cast.filter((c) => c.key !== "self0").map((c) => c.name) ?? [];
   return (
     <div className="world-cap">
       <span className="label">{spec.placeLabel}</span>
       <span className="world-caption">{spec.caption}</span>
+      {beat && (
+        <span key={`${story!.year}|${beat}`} className="world-beat">
+          {beat}
+        </span>
+      )}
+      {others.length > 0 && <span className="sr-only">With {others.join(", ")}.</span>}
     </div>
   );
 }

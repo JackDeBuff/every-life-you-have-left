@@ -10,6 +10,7 @@ import {
 } from "../../shared/sim";
 import { ALEX, DEMO_CUTS } from "./alex";
 import { MANIFEST } from "./assets";
+import { beatLine, storyFor, type WorldStory } from "./story";
 import { World } from "./World";
 import "./lab.css";
 
@@ -58,6 +59,8 @@ export default function Lab() {
   /** Seconds per interlude cut (scripted stills of each branch's landmark hold a cut longer). */
   const [cutSeconds, setCutSeconds] = useState<number | undefined>(undefined);
   const [cutAt, setCutAt] = useState(-1);
+  /** A year's story (names, beat): window.__lab.setStory(storyFor(year, prev)) or a literal. */
+  const [story, setStory] = useState<WorldStory | null>(null);
   const fps = useFps();
   const waitingMoment = useRef(false);
   const cutAtRef = useRef(-1);
@@ -65,7 +68,7 @@ export default function Lab() {
 
   // dev hook for scripted screenshots: window.__lab.setSpec({...})
   useEffect(() => {
-    (window as unknown as { __lab: unknown }).__lab = { setSpec, setMode, setCuts, ALEX, DEMO_CUTS, setAppearance, setPaused, setAuto, setAutoIdx, setCutSeconds, cutAt: () => cutAtRef.current };
+    (window as unknown as { __lab: unknown }).__lab = { setSpec, setMode, setCuts, ALEX, DEMO_CUTS, setAppearance, setPaused, setAuto, setAutoIdx, setCutSeconds, setStory, storyFor, cutAt: () => cutAtRef.current };
   }, []);
 
   const note = useCallback((s: string) => setLog((l) => [`${new Date().toLocaleTimeString()}  ${s}`, ...l].slice(0, 8)), []);
@@ -121,7 +124,7 @@ export default function Lab() {
   return (
     <div className="wl" data-bare={location.hash.includes("bare") || undefined}>
       <div className="wl-stage">
-        <World spec={spec} mode={mode} cuts={cuts} appearance={appearance} onMomentDone={onMomentDone} onCut={onCut} onInterludeDone={onInterludeDone} paused={paused} cutSeconds={cutSeconds} />
+        <World spec={spec} mode={mode} cuts={cuts} appearance={appearance} onMomentDone={onMomentDone} onCut={onCut} onInterludeDone={onInterludeDone} paused={paused} cutSeconds={cutSeconds} story={story} />
         <div className="wl-caption">
           {mode === "interlude" ? (
             <>
@@ -132,6 +135,7 @@ export default function Lab() {
             <>
               <span className="wl-kicker">{spec.placeLabel}</span>
               <span>{spec.caption}</span>
+              {beatLine(story?.beat ?? null, spec.caption) && <span className="world-beat">{beatLine(story?.beat ?? null, spec.caption)}</span>}
             </>
           )}
         </div>
