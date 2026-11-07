@@ -33,7 +33,13 @@ export function Bio() {
   const age = useSim((s) => s.playhead.age);
   const year = useSim((s) => s.playhead.year);
   const endAge = useSim((s) => s.endAge);
-  const yr = useSim((s) => s.years.find((y) => y.year === s.playhead.year) ?? null);
+  // The latest written year at or before the playhead: a fork rewrites its own year, and the
+  // net worth must not flash $0 meanwhile (QA). Day one: their own savings minus debt, if known.
+  const yr = useSim((s) => s.years.findLast((y) => y.year <= s.playhead.year) ?? null);
+  const dayOne = useSim((s) => (s.profile?.money.savingsUsd ?? 0) - (s.profile?.money.debtUsd ?? 0));
+  const lastNw = useRef<number | null>(null);
+  if (yr) lastNw.current = yr.money.netWorth;
+  const netWorth = yr?.money.netWorth ?? lastNw.current ?? dayOne;
   const forks = useSim((s) => s.decisions.filter((d) => d.kind === "big" && d.status === "answered").length);
   const places = useSim((s) => new Set(s.years.filter((y) => y.year <= s.playhead.year).map((y) => y.place)).size);
   if (!p) return null;
@@ -81,7 +87,7 @@ export function Bio() {
         <div className="money-row">
           <dt className="label">Net worth</dt>
           <dd>
-            <Count value={yr?.money.netWorth ?? 0} className="money data" />
+            <Count value={netWorth} className="money data" />
             <span className="money-note">A projection, not a prediction. Today's dollars.</span>
           </dd>
         </div>

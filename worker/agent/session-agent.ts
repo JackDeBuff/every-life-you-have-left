@@ -463,7 +463,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
       this.update({ thinking: starved });
     }
     this.gateCheck();
-    if (this.s.phase === "playing" && this.s.playhead.year >= this.endYear) {
+    // The end year itself plays like any other; the client asks for the year after it to end.
+    if (this.s.phase === "playing" && this.s.playhead.year >= this.endYear && Math.floor(year) > this.endYear) {
       this.runEnding();
       return;
     }
