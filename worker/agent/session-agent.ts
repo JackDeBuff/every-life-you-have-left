@@ -37,7 +37,8 @@ import {
   type SimYear,
 } from "../../shared/sim";
 import type { Profile } from "../../shared/schema";
-import { loadEngine, type LoadedEngine } from "../engine-select";
+import { loadEngine, type LoadedEngine, type UsageSink } from "../engine-select";
+import { costOf } from "../engine/pricing";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
 import { diffState, type AgentState, type AnswerInput, type ChatMessage, type SnapshotMsg } from "./protocol";
@@ -99,6 +100,7 @@ export function initialAgentState(sessionId: string): AgentState {
     bufferedTo: null,
     engine: "mock",
     error: null,
+    usage: null,
   };
 }
 
@@ -140,6 +142,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     bindLlm(this.env as unknown as LlmEnv);
     const st = this.state;
     this.cur = st && st.sessionId ? { ...initialAgentState(this.name), ...st } : initialAgentState(this.name);
+    if (this.cur.usage) this.spend = { usd: this.cur.usage.usd, calls: this.cur.usage.calls, byPurpose: { ...this.cur.usage.byPurpose } };
     if (this.cur.phase !== "start" && this.cur.profile) {
       const ph = this.cur.playhead.year;
       this.slots = (await this.eng()).planSlots(this.cur).filter((sl) => sl.year > ph);
@@ -161,9 +164,26 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     return this.mirrorDb;
   }
 
+  /** Session cost tally (admin + timing runs). Published at most every few seconds. */
+  private spend = { usd: 0, calls: 0, byPurpose: {} as Record<string, number> };
+  private spendTimer: ReturnType<typeof setTimeout> | null = null;
+  private onUsage: UsageSink = (u) => {
+    const c = costOf(u);
+    this.spend.usd += c;
+    this.spend.calls++;
+    const k = u.purpose.split(".")[0] ?? u.purpose;
+    this.spend.byPurpose[k] = (this.spend.byPurpose[k] ?? 0) + c;
+    if (!this.spendTimer)
+      this.spendTimer = setTimeout(() => {
+        this.spendTimer = null;
+        const r = (x: number) => Math.round(x * 10000) / 10000;
+        this.update({ usage: { usd: r(this.spend.usd), calls: this.spend.calls, byPurpose: Object.fromEntries(Object.entries(this.spend.byPurpose).map(([a, b]) => [a, r(b)])) } });
+      }, 2000);
+  };
+
   private engInfo(): Promise<LoadedEngine> {
     if (!this.enginePromise) {
-      this.enginePromise = loadEngine(this.env).then((r) => {
+      this.enginePromise = loadEngine(this.env, this.onUsage).then((r) => {
         this.engineSync = r.engine;
         return r;
       });
@@ -526,6 +546,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   /** Dev only: wipe the session back to the start screen. */
   async reset(): Promise<void> {
     this.epoch++;
+    this.spend = { usd: 0, calls: 0, byPurpose: {} };
     this.holdGen = false;
     this.endingPre = null;
     this.slots = [];
