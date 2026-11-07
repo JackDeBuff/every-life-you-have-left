@@ -403,15 +403,28 @@
 .sw-thumb { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--raised); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); transform: translateX(2px); transition: transform var(--t-quick) var(--e-settle); }
 .sw[data-state="checked"] .sw-thumb { transform: translateX(16px); background: var(--sun); }
 
+/*
+ * The history: no vertical padding (spacers are pseudo-elements inside the scroll), so when the
+ * card needs the room it can shrink all the way to 0 instead of holding 28 px of padding. A soft
+ * fade at the top edge where older lines scroll away.
+ */
 .dialogue {
-  flex: 1 1 0; min-height: 0; padding: var(--s4) var(--s5);
+  flex: 1 1 0; min-height: 0; padding: 0 var(--s5);
   display: flex; flex-direction: column; gap: 14px;
   overflow-x: hidden; overscroll-behavior: contain;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18px);
+  mask-image: linear-gradient(to bottom, transparent, #000 18px);
   transition: opacity var(--t-slow) var(--e-tide);
 }
-/* With a card open the history keeps a soft edge where it meets it. */
-.right[data-card="true"] .dialogue { padding-bottom: var(--s3); }
-.right[data-big="true"] .dialogue { flex: 0 0 0; opacity: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; }
+.dialogue::before, .dialogue::after { content: ""; flex: none; height: var(--s4); }
+.dialogue::after { height: var(--s3); }
+.right[data-card="false"] .dialogue::after { height: var(--s4); }
+.right[data-big="true"] .dialogue { flex: 0 0 0; opacity: 0; overflow: hidden; }
+/* Open settings scroll inside; a fade at the cut says there is more below. */
+.settings[data-open="true"] .settings-body {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+}
 .dl { animation: rise var(--t-base) var(--e-settle); }
 .dl:first-child { margin-top: auto; }
 .dl p { font-size: 15px; line-height: 1.5; }

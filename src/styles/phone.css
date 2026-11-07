@@ -41,9 +41,10 @@
   background: var(--panel); border-top: 1px solid var(--hair-2);
   border-radius: var(--r2) var(--r2) 0 0; box-shadow: 0 -12px 40px -16px rgb(0 0 0 / 0.3);
   transform: translateY(calc(82dvh - 64px));
-  transition: transform 520ms var(--e-settle);
+  transition: transform 520ms var(--e-settle), height 520ms var(--e-settle), grid-template-rows 520ms var(--e-settle);
 }
-.sheet[data-open="true"] { transform: translateY(0); }
+/* Open (a card, or by hand): the sheet rises to just under the timeline, the handle shrinks to a grip. */
+.sheet[data-open="true"] { transform: translateY(0); height: calc(100dvh - 104px); grid-template-rows: 22px minmax(0, 1fr); }
 .sheet-handle { border: 0; background: none; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 8px var(--s4) 0; }
 .grip { width: 36px; height: 4px; border-radius: 4px; background: var(--hair-2); }
 .sheet-peek { color: var(--ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -53,7 +54,9 @@
 .sheet .dcard { max-height: none; flex: 1 1 auto; }
 .sheet .tiles { grid-template-columns: 1fr; }
 .sheet .dcard[data-kind="big"] .tile { min-height: 0; }
-.sheet .dcard[data-kind="big"] { padding: var(--s4); }
+.sheet .dcard[data-kind="big"] { padding: var(--s4) var(--s4) 0; }
 .sheet .dcard[data-kind="big"] .dq { font-size: 24px; }
+.sheet .dcard[data-kind="big"] .dq[data-len="l"] { font-size: 20px; }
+.sheet .dcard[data-kind="big"] .dq[data-len="xl"] { font-size: 18.5px; }
 .sheet .keys-hint { display: none; }
 @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
