@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "every-life-you-have-left",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    // SPA: unknown paths serve index.html; only /api/* wakes the Worker.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true }, // never console.log request bodies (personal data)
+  "limits": { "cpu_ms": 60000 },
+  "vars": {
+    "GCP_PROJECT": "triangle-ai-hack-2026",
+    "GCP_LOCATION": "global",
+    "MODEL_HEAVY": "gemini-3.8-flash",
+    "MODEL_FAST": "gemini-3.5-flash-lite",
+    "MODEL_QUALITY": "gemini-4-argon",
+    "MODEL_FALLBACK": "gemini-3.6-flash",
+    // Kill switch (D-032): "false" turns all Gemini calls off; the UI falls back to shared/demo.
+    "GENERATION_ENABLED": "true"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "elyl-db",
+      "database_id": "33c86b7e-a0d5-4f5c-a15e-ab290e1faabe",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "elyl-uploads" }]
+  // Secrets (never in this file): GCP_API_KEY, ADMIN_PASSCODE
+  //   local: .dev.vars   remote: npx wrangler secret put <NAME>
+}
