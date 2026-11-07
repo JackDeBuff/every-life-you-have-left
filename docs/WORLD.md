@@ -168,6 +168,13 @@ Regional flavour by `flavor` (walls / roofs / vegetation / ground):
 - **Interlude.** Each cut starts already in motion (a slow dolly or truck), letterboxed, with a
   cooler, slightly desaturated "memory" grade. Cuts are joined by a fast fade through the sky
   colour, never a hard cut.
+- **A landmark per branch** (`landmarks.ts`, `scene/Landmark.tsx`): each cut gets one procedural
+  silhouette from its place (canal, cable car, Marina towers, supertrees, lattice tower, clock tower,
+  stepped spire, needle, pagoda, sails, bridge), else its setting/region (lighthouse, windmill, water
+  tower, big tree, ferris wheel, balloon), never twice in one interlude, plus the branch accent
+  (I `#F0A830`, II `#24A094`, III `#DC5A78`) on the landmark and the front door. Each cut re-seeds its
+  neighbourhood, so three lives in one city still differ; in a city the towers step down so the
+  landmark is the skyline, and the cut camera frames it.
 
 ## 6. Character style
 

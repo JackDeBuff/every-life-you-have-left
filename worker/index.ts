@@ -17,6 +17,7 @@ import { wantsReal } from "./engine-select";
 import { GeminiError, GenerationDisabledError, generate, generationEnabled, stream, textDeltas } from "./gemini";
 import { bindLlm, type LlmEnv } from "./llm";
 import { media } from "./media";
+import { share } from "./share";
 import { sseResponse } from "./sse";
 
 export { SessionAgent } from "./agent/session-agent";
@@ -117,6 +118,7 @@ app.get("/api/demo/life/:key", (c) => {
 app.get("/api/demo", (c) => c.json(DEMO));
 
 app.route("/", media);
+app.route("/", share);
 app.route("/", admin);
 
 app.all("/api/*", (c) => c.json({ ok: false, error: "not_found" }, 404));

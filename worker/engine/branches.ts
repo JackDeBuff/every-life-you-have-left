@@ -208,6 +208,24 @@ export async function captionsFor(env: BranchEnv, state: SessionState, branches:
 }
 
 /**
+ * Code-only cuts from the snapshots the active branches already have (no model call): what the
+ * agent plays when the written interlude is late, instead of making the user wait for it.
+ * Captions: `known` ones when there are, else the snapshot's own summary.
+ */
+export function readyCuts(state: SessionState, branches: Branch[], year: number, known?: Record<string, string>): InterludeCut[] {
+  const profile = state.profile;
+  if (!profile) return [];
+  const age = year - profile.birthYear;
+  return snapshotsAt(branches.filter((b) => b.status === "active"), year).map(({ b, snap }) => ({
+    branchId: b.id,
+    title: b.title,
+    age,
+    scene: snap.scene,
+    caption: fixPeopleNumbers(known?.[b.id] ?? truncateWords(snap.summary, 14), branchNow(state, b, year)).text,
+  }));
+}
+
+/**
  * The interlude cuts at the playhead. `known` captions (written speculatively while the fork's
  * card was open) skip the caption call when they cover every branch.
  */

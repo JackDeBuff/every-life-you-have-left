@@ -173,13 +173,36 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
     const lastAge = Math.max(firstAge, endAge - 4);
     // Auto/4x: >= 3-5 years apart so the next stretch and the next card generate while it plays.
     const fewBig = state.speed === "auto" || state.speed === "4x";
-    const minGap = fewBig ? Math.max(3, Math.min(5, Math.floor((lastAge - firstAge + 1) / (remainingBig + 1)))) : 2;
     const moments = stageMoments(profile, state, nowAge, endAge);
     const span = lastAge - firstAge + 1;
     const used = new Set<string>();
     // Spread big decisions across life areas: a domain already decided on scores lower.
     const usedDomains = new Set<string>([...state.decisions.filter((d) => d.kind === "big").flatMap((d) => d.domains), ...slots.map((s) => s.reason.split(":")[1]!)]);
     let prevAge = slots.length ? nowAge : Math.max(nowAge, ...state.decisions.filter((d) => d.kind === "big").map((d) => d.age), nowAge - 99);
+    if (!fewBig) {
+      // 1x/2x: evenly spaced (QA, Sat Nov 7: windowed picks clustered forks 2 years apart at 2x, and
+      // with no small card in a fork's year or the year after, 23 years showed none). Each fork sits
+      // at its even spot; the life-stage moment nearest to it (within ~half a spacing) names it.
+      const spacing = span / remainingBig;
+      const minGap = Math.max(2, Math.floor(spacing * 0.75));
+      const reach = Math.max(1, spacing * 0.6);
+      for (let k = 0; k < remainingBig; k++) {
+        const centre = firstAge + spacing * (k + 0.5) - 0.5;
+        const age = Math.max(prevAge + minGap, Math.round(centre));
+        if (age > endAge - 2) break;
+        const adj = (x: Moment) => x.score - (usedDomains.has(x.domain) ? 0.4 : 0) - 0.15 * Math.abs(x.age - centre);
+        const near = moments.filter((x) => !used.has(x.key) && Math.abs(x.age - centre) <= reach).sort((a, b) => adj(b) - adj(a));
+        const domain = topDomain(profile, k);
+        const pick: Moment = near[0] ?? { age, domain, key: `stage_${k}`, why: GENERIC_STAGE[domain], score: 0 };
+        used.add(pick.key);
+        usedDomains.add(pick.domain);
+        slots.push({ year: profile.birthYear + age, age, kind: "big", reason: `big:${pick.domain}:${pick.key}: ${pick.why}` });
+        takenBigYears.add(profile.birthYear + age);
+        prevAge = age;
+      }
+      remainingBig = 0;
+    }
+    const minGap = Math.max(3, Math.min(5, Math.floor((lastAge - firstAge + 1) / (remainingBig + 1))));
     for (let k = 0; k < remainingBig; k++) {
       const lo = firstAge + Math.floor((span * k) / remainingBig);
       const hi = firstAge + Math.floor((span * (k + 1)) / remainingBig) - 1;
@@ -209,18 +232,21 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
     const cov = coverage(profile, state);
     const weights = Object.fromEntries(DOMAIN_KEYS.map((d) => [d, (1 + 1.5 * profile.worries[d]) * (1.15 - cov[d])])) as Record<DomainKey, number>;
     const credit = Object.fromEntries(DOMAIN_KEYS.map((d) => [d, 0])) as Record<DomainKey, number>;
-    // Never "today" (the first fork is today) and never in a fork's year (its consequence plays).
-    // 2x/4x: one a year at most and never the year right after a fork either. 1x (deep mode,
-    // D-081 amended): a fork comes every ~2 years, so blocking the year after left 5 free years
-    // for a 25-year-old (the 45-card plan placed 5); one year at 1x is already 6-12 s of clean
-    // consequence. 1x holds several cards a year instead (a conversation; the agent serves them
-    // one at a time from a written-ahead queue and drops the ones the playhead passes).
+    // Never "today" (the first fork is today). 2x/4x: one a year at most, never in a fork's year
+    // or the year right after it (its consequence plays). 1x (deep mode, the conversation): a fork
+    // comes every ~2 years, so blocking its year too left half the life without a card (QA: 5
+    // cards in 9 years). 1x holds 3-4 cards in every year, a fork's year included: the agent
+    // serves them once the consequence has played a moment, one at a time from a written-ahead
+    // queue, and the year doesn't end while one is open (src/ui/pacing.ts holdsYearEnd).
     const bigYears = new Set([...takenBigYears, ...slots.filter((x) => x.kind === "big").map((x) => x.year)]);
     const deep = state.speed === "1x";
-    const blocked = (y: number) => y === nowYear || bigYears.has(y) || (!deep && bigYears.has(y - 1));
+    const blocked = (y: number) => y === nowYear || (!deep && (bigYears.has(y) || bigYears.has(y - 1)));
     let free = 0;
     for (let y = nowYear; y < endYear; y++) if (!blocked(y)) free++;
-    const perYear = deep ? Math.min(MAX_SMALL_PER_YEAR, Math.max(1, Math.ceil(smallTotal / Math.max(1, free)))) : 1;
+    // 2x/4x: one a year, two in a year only when the free years can't hold the budget otherwise
+    // (2x: ~30 cards, ~25 free years with 10 forks).
+    const need = Math.max(1, Math.ceil(smallTotal / Math.max(1, free)));
+    const perYear = deep ? Math.min(MAX_SMALL_PER_YEAR, need) : Math.min(2, need);
     const used = new Map<number, number>();
     const smallYears: number[] = [];
     for (const y0 of spreadYears(nowYear, endYear, smallTotal)) {

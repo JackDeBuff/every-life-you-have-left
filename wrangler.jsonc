@@ -5,9 +5,9 @@
   "compatibility_date": "2026-11-06",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    // SPA: unknown paths serve index.html; only these wake the Worker.
+    // SPA: unknown paths serve index.html; only these wake the Worker (/s/* = shared postcards).
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/agents/*", "/media/*"]
+    "run_worker_first": ["/api/*", "/agents/*", "/media/*", "/s/*"]
   },
   "observability": { "enabled": true }, // never console.log request bodies (personal data)
   "limits": { "cpu_ms": 60000 },

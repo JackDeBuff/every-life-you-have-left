@@ -178,12 +178,26 @@ function Threads({ d, x, branches }: { d: Decision; x: number; branches: Branch[
   );
 }
 
+/**
+ * After a peek closes, an open decision card gets the focus back: Enter then decides instead of
+ * re-opening the peek from its ◆ (QA, Sat Nov 7). Returns false when there's no card to focus.
+ */
+function focusOpenCard(): boolean {
+  const ae = document.activeElement as HTMLElement | null;
+  // Only take it from the timeline (or nowhere): never from whatever they moved on to.
+  if (ae && ae !== document.body && !ae.closest(".tl, .pop")) return false;
+  const card = document.querySelector<HTMLElement>(".pane.right .dcard");
+  if (!card) return false;
+  card.focus({ preventScroll: true });
+  return true;
+}
+
 function ForkPeek({ d, left, branches }: { d: Decision; left: number; branches: Branch[] }) {
   const active = useSim(useShallow((s) => s.branches.filter((b) => b.status === "active").map((b) => b.id)));
   if (d.status === "pending") return null;
   const chosen = d.options.find((o) => sim().answers.find((a) => a.decisionId === d.id)?.optionId === o.id);
   return (
-    <HoverCard.Root openDelay={120} closeDelay={80}>
+    <HoverCard.Root openDelay={120} closeDelay={80} onOpenChange={(open) => !open && focusOpenCard()}>
       <HoverCard.Trigger asChild>
         <button className="tl-fork-hit" style={{ left: left - 11 }} aria-label={`Fork at ${d.age}: peek the lives you didn't choose`} />
       </HoverCard.Trigger>
@@ -266,7 +280,20 @@ function LivesLeft() {
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content className="pop peek" side="bottom" align="end" sideOffset={8} collisionPadding={12}>
+        <Popover.Content
+          className="pop peek"
+          side="bottom"
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          onCloseAutoFocus={(e) => {
+            // Radix returns focus to the trigger; with a card open, the card gets it (Enter decides).
+            if (document.querySelector(".pane.right .dcard")) {
+              e.preventDefault();
+              focusOpenCard();
+            }
+          }}
+        >
           <p className="label">The lives you have left</p>
           <p className="small muted" style={{ marginBottom: 10 }}>
             They keep running in the background, roughly, five years at a time.

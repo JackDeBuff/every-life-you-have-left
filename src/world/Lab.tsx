@@ -55,12 +55,17 @@ export default function Lab() {
   const [autoIdx, setAutoIdx] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [paused, setPaused] = useState(false);
+  /** Seconds per interlude cut (scripted stills of each branch's landmark hold a cut longer). */
+  const [cutSeconds, setCutSeconds] = useState<number | undefined>(undefined);
+  const [cutAt, setCutAt] = useState(-1);
   const fps = useFps();
   const waitingMoment = useRef(false);
+  const cutAtRef = useRef(-1);
+  cutAtRef.current = cutAt;
 
   // dev hook for scripted screenshots: window.__lab.setSpec({...})
   useEffect(() => {
-    (window as unknown as { __lab: unknown }).__lab = { setSpec, setMode, setCuts, ALEX, DEMO_CUTS, setAppearance, setPaused, setAuto, setAutoIdx };
+    (window as unknown as { __lab: unknown }).__lab = { setSpec, setMode, setCuts, ALEX, DEMO_CUTS, setAppearance, setPaused, setAuto, setAutoIdx, setCutSeconds, cutAt: () => cutAtRef.current };
   }, []);
 
   const note = useCallback((s: string) => setLog((l) => [`${new Date().toLocaleTimeString()}  ${s}`, ...l].slice(0, 8)), []);
@@ -99,11 +104,13 @@ export default function Lab() {
   };
   const onCut = useCallback((i: number, c: InterludeCut) => {
     setCutLine(`${c.title} · ${c.caption}`);
+    setCutAt(i);
     note(`onCut ${i} ${c.title}`);
   }, [note]);
   const onInterludeDone = useCallback(() => {
     note("onInterludeDone");
     setCutLine(null);
+    setCutAt(-1);
     setMode("life");
   }, [note]);
 
@@ -114,7 +121,7 @@ export default function Lab() {
   return (
     <div className="wl" data-bare={location.hash.includes("bare") || undefined}>
       <div className="wl-stage">
-        <World spec={spec} mode={mode} cuts={cuts} appearance={appearance} onMomentDone={onMomentDone} onCut={onCut} onInterludeDone={onInterludeDone} paused={paused} />
+        <World spec={spec} mode={mode} cuts={cuts} appearance={appearance} onMomentDone={onMomentDone} onCut={onCut} onInterludeDone={onInterludeDone} paused={paused} cutSeconds={cutSeconds} />
         <div className="wl-caption">
           {mode === "interlude" ? (
             <>

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CURRENCIES, CURRENCY_CODES, currencyForCountry, detectCurrency, type CurrencyCode } from "../../shared/currency";
 import { endAgeFor, pronounsFor, type Gender } from "../../shared/schema";
-import type { Appearance, SpeedMode, StartInput } from "../../shared/sim";
+import { SPEED_CONFIG, type Appearance, type SpeedMode, type StartInput } from "../../shared/sim";
 import { fastForward, jumpParams } from "../ui/devJump";
 import { HoldToTalk } from "../ui/HoldToTalk";
 import { Icon } from "../ui/icons";
@@ -18,12 +18,26 @@ import { backend, sim } from "../ui/session";
 import { uploadDocument } from "../lib/agent-client";
 import { LongDay } from "../ui/start/LongDay";
 
-const SPEEDS: { id: SpeedMode; key: string; title: string; note: string }[] = [
-  { id: "auto", key: "Auto", title: "About 3 minutes", note: "5 big choices. Best for a first look." },
-  { id: "4x", key: "4×", title: "Quick", note: "~5 big, ~15 small choices" },
-  { id: "2x", key: "2×", title: "Considered", note: "~10 big, ~30 small" },
-  { id: "1x", key: "1×", title: "Deep", note: "~20 big, ~45 small. Take your time" },
+const SPEEDS: { id: SpeedMode; key: string; title: string }[] = [
+  { id: "auto", key: "Auto", title: "About 3 minutes" },
+  { id: "4x", key: "4×", title: "Quick" },
+  { id: "2x", key: "2×", title: "Considered" },
+  { id: "1x", key: "1×", title: "Deep" },
 ];
+
+/**
+ * A tile's numbers, from SPEED_CONFIG and scaled to the years they have left, the way the engine
+ * plans them (worker/engine/slots.ts: budgets are for a 45-year life; Auto is always 5 big).
+ */
+function speedNote(id: SpeedMode, yearsLeft: number): string {
+  const c = SPEED_CONFIG[id];
+  const k = id === "auto" ? 1 : Math.max(0, yearsLeft) / 45;
+  const big = Math.max(1, Math.round(c.bigBudget * k));
+  const small = Math.round(c.smallBudget * k);
+  if (id === "auto") return `${big} big choices. Best for a first look.`;
+  const counts = `~${big} big, ~${small} small`;
+  return id === "4x" ? `${counts} choices` : id === "1x" ? `${counts}. Take your time` : counts;
+}
 
 const HAIR_STYLES: NonNullable<Appearance["hairStyle"]>[] = ["short", "medium", "long", "curly", "coily", "shaved", "bun"];
 const GENDER_CHOICES: [Gender, string][] = [["woman", "Woman"], ["man", "Man"], ["nonbinary", "Non-binary"], ["undisclosed", "Prefer not to say"]];
@@ -256,7 +270,7 @@ export default function Start() {
                 <span className="led" />
                 <span className="speed-key">{s.key}</span>
                 <span className="speed-title">{s.title}</span>
-                <span className="speed-note">{s.note}</span>
+                <span className="speed-note">{speedNote(s.id, ageOk ? endAge - ageN : 45)}</span>
                 {s.id === "auto" && <span className="speed-tag">Judges, start here</span>}
               </button>
             ))}

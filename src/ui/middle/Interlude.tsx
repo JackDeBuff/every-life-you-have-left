@@ -11,6 +11,7 @@
  * open on another life. Ends with a blink back to yours, then resumes the clock.
  */
 import { useEffect, useRef, useState } from "react";
+import { branchAccent } from "../../world/landmarks";
 import { ROMAN } from "../format";
 import { Icon } from "../icons";
 import { gsap, reducedMotion } from "../motion";
@@ -143,8 +144,8 @@ function TimedInterlude({ cuts }: { cuts: InterludeCut[] }) {
     if (!el) return;
     const reduce = reducedMotion();
     const q = gsap.utils.selector(el);
-    // Auto keeps the whole run under three minutes: ~8 s here, ~10 s at 1×/2×.
-    const cutDur = speed === "auto" ? 1.25 : 2.2;
+    // Auto keeps the whole run short: ~7 s here, ~8 s at 1×/2× (with the title and blinks).
+    const cutDur = speed === "auto" ? 1.1 : 1.8;
     const tl = gsap.timeline({ onComplete: end });
     const blink = (to: number) => {
       if (reduce) {
@@ -233,7 +234,8 @@ function Caption({ cut, i }: { cut: InterludeCut | null | undefined; i: number }
     <div className="il-cap">
       {cut && (
         <>
-          <p className="il-meta">
+          <p className="il-meta" style={{ ["--branch" as string]: branchAccent(i) }}>
+            <span className="il-swatch" aria-hidden="true" />
             <span className="numeral">{ROMAN[i]}</span>
             <span className="label">{cut.title}</span>
             <span className="label faint">
