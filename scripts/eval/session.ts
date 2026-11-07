@@ -7,7 +7,7 @@ import { z } from "zod";
 import { endAgeFor, geminiSchema } from "../../shared/schema";
 import type { Branch, Decision, DecisionAnswer, SessionState, SimYear } from "../../shared/sim";
 import type { Ending, InterludeCut } from "../../shared/engine";
-import { createEngine, type LlmPort, type UsageEvent, type YearMetric } from "../../worker/engine";
+import { createEngine, provisionalProfile, type LlmPort, type UsageEvent, type YearMetric } from "../../worker/engine";
 import { checkYearsContract } from "./checks";
 import type { Persona } from "./personas";
 import { costOf, type Ledger } from "./pricing";
@@ -19,6 +19,8 @@ export interface SessionResult {
   error: string | null;
   timings: {
     profileMs: number;
+    /** Start screen → first decision card ready (built from the provisional profile in parallel). */
+    firstCardMs: number;
     decisionMs: number[];
     firstYearMs: number[];
     perYearMs: number;
@@ -109,7 +111,7 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
   const state = initialState(persona);
   const result: SessionResult = {
     persona: persona.key, heavy, ok: false, error: null,
-    timings: { profileMs: 0, decisionMs: [], firstYearMs: [], perYearMs: 0, totalGenMs: 0, sessionMs: 0 },
+    timings: { profileMs: 0, firstCardMs: 0, decisionMs: [], firstYearMs: [], perYearMs: 0, totalGenMs: 0, sessionMs: 0 },
     validity: { years: 0, schemaOk: 0, hardErrorYears: 0, repaired: 0, fallback: 0, filler: 0, turningPoints: 0, tpWithQuote: 0, quietYears: 0, worldEvents: 0, cliches: 0, contractErrors: [] },
     cost: { session: 0, byPurpose: {}, byModel: {}, simulator: 0 },
     tokens: { input: 0, output: 0, thought: 0 },
@@ -132,10 +134,16 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
   };
 
   try {
-    // 1. profile
+    // 1. profile, and in parallel the first card from the code-only provisional profile
     let s0 = Date.now();
-    state.profile = await engine.startProfile(persona.input, persona.docs);
-    result.timings.profileMs = Date.now() - s0;
+    const prov = provisionalProfile(persona.input);
+    const provState: SessionState = { ...state, profile: prov, endAge: prov.endAge };
+    const todaySlot = engine.planSlots(provState).find((s) => s.kind === "big")!;
+    const [profile0, card0] = await Promise.all([
+      engine.startProfile(persona.input, persona.docs).then((p) => ((result.timings.profileMs = Date.now() - s0), p)),
+      engine.makeDecision(provState, todaySlot).then((d) => ((result.timings.firstCardMs = Date.now() - s0), d)),
+    ]);
+    state.profile = profile0;
     state.sessionId = state.profile.sessionId;
     state.endAge = state.profile.endAge;
     state.phase = "playing";
@@ -157,8 +165,8 @@ export async function runSession(llm: LlmPort, persona: Persona, heavy: string, 
       ledger.check();
 
       s0 = Date.now();
-      const d = await engine.makeDecision(state, slot);
-      result.timings.decisionMs.push(Date.now() - s0);
+      const d = i === 0 && card0.year === slot.year ? card0 : await engine.makeDecision(state, slot);
+      if (d !== card0) result.timings.decisionMs.push(Date.now() - s0);
       state.decisions.push(d);
       const sim = await simulateAnswer(llm, persona, d, onUsage);
       const safety = await engine.safety(sim.text);

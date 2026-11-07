@@ -14,9 +14,11 @@
  * coarse hidden branches. Calls are hedged against the slow-first-token tail.
  *
  * WIRING (for the session agent; this is what scripts/eval/session.ts does):
- *   start(input)      profile = startProfile(input, docs); state.endAge = profile.endAge
- *                     slots = planSlots(state); budgets = budgetsFor(slots)
- *                     in parallel: settingsFor(state) and makeDecision(state, slots[0])  (slot 0 = today)
+ *   start(input)      IN PARALLEL: profile = startProfile(input, docs)   (~10 s)
+ *                                  card0 = makeDecision({...state, profile: provisionalProfile(input)}, today slot)  (~5 s)
+ *                     then state.profile = profile; state.endAge = profile.endAge;
+ *                     slots = planSlots(state) (slot 0 = today; card0 answers it); budgets = budgetsFor(slots);
+ *                     settingsFor(state) in the background
  *   answer(a)         safety(a.text) first (flagged → crisis card, stop)
  *                     { profile, quote } = applyAnswer(state, decision, a); store a.quoteId = quote?.id
  *                     decision.status = "answered"; then IN PARALLEL:
@@ -36,7 +38,7 @@
  * interlude()/ending() also write advanced branch years back into state.branches (in place).
  */
 import type { DocInput, Engine } from "../../shared/engine";
-import type { Branch, Decision, DecisionAnswer, SessionState, SimYear } from "../../shared/sim";
+import type { Branch, Decision, DecisionAnswer, SessionState, SimYear, StartInput } from "../../shared/sim";
 import { coarseYears, selectDiverse, stepBranchTo, interludeCuts, type BranchEnv } from "./branches";
 import { reply } from "./chat";
 import { decisionsBlock, settingsBlock } from "./context";
@@ -44,7 +46,8 @@ import { makeDecisionFor } from "./decisions";
 import { endingFor, logLines, safetyCheck, settingsForState } from "./extras";
 import type { LlmPort } from "./llm-port";
 import { createCaller, DEFAULT_MODELS, type EngineModels, type UsageEvent } from "./models";
-import { buildStartProfile, enrich, foldAnswer } from "./profile";
+import { buildStartProfile, emptyProfile, enrich, foldAnswer, quotesFromText } from "./profile";
+import type { Profile } from "../../shared/schema";
 import { planSlotsFor } from "./slots";
 import { nowIso } from "./util";
 import { worldTimeline } from "./world";
@@ -273,6 +276,17 @@ export function createEngine(deps: EngineDeps): Engine {
     },
   };
   return engine;
+}
+
+/**
+ * Code-only profile from the start screen (no model call), so the agent can write the FIRST
+ * decision card in parallel with startProfile (~10 s): makeDecision({ ...state, profile:
+ * provisionalProfile(input) }, slots[0]). Quote ids (q1..qn from the start line) match the ones
+ * startProfile creates, so the card's whyQuoteId stays valid.
+ */
+export function provisionalProfile(input: StartInput, now: Date = new Date()): Profile {
+  const quotes = quotesFromText(input.line, 1, "start", "answer");
+  return emptyProfile(input, now.getFullYear(), "s_provisional", quotes, now.toISOString());
 }
 
 /** Helper for the session agent: decision budgets after planning (SessionState.budgets). */

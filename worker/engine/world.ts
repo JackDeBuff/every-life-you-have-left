@@ -357,6 +357,7 @@ export function sampleCandidates(
   const counts = { ...ledger.counts };
   const last = { ...ledger.lastYear };
   const out: Candidate[] = [];
+  let lastShock = ledger.shockYears.length ? Math.max(...ledger.shockYears) : -99;
   for (const year of targetYears) {
     const age = year - profile.birthYear;
     for (const [cat, domain, h, hint] of hazards(age, facts, year, downs, profile)) {
@@ -366,12 +367,16 @@ export function sampleCandidates(
         const ly = last[cat];
         if (ly !== undefined && year - ly < rule.cooldown) continue;
       }
+      // the shock cap (1 major setback per 3 years) applies to the dice too
+      const shock = SHOCK_CATEGORIES.has(cat);
+      if (shock && year - lastShock < 3) continue;
       const p = 1 - Math.pow(1 - h, stepYears);
       if (r() < p) {
         const rule2 = CATEGORY_RULES[cat];
         out.push({ year, age, category: cat, domain, hint, statId: rule2?.statId ?? null });
         counts[cat] = (counts[cat] ?? 0) + 1;
         last[cat] = year;
+        if (shock) lastShock = year;
         if (cat === "love_start") facts.partnered = true;
         if (cat === "marriage") facts.married = true;
         if (cat === "child") facts.children++;

@@ -132,6 +132,7 @@ const summary = MODELS.map((m) => {
     perYearMs: mean(rs.map((r) => r.result.timings.perYearMs)),
     decisionMs: mean(rs.flatMap((r) => r.result.timings.decisionMs)),
     profileMs: mean(rs.map((r) => r.result.timings.profileMs)),
+    firstCardMs: mean(rs.map((r) => r.result.timings.firstCardMs ?? 0).filter((x) => x > 0)),
     sessionMin: mean(rs.map((r) => r.result.timings.sessionMs)) / 60000,
     costPerSession: mean(rs.map((r) => r.result.cost.session)),
     heavyCostPerSession: mean(rs.map((r) => r.result.cost.byModel[m] ?? 0)),

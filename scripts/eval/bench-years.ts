@@ -31,3 +31,4 @@ console.log(`${model} thinking=${thinking}: ${ys.length} years, first ${stamps[0
 console.log(`  stamps ${stamps.join(" ")}`);
 for (const u of usages) console.log(`  ${u.purpose} in ${u.inputTokens} out ${u.outputTokens} thought ${u.thoughtTokens} ms ${u.ms} first ${u.firstTokenMs ?? "-"} hedged ${u.hedged} $${costOf(u).toFixed(4)}`);
 console.log(`  sample: ${JSON.stringify(ys[1]).length} chars/year; ${ys[1]?.summary} | ${ys[1]?.events.map((e) => e.title).join("; ")}`);
+for (const y of ys) console.log(`  ${y.year} ${y.summary} || ${y.events.map((e) => `${e.isTurningPoint ? "*" : ""}[${e.category}/${e.tone}] ${e.title} (${e.narrative.split(" ").length}w)`).join(" ; ")}`);

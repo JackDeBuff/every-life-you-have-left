@@ -14,7 +14,7 @@ import { COARSE_ADDENDUM, REPAIR_SYSTEM, repairPrompt, YEARS_SYSTEM, yearsPrompt
 import { OneYearLLM, YearsLLM } from "./schemas";
 import { createArrayItemExtractor } from "./stream-json";
 import { clicheCount, checkYear, coerceYear, compactOf, fallbackYear } from "./validate";
-import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor } from "./world";
+import { CATEGORY_RULES, ledgerFrom, moneyAnchor, recordEvent, sampleCandidates, statDisplay, worldIdFor, type Candidate } from "./world";
 import { rng, shuffled, usd } from "./util";
 
 export interface YearMetric {
@@ -65,6 +65,30 @@ export interface LifeSpec {
 }
 
 const BASE_RATES_TEXT = baseRatesBlock();
+
+/**
+ * Setbacks that real lives have at base rates. When the sampler rolls one, the writer must use it
+ * (code owns the odds); it only chooses how it plays out. Without this the models write
+ * lives with no friction at all (first eval run: 47 years, zero setbacks).
+ */
+const REQUIRED_WHEN_ROLLED = new Set(["job_loss", "burnout", "money_down", "caregiving"]);
+
+function renderCandidates(cands: Candidate[]): string {
+  const line = (c: Candidate) => `${c.year} (${c.age}): ${c.category}, ${c.hint}${c.statId ? ` [${c.statId}: ${statDisplay(c.statId)}]` : ""}`;
+  const must = cands.filter((c) => REQUIRED_WHEN_ROLLED.has(c.category));
+  const may = cands.filter((c) => !REQUIRED_WHEN_ROLLED.has(c.category));
+  const parts: string[] = [];
+  if (must.length)
+    parts.push(
+      `WILL HAPPEN (write each one in that year or the next, as a turning point with tone down or mixed, handled gently and with a way through; how it happens is yours, and their choices shape how hard it hits):\n${must.map(line).join("\n")}`,
+    );
+  parts.push(
+    may.length
+      ? `MAY HAPPEN (use the ones that fit this life, adapt freely, skip any that contradict their choices; you may add your own within budget):\n${may.map(line).join("\n")}`
+      : "MAY HAPPEN: (nothing sampled: let it be ordinary)",
+  );
+  return parts.join("\n");
+}
 
 function budgetBlock(past: SimYear[], span: number, firstYear: number, world: WorldEvent[]): string {
   const l = ledgerFrom(past, world);
@@ -128,11 +152,13 @@ export async function writeYears(env: WriterEnv, spec: LifeSpec, targetYears: nu
   if (spec.coarse) chunks.push(targetYears);
   else {
     let i = 0;
-    let size = 4; // small first chunk: the first year arrives fast
+    // One call per stretch (<= 10 years): streaming makes the first year arrive as fast as in a
+    // small call, and every extra call boundary cost 5-9 s of prompt + first-token time.
+    let size = 10;
     while (i < targetYears.length) {
       chunks.push(targetYears.slice(i, i + size));
       i += size;
-      size = 8;
+      size = 10;
     }
   }
 
@@ -164,10 +190,14 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
   const first = years[0]!;
   const last = years[years.length - 1]!;
   const ledger = ledgerFrom(past, env.world);
-  const busy = new Set<number>(years.filter((y) => spec.decisionIdsFor(y).length > 0).flatMap((y) => [y, y + 1]));
-  const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const step = spec.coarse ? 5 : 1;
   const cands = sampleCandidates(env.seed + spec.idPrefix, profile, past, years, env.world, ledger, env.span, step);
+  // quiet years never collide with a decision (and its aftermath) or a rolled setback
+  const busy = new Set<number>([
+    ...years.filter((y) => spec.decisionIdsFor(y).length > 0).flatMap((y) => [y, y + 1]),
+    ...cands.filter((c) => REQUIRED_WHEN_ROLLED.has(c.category)).flatMap((c) => [c.year, c.year + 1]),
+  ]);
+  const quiet = spec.coarse ? [] : quietYears(env.seed + spec.idPrefix, years, busy);
   const worldInSpan = env.world.filter((w) => w.year <= last + 1);
   const anchors = (spec.coarse ? years : years.filter((_, i) => i % 2 === 0 || i === years.length - 1))
     .map((y) => {
@@ -201,9 +231,7 @@ async function writeChunk(env: WriterEnv, spec: LifeSpec, past: SimYear[], years
     budget: budgetBlock(past, env.span, first, env.world),
     quiet: quiet.length ? quiet.join(", ") : "(none required in this stretch)",
     anchors,
-    candidates: cands.length
-      ? cands.map((c) => `${c.year} (${c.age}): ${c.category}, ${c.hint}${c.statId ? ` [${c.statId}: ${statDisplay(c.statId)}]` : ""}`).join("\n")
-      : "(nothing sampled: let it be ordinary)",
+    candidates: renderCandidates(cands),
     attention: attention || "(no strong worries; spread attention evenly)",
     baseRates: spec.coarse ? "(coarse mode: set st to null)" : BASE_RATES_TEXT,
     task,
