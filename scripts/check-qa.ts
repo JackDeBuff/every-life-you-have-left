@@ -17,6 +17,7 @@ import { PEOPLE_CASES, HISTORY_CASES, MONEY_CASES, COPY_CASES } from "./qa/code-
 import { PEOPLE_MODEL_CASES } from "./qa/people-cases";
 import { KIDS_CASES, MONEY_GUARD_CASES, PACE_CASES, STALE_CASES } from "./qa/engine-cases";
 import { FOCUS_CASES, groundAsync, SHOCK_CASES } from "./qa/content-cases";
+import { COST_CASES } from "./qa/cost-cases";
 
 let failed = 0;
 const ok = (name: string, pass: boolean, detail = "") => {
@@ -59,6 +60,7 @@ for (const [title, cases] of [
   ["10. Kids only through a door they opened", KIDS_CASES],
   ["11. Life shocks: rare, once each, never repeated", SHOCK_CASES],
   ["12. Card focus and reading their words", FOCUS_CASES],
+  ["13. /admin cost at the real prices (old-rate sessions)", COST_CASES],
 ] as const) {
   console.log(`\n${title}`);
   for (const c of cases) {

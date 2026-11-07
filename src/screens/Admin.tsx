@@ -12,13 +12,16 @@ import "../styles/admin.css";
 import { AuthError, passcode, ping, rememberPasscode } from "./admin/api";
 import { SessionDetail } from "./admin/SessionDetail";
 import { SessionList } from "./admin/SessionList";
+import { SpendPanel } from "./admin/SpendPanel";
 import { AIcon } from "./admin/ui";
-import type { Tab } from "./admin/types";
+import type { Tab, View } from "./admin/types";
 
 export interface Route {
   s: string | null;
   tab: Tab;
   hash: string;
+  /** Top-level page when no session is open. */
+  view: View;
 }
 
 const TABS: Tab[] = ["life", "decisions", "profile", "lives", "settings", "chat", "uploads", "portraits", "ending", "health"];
@@ -26,7 +29,7 @@ const TABS: Tab[] = ["life", "decisions", "profile", "lives", "settings", "chat"
 function readRoute(): Route {
   const q = new URLSearchParams(location.search);
   const t = q.get("tab") as Tab | null;
-  return { s: q.get("s"), tab: t && TABS.includes(t) ? t : "life", hash: decodeURIComponent(location.hash.slice(1)) };
+  return { s: q.get("s"), tab: t && TABS.includes(t) ? t : "life", hash: decodeURIComponent(location.hash.slice(1)), view: q.get("view") === "spend" ? "spend" : "sessions" };
 }
 
 export function useRoute(): [Route, (next: Partial<Route>, opts?: { replace?: boolean }) => void] {
@@ -39,8 +42,10 @@ export function useRoute(): [Route, (next: Partial<Route>, opts?: { replace?: bo
   const go = useCallback((next: Partial<Route>, opts?: { replace?: boolean }) => {
     const cur = readRoute();
     const r: Route = { ...cur, hash: "", ...next };
+    if (r.s) r.view = "sessions";
     const q = new URLSearchParams();
     if (r.s) q.set("s", r.s);
+    else if (r.view === "spend") q.set("view", "spend");
     if (r.s && r.tab) q.set("tab", r.tab);
     const qs = q.toString();
     const url = `/admin${qs ? `?${qs}` : ""}${r.hash ? `#${encodeURIComponent(r.hash)}` : ""}`;
@@ -102,18 +107,40 @@ export default function Admin() {
   return (
     <div className="adm">
       <header className="adm-top">
-        <a
-          className="adm-brand"
-          href="/admin"
-          onClick={(e) => {
-            e.preventDefault();
-            go({ s: null });
-          }}
-        >
-          <span className="adm-sun" aria-hidden="true" />
-          <span className="label">Every Life You Have Left</span>
-          <span className="adm-brand-sub">Admin</span>
-        </a>
+        <div className="adm-top-left">
+          <a
+            className="adm-brand"
+            href="/admin"
+            onClick={(e) => {
+              e.preventDefault();
+              go({ s: null, view: "sessions" });
+            }}
+          >
+            <span className="adm-sun" aria-hidden="true" />
+            <span className="label">Every Life You Have Left</span>
+            <span className="adm-brand-sub">Admin</span>
+          </a>
+          <nav className="adm-nav" aria-label="Admin pages">
+            {(
+              [
+                ["sessions", "Sessions", "/admin"],
+                ["spend", "Spend", "/admin?view=spend"],
+              ] as const
+            ).map(([k, label, href]) => (
+              <a
+                key={k}
+                href={href}
+                aria-current={!route.s && route.view === k ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  go({ s: null, view: k });
+                }}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        </div>
         <button
           type="button"
           className="btn quiet sm"
@@ -125,7 +152,13 @@ export default function Admin() {
           <AIcon name="signOut" size={14} /> Lock
         </button>
       </header>
-      {route.s ? <SessionDetail key={route.s} route={route} go={go} onAuthError={onAuthError} /> : <SessionList go={go} onAuthError={onAuthError} />}
+      {route.s ? (
+        <SessionDetail key={route.s} route={route} go={go} onAuthError={onAuthError} />
+      ) : route.view === "spend" ? (
+        <SpendPanel onAuthError={onAuthError} />
+      ) : (
+        <SessionList go={go} onAuthError={onAuthError} />
+      )}
     </div>
   );
 }

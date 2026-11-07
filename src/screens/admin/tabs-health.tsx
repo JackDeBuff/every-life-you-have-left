@@ -1,10 +1,11 @@
 /** Health: model cost by purpose, engine errors and warnings, and the engine's code checks over this session. */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { correctedDetail } from "../../../worker/admin-cost";
 import type { TabProps } from "./SessionDetail";
-import { anchorFor, clock, cost } from "./model";
+import { anchorFor, capLine, clock, cost, OLD_RATES_TITLE } from "./model";
 import { violationReport } from "./report";
 import type { CheckLevel, Violation } from "./types";
-import { AIcon, Chip, CopyButton, Empty, KV, LEVEL_LABEL, Section } from "./ui";
+import { AIcon, CapBar, Chip, CopyButton, Empty, KV, LEVEL_LABEL, Section } from "./ui";
 
 export function HealthTab({ v, checks, jump, focus }: TabProps & { focus: string | null }) {
   const st = v.st;
@@ -13,6 +14,11 @@ export function HealthTab({ v, checks, jump, focus }: TabProps & { focus: string
   const [group, setGroup] = useState<string>("all");
   const byPurpose = u ? Object.entries(u.byPurpose).sort((a, b) => b[1] - a[1]) : [];
   const detail = u?.detail ? Object.entries(u.detail).sort((a, b) => b[1].usd - a[1].usd) : [];
+  const byModel = u?.byModel ? Object.entries(u.byModel).sort((a, b) => b[1].usd - a[1].usd) : [];
+  const cv = v.cost;
+  const old = !!cv && cv.oldRates !== "no";
+  const caps = v.detail.sessionCaps;
+  const cap = u && caps ? capLine(u.usd, caps) : null;
   const log = v.detail.engineLog;
   const shown = useMemo(() => (checks?.violations ?? []).filter((x) => (level === "all" || x.level === level) && (group === "all" || x.group === group)), [checks, level, group]);
   const where = (x: Violation) => {
@@ -27,11 +33,33 @@ export function HealthTab({ v, checks, jump, focus }: TabProps & { focus: string
             <>
               <KV
                 rows={[
-                  ["Total", <b>{cost(u.usd)}</b>],
+                  ...(old && cv
+                    ? ([
+                        [
+                          "Corrected",
+                          <span title={OLD_RATES_TITLE[cv.oldRates as "yes" | "partly"]}>
+                            <b>{cost(cv.corrected)}</b> <Chip tone="warn">{cv.oldRates === "partly" ? "partly old rates" : "priced at old rates"}</Chip>
+                          </span>,
+                        ],
+                        ["Recorded", cost(u.usd)],
+                      ] as [string, ReactNode][])
+                    : ([["Total", <b>{cost(u.usd)}</b>]] as [string, ReactNode][])),
                   ["List price (no cache)", cost(u.listUsd)],
                   ["Calls", String(u.calls)],
+                  ...(cap && caps
+                    ? ([
+                        [
+                          "Session caps",
+                          <span className="adm-capcell">
+                            <span className={cap.over !== "none" ? "adm-bad" : undefined}>{cap.text}</span>
+                            <CapBar usd={u.usd} soft={caps.soft} hard={caps.hard} />
+                          </span>,
+                        ],
+                      ] as [string, ReactNode][])
+                    : []),
                 ]}
               />
+              {old && <p className="meta faint">Per-session costs recorded before Sat Nov 7, 4:55pm EST priced 3.8 / 3.6 Flash at half what GCP bills. Media (portraits, voice) is not in a session's tally.</p>}
               <table className="adm-table adm-table-tight">
                 <thead>
                   <tr>
@@ -88,6 +116,7 @@ export function HealthTab({ v, checks, jump, focus }: TabProps & { focus: string
                   <th>Purpose</th>
                   <th className="num">Calls</th>
                   <th className="num">Cost</th>
+                  {old && <th className="num">Corrected</th>}
                   <th className="num">In tokens</th>
                   <th className="num">Cached</th>
                   <th className="num">Out + thought</th>
@@ -99,8 +128,38 @@ export function HealthTab({ v, checks, jump, focus }: TabProps & { focus: string
                     <td>{k}</td>
                     <td className="num">{x.calls}</td>
                     <td className="num">{cost(x.usd)}</td>
+                    {old && <td className="num" title={correctedDetail(k, x).how}>{cost(correctedDetail(k, x).usd)}</td>}
                     <td className="num">{x.inTok.toLocaleString("en-US")}</td>
                     <td className="num">{x.cachedTok.toLocaleString("en-US")}</td>
+                    <td className="num">{x.outTok.toLocaleString("en-US")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {byModel.length > 0 && (
+        <Section title="Calls by model">
+          <div className="adm-tablewrap">
+            <table className="adm-table adm-table-tight">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th className="num">Calls</th>
+                  <th className="num">Cost</th>
+                  <th className="num">In tokens</th>
+                  <th className="num">Out + thought</th>
+                </tr>
+              </thead>
+              <tbody>
+                {byModel.map(([k, x]) => (
+                  <tr key={k}>
+                    <td>{k}</td>
+                    <td className="num">{x.calls}</td>
+                    <td className="num">{cost(x.usd)}</td>
+                    <td className="num">{x.inTok.toLocaleString("en-US")}</td>
                     <td className="num">{x.outTok.toLocaleString("en-US")}</td>
                   </tr>
                 ))}

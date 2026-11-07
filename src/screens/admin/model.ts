@@ -3,6 +3,7 @@ import { displayCurrency, formatMoney, usdHint, type CurrencyCode } from "../../
 import type { Quote } from "../../../shared/schema";
 import type { Branch, Decision, DecisionAnswer, SimYear } from "../../../shared/sim";
 import type { WarmQuestion } from "../../../worker/agent/protocol";
+import { sessionCost, type CostView } from "../../../worker/admin-cost";
 import type { AgentState, ChecksResponse, D1Answer, DetailResponse, Violation } from "./types";
 
 // ---------------------------------------------------------------------------------------------
@@ -57,6 +58,21 @@ export function dur(ms: number): string {
 
 export const money = (usd: number | null | undefined, code: CurrencyCode, short = false) => (usd === null || usd === undefined ? "—" : formatMoney(usd, code, short));
 export const moneyTitle = (usd: number | null | undefined, code: CurrencyCode) => (usd === null || usd === undefined ? undefined : usdHint(usd, code) ?? undefined);
+export const OLD_RATES_UNTIL = "Sat Nov 7, 4:55pm EST";
+export const OLD_RATES_TITLE: Record<"yes" | "partly", string> = {
+  yes: `Priced at the old rates (3.8 / 3.6 Flash at half what GCP bills) before ${OLD_RATES_UNTIL}. This is the corrected estimate: each purpose's heavy-model share re-priced at the real rates.`,
+  partly: `Started before the price fix (${OLD_RATES_UNTIL}) and went on after it: the corrected estimate treats all of it as old-rate, so it reads a little high.`,
+};
+
+const usd2 = (x: number) => `$${x.toFixed(2)}`;
+
+/** "$1.20 of $2.50 soft cap": a session's cost against its caps (worker/spend.ts). */
+export function capLine(usd: number, caps: { soft: number; hard: number }): { text: string; over: "none" | "soft" | "hard" } {
+  if (usd >= caps.hard) return { text: `${usd2(usd)}: over the ${usd2(caps.hard)} hard cap (no more model calls)`, over: "hard" };
+  if (usd >= caps.soft) return { text: `${usd2(usd)} of ${usd2(caps.hard)} hard cap (past the ${usd2(caps.soft)} soft cap: no more small cards)`, over: "soft" };
+  return { text: `${usd2(usd)} of ${usd2(caps.soft)} soft cap`, over: "none" };
+}
+
 export const cost = (usd: number | null | undefined) => (usd === null || usd === undefined ? "—" : usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`);
 
 // ---------------------------------------------------------------------------------------------
@@ -104,6 +120,8 @@ export interface SessionView {
   violationsAt: Map<string, Violation[]>;
   playheadYear: number;
   forkYears: Set<number>;
+  /** Recorded vs corrected model cost (worker/admin-cost.ts). */
+  cost: CostView | null;
 }
 
 const WARM_LABEL: Record<string, string> = { now: "now", crossroads: "crossroads", people: "people", fear: "fear", unjudged: "unjudged" };
@@ -216,6 +234,7 @@ export function buildView(detail: DetailResponse, checks: ChecksResponse | null)
     violationsAt,
     playheadYear: st.playhead.year,
     forkYears: new Set(st.decisions.filter((d) => d.kind === "big").map((d) => d.year)),
+    cost: sessionCost(st.usage, (detail.session.created_at as string | undefined) ?? st.warmup?.startedAt ?? null, (detail.session.updated_at as string | undefined) ?? st.updatedAt),
   };
 }
 
