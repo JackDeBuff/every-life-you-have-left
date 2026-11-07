@@ -493,8 +493,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (!b) throw new Error("unknown_branch");
     const engine = await this.eng();
     const stepped = await engine.stepBranch(this.s, b, this.s.playhead.year, true);
-    this.update((s) => ({ branches: s.branches.map((x) => (x.id === branchId ? stepped : x)) }));
-    void this.mirror.branches([stepped]);
+    this.update((s) => ({ branches: s.branches.map((x) => (x.id === branchId ? { ...stepped, status: x.status } : x)) }));
+    void this.mirror.branches(this.s.branches.filter((x) => x.id === branchId));
     return stepped;
   }
 
@@ -897,8 +897,10 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
         const engine = await this.eng();
         const stepped = await Promise.all(due.map((b) => engine.stepBranch(this.s, b, ph, false).catch(() => b)));
         const byId = new Map(stepped.map((b) => [b.id, b]));
-        this.update((s) => ({ branches: s.branches.map((b) => byId.get(b.id) ?? b) }));
-        void this.mirror.branches(stepped);
+        // Keep the CURRENT status: a fork may have retired a life while its step was in flight
+        // (a step result used to bring it back: 4 "active" lives at the end of a QA run).
+        this.update((s) => ({ branches: s.branches.map((b) => { const n = byId.get(b.id); return n ? { ...n, status: b.status } : b; }) }));
+        void this.mirror.branches(this.s.branches.filter((b) => byId.has(b.id)));
       } finally {
         this.steppingBranches = false;
       }
