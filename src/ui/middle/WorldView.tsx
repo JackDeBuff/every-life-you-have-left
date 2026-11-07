@@ -23,7 +23,7 @@ import { WorldSlot } from "./WorldSlot";
 const World3D = lazy(() => import("../../world/World"));
 
 /** Seconds per interlude cut: shorter in Auto to keep the judge run near 3 minutes. */
-export const cutSecondsFor = (speed: string) => (speed === "auto" ? 2.1 : 2.6);
+export const cutSecondsFor = (speed: string) => (speed === "auto" ? 1.9 : 2.6);
 
 function webglOk(): boolean {
   try {
@@ -123,13 +123,9 @@ export function CurrentWorld() {
     if (sim().phase === "interlude") void sim().pause(false).catch(() => {});
   }, []);
 
-  // "Life is thinking…": the buffer is behind the playhead, the year isn't written yet, a fork is
-  // being worked out (answered, interlude not ready), or the agent is busy.
-  const thinking =
-    (starved && phase === "playing") ||
-    (!raw && phase === "playing") ||
-    (phase === "deciding" && !pendingBig && !forking) ||
-    (phase === "interlude" && !cuts?.length && !forking);
+  // "Life is thinking…": the buffer is behind the playhead or the year isn't written yet. (While a
+  // fork is being worked out, the "Meanwhile…" overlay says so instead.)
+  const thinking = (starved && phase === "playing") || (!raw && phase === "playing");
 
   return (
     <>
@@ -152,22 +148,21 @@ export function CurrentWorld() {
       ) : (
         <WorldSlot spec={spec} />
       )}
-      {thinking && <Thinking fork={phase !== "playing"} />}
+      {thinking && <Thinking />}
     </>
   );
 }
 
 const LINES = ["Life is thinking", "Writing the next years", "Weighing what you said", "Still writing, nearly there"];
-const FORK_LINES = ["Splitting your life", "Writing the lives you didn't choose", "Almost there"];
 
 /** Calm, intentional waiting: the line changes every few seconds so a long wait reads as work. */
-function Thinking({ fork }: { fork: boolean }) {
+function Thinking() {
   const [n, setN] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => setN((x) => x + 1), 3500);
     return () => window.clearInterval(id);
   }, []);
-  const lines = fork ? FORK_LINES : LINES;
+  const lines = LINES;
   return (
     <p className="thinking-chip" role="status" aria-live="polite">
       <span key={n} className="thinking-line">
