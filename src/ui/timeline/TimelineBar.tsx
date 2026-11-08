@@ -78,7 +78,10 @@ export function TimelineBar() {
     const out: { year: number; age: number; major: boolean }[] = [];
     for (let y = startYear; y <= endYear; y++) {
       const age = startAge + (y - startYear);
-      out.push({ year: y, age, major: age % 5 === 0 || y === startYear || y === endYear });
+      const end = y === startYear || y === endYear;
+      // A round age within 2 years of either end keeps its long tick but not its label ("18 20" collided).
+      const crowded = !end && (y - startYear < 3 || endYear - y < 3);
+      out.push({ year: y, age, major: end || (age % 5 === 0 && !crowded) });
     }
     return out;
   }, [startYear, endYear, startAge]);

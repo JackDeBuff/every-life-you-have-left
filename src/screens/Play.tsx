@@ -274,10 +274,26 @@ function PhonePlay({ dim }: { dim: boolean }) {
   const lastGuide = useSim((s) => [...s.dialogue].reverse().find((c) => c.channel === "main"));
   // The warm-up's questions hold the sheet open like any card (D-090).
   const warming = useSim((s) => s.phase === "warmup");
-  const open = sheetOpen || !!pending || !!forking || warming;
+  // A card (or the warm-up) opens the sheet, but you can always pull it down to watch the world or
+  // read the log; it stays down for that card, and the next card opens it again (owner, Sun Nov 8).
+  const waitingKey = warming ? "warmup" : (pending?.id ?? (forking ? "fork" : null));
+  const [downFor, setDownFor] = useState<string | null>(null);
+  const open = sheetOpen || (waitingKey !== null && downFor !== waitingKey);
+  const setOpen = (o: boolean) => {
+    if (o) {
+      setDownFor(null);
+      setSheet(true);
+    } else {
+      setDownFor(waitingKey);
+      setSheet(false);
+    }
+  };
+  const swipe = useRef<number | null>(null);
+  const swiped = useRef(false); // a swipe also fires a click: don't toggle twice
+  const waitingLabel = warming ? "Before your life starts · tap to answer" : pending?.kind === "big" ? "This one splits your life · tap to choose" : pending ? "A choice is waiting · tap to answer" : null;
   const tabs = useMemo(() => ["log", "bio", "settings"] as const, []);
   return (
-    <div className="phone" data-dim={dim} data-sheet={open}>
+    <div className="phone" data-dim={dim && open} data-sheet={open}>
       <header className="ph-bar">
         <span className="wordmark">Every Life You Have Left</span>
         <SpeedKeys />
@@ -316,9 +332,40 @@ function PhonePlay({ dim }: { dim: boolean }) {
         )}
       </div>
       <section className="sheet" data-open={open} aria-label="Conversation">
-        <button className="sheet-handle" onClick={() => setSheet(!sheetOpen)} aria-expanded={open} disabled={!!pending || warming}>
+        <button
+          className="sheet-handle"
+          onClick={() => {
+            if (swiped.current) {
+              swiped.current = false;
+              return;
+            }
+            setOpen(!open);
+          }}
+          onPointerDown={(e) => (swipe.current = e.clientY)}
+          onPointerUp={(e) => {
+            const from = swipe.current;
+            swipe.current = null;
+            if (from === null) return;
+            const dy = e.clientY - from;
+            if (Math.abs(dy) > 30) {
+              swiped.current = true;
+              setOpen(dy < 0);
+            }
+          }}
+          aria-expanded={open}
+          aria-label={open ? "Pull the conversation down" : "Open the conversation"}
+          data-waiting={!open && !!waitingLabel}
+        >
           <span className="grip" />
-          {!open && <span className="small sheet-peek">{lastGuide?.text ?? "Conversation"}</span>}
+          {!open &&
+            (waitingLabel ? (
+              <span className="small sheet-peek sheet-wait">
+                <span className="sun-dot" aria-hidden="true" />
+                {waitingLabel}
+              </span>
+            ) : (
+              <span className="small sheet-peek">{lastGuide?.text ?? "Conversation"}</span>
+            ))}
         </button>
         <div className="sheet-body">
           <RightPane tabs={false} />

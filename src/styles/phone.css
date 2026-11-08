@@ -1,6 +1,6 @@
 /* Phone (<820px): world on top, tabs for Log / Bio / Settings, the conversation as a bottom sheet. */
 .phone {
-  height: 100vh; height: 100dvh; display: grid; grid-template-rows: 48px 56px minmax(180px, 34vh) 40px minmax(0, 1fr) 64px; grid-template-rows: 48px 56px minmax(180px, 34dvh) 40px minmax(0, 1fr) 64px;
+  height: 100vh; height: 100dvh; display: grid; grid-template-rows: 48px 64px minmax(180px, 34vh) 40px minmax(0, 1fr) 64px; grid-template-rows: 48px 64px minmax(180px, 34dvh) 40px minmax(0, 1fr) 64px;
   grid-template-columns: minmax(0, 1fr); width: 100%;
   background: var(--panel); overflow: hidden; position: relative;
 }
@@ -13,9 +13,9 @@
 .ph-bar .key { height: 30px; min-width: 34px; padding: 6px 5px 3px; font-size: 11px; }
 .ph-bar .slowed { display: none; }
 .ph-timeline { overflow: hidden; border-bottom: 1px solid var(--hair); }
-.ph-timeline .tl { display: block; height: 56px; }
+.ph-timeline .tl { display: block; height: 64px; }
 .ph-timeline .tl-id, .ph-timeline .tl-controls { display: none; }
-.ph-timeline .tl-axis { height: 56px; margin-top: -6px; }
+.ph-timeline .tl-axis { height: 64px; margin-top: 0; }
 .ph-world { border-bottom: 1px solid var(--hair); }
 .ph-world .world-caption { font-size: 17px; }
 .ph-tabs { display: flex; border-bottom: 1px solid var(--hair); }
@@ -43,7 +43,7 @@
   transition: transform 520ms var(--e-settle), height 520ms var(--e-settle), grid-template-rows 520ms var(--e-settle);
 }
 /* Open (a card, or by hand): the sheet rises to just under the timeline, the handle shrinks to a grip. */
-.sheet[data-open="true"] { transform: translateY(0); height: calc(100vh - 104px); height: calc(100dvh - 104px); grid-template-rows: 22px minmax(0, 1fr); }
+.sheet[data-open="true"] { transform: translateY(0); height: calc(100vh - 112px); height: calc(100dvh - 112px); grid-template-rows: 22px minmax(0, 1fr); }
 .sheet-handle { border: 0; background: none; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 8px var(--s4) 0; }
 .grip { width: 36px; height: 4px; border-radius: 4px; background: var(--hair-2); }
 .sheet-peek { color: var(--ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -67,3 +67,10 @@
 }
 .ph-privacy:empty { display: none; }
 .ph-privacy .pv-bits { margin-left: 0; }
+
+/* A card waits while the sheet is down: the peek says so, in the sun's colour. */
+.sheet-handle[data-waiting="true"] .sheet-wait { color: var(--ink); font-weight: 650; display: inline-flex; align-items: center; gap: 8px; }
+.sheet-handle[data-waiting="true"] .sun-dot { flex: none; margin: 0; animation: wait-pulse 1.6s ease-in-out infinite; }
+@keyframes wait-pulse { 50% { transform: scale(1.5); opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .sheet-handle[data-waiting="true"] .sun-dot { animation: none; } }
+.sheet-handle { touch-action: none; cursor: pointer; }
