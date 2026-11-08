@@ -27,8 +27,8 @@
     "GENERATION_ENABLED": "true",
     // Spend caps (worker/spend.ts). App-wide, since the ledger started (Sat Nov 7 ~5pm EST, when
     // $58.76 of the $100 hackathon credit was left): at the cap every model call stops like the
-    // kill switch. Per session: past the soft cap no more small cards; past the hard cap no more calls.
-    "SPEND_CAP_USD": "30",
+    // kill switch. Raised 30 -> 40 on Sun Nov 8 ~3:30am for judging (still leaves ~$18 of credit). Per session: past the soft cap no more small cards; past the hard cap no more calls.
+    "SPEND_CAP_USD": "40",
     "SESSION_SOFT_CAP_USD": "2.5",
     "SESSION_HARD_CAP_USD": "5"
   },
