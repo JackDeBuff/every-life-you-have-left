@@ -9,7 +9,7 @@
 Tell it who you are. It lives your life forward, one year at a time, to 70.
 Every big choice splits it, and **the answers you didn't pick keep running** as lives of their own.
 
-**[▶ Play it now](https://every-life-you-have-left.supawich.workers.dev)** · [Watch the video (3:29)](https://youtu.be/V55GLZrD-rQ) · [How it works](#how-it-works)
+**[▶ Play it now](https://every-life-you-have-left.supawich.workers.dev)** · [Watch the video (3:29)](https://youtu.be/VKNkcKYHers) · [How it works](#how-it-works)
 
 *Built in one weekend at the Triangle AI Hackathon, Duke University, November 2026. Track: Social Impact & Education.*
 
@@ -123,7 +123,7 @@ after 24 hours), and **let the team read it to improve the app** (optional).
 
 ## The films and the music
 
-**[Watch the trailer and the tutorial on YouTube](https://youtu.be/V55GLZrD-rQ)** (3:29). The
+**[Watch the trailer and the tutorial on YouTube](https://youtu.be/VKNkcKYHers)** (3:29). The
 GIFs on this page come from that trailer. Every frame is the real app, filmed frame by frame
 from the built-in demo life of a made-up person called Alex (`/?demo=alex`).
 
