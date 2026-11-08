@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CURRENCIES, CURRENCY_CODES, currencyForCountry, detectCurrency, type CurrencyCode } from "../../shared/currency";
 import { endAgeFor, pronounsFor, type Gender } from "../../shared/schema";
 import { SPEED_CONFIG, type Appearance, type SpeedMode, type StartInput } from "../../shared/sim";
+import { forkGap, smallPerYear } from "../../shared/pace";
 import { fastForward, jumpParams } from "../ui/devJump";
 import { HoldToTalk } from "../ui/HoldToTalk";
 import { Icon } from "../ui/icons";
@@ -17,6 +18,7 @@ import { startPortraits } from "../ui/media";
 import { backend, sim } from "../ui/session";
 import { uploadDocument } from "../lib/agent-client";
 import { LongDay } from "../ui/start/LongDay";
+import { PrivacyDialog } from "../ui/privacy/privacy";
 
 const SPEEDS: { id: SpeedMode; key: string; title: string }[] = [
   { id: "auto", key: "Auto", title: "About 3 minutes" },
@@ -32,8 +34,15 @@ const SPEEDS: { id: SpeedMode; key: string; title: string }[] = [
 function speedNote(id: SpeedMode, yearsLeft: number): string {
   const c = SPEED_CONFIG[id];
   const k = id === "auto" ? 1 : Math.max(0, yearsLeft) / 45;
-  const big = Math.max(1, Math.round(c.bigBudget * k));
-  const small = Math.round(c.smallBudget * k);
+  let big = Math.max(1, Math.round(c.bigBudget * k));
+  let small = Math.round(c.smallBudget * k);
+  if (id === "1x") {
+    // the subjective-time curve (D-100, shared/pace.ts): dense early years, then fewer
+    small = 0;
+    for (let i = 1; i < yearsLeft; i++) small += smallPerYear(i);
+    big = 1;
+    for (let i = 0; i + forkGap(i) < yearsLeft - 3; i += forkGap(i)) big++;
+  }
   if (id === "auto") return `${big} big choices. Best for a first look.`;
   const counts = `~${big} big, ~${small} small`;
   return id === "4x" ? `${counts} choices` : id === "1x" ? `${counts}. Take your time` : counts;
@@ -80,6 +89,10 @@ export default function Start() {
   const [docs, setDocs] = useState<(AddedDoc & { text: string; file: File | null })[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [adult, setAdult] = useState(demo);
+  // Consent, unbundled (D-101): saving and letting the team read it are separate, off by default.
+  const [save, setSave] = useState(false);
+  const [improve, setImprove] = useState(false);
+  const [notice, setNotice] = useState<"read" | "confirm" | null>(null);
   /** null = automatic: the currency they write in, else the one where they live. */
   const [currency, setCurrency] = useState<CurrencyCode | null>(null);
   const [open, setOpen] = useState<"look" | "more" | null>(null);
@@ -128,6 +141,7 @@ export default function Start() {
       appearance: hasLook ? look : null,
       hasSelfie: !!selfie,
       currency: shownCurrency,
+      privacy: { save, improve: save && improve },
     };
     if (!reducedMotion() && rootRef.current) {
       gsap.to(rootRef.current.querySelectorAll(".start-form > *"), { opacity: 0.4, duration: 0.5, stagger: 0.03 });
@@ -181,7 +195,8 @@ export default function Start() {
         className="start-form"
         onSubmit={(e) => {
           e.preventDefault();
-          void begin();
+          // the privacy notice comes up once before the first year (agree there to start)
+          if (ready && !busy) setNotice("confirm");
         }}
       >
         <div className="form-row three">
@@ -354,16 +369,49 @@ export default function Start() {
 
         <div className="consent">
           <p className="small">
-            <b>We save what you tell us</b>: your answers, voice transcripts, uploads and the lives we make from them. We use them to run this and to
-            improve it. Leave out anything you wouldn't want stored.
+            <b>You decide what we keep.</b> Nothing you tell us is sold, shared for ads, or used to train an AI. You can delete it all at any time.
           </p>
           <label className="check">
-            <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
+            <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} required />
             <span className="box" aria-hidden="true">
               <Icon name="check" size={12} />
             </span>
-            <span>I'm 18 or older, and I'm fine with this being saved.</span>
+            <span>I'm 18 or older.</span>
           </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={save}
+              onChange={(e) => {
+                setSave(e.target.checked);
+                if (!e.target.checked) setImprove(false);
+              }}
+            />
+            <span className="box" aria-hidden="true">
+              <Icon name="check" size={12} />
+            </span>
+            <span>
+              Save my life for 30 days <span className="faint">(optional)</span>
+              <small>
+                So it survives a restart and you can share a postcard; then it's deleted automatically. Uploads and selfies are encrypted and
+                deleted after 7 days. Leave it off to play <b>incognito</b>: nothing goes into our database, and the session erases itself
+                after 24 hours.
+              </small>
+            </span>
+          </label>
+          <label className={`check sub ${save ? "" : "off"}`}>
+            <input type="checkbox" checked={save && improve} disabled={!save} onChange={(e) => setImprove(e.target.checked)} />
+            <span className="box" aria-hidden="true">
+              <Icon name="check" size={12} />
+            </span>
+            <span>
+              Let the two of us read it to improve the app <span className="faint">(optional)</span>
+              <small>Only Supawich and Paul, the team behind this, through a passcode-protected page. Leave it off and it stays hidden from us.</small>
+            </span>
+          </label>
+          <button type="button" className="pv-link" onClick={() => setNotice("read")}>
+            Read the privacy notice and terms
+          </button>
         </div>
 
         {err && (
@@ -398,6 +446,16 @@ export default function Start() {
             </button>
           )}
         </div>
+        <PrivacyDialog
+          open={notice !== null}
+          mode={notice ?? "read"}
+          privacy={{ save, improve: save && improve }}
+          onClose={() => setNotice(null)}
+          onAgree={() => {
+            setNotice(null);
+            void begin();
+          }}
+        />
       </form>
     </div>
   );

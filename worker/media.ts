@@ -11,6 +11,7 @@
  *   GET  /media/<key>      R2 object, same origin
  * Never log bodies. Portraits are illustrated, never photoreal; race is never inferred (D-011, D-086).
  */
+import { encryptBytes, type CryptoEnv } from "./crypto";
 import { getAgentByName } from "agents";
 import { Hono } from "hono";
 import { Appearance, PortraitAgeBand, type Portrait } from "../shared/sim";
@@ -54,6 +55,16 @@ async function noteMedia(env: Env, key: string, sessionId: string | null, kind: 
 
 function sessionStub(env: Env, sessionId: string) {
   return getAgentByName(env.SessionAgent, sessionId);
+}
+
+/** A saved life (D-101) keeps its raw files; incognito doesn't. Unknown (no session yet) = don't keep. */
+async function keepsFiles(env: Env, sessionId: string): Promise<boolean> {
+  try {
+    const p = await (await sessionStub(env, sessionId)).privacyState();
+    return !!p?.save;
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -163,9 +174,13 @@ media.post("/api/portrait", async (c) => {
       if (selfie && selfie.data.length * 0.75 > MAX_IMAGE) return c.json({ ok: false, error: "too_large" }, 413);
       if (selfie) {
         image = selfie;
-        const key = `selfies/${sessionId}.${selfie.mimeType.split("/")[1] ?? "jpg"}`;
-        await c.env.UPLOADS.put(key, b64ToBytes(selfie.data), { httpMetadata: { contentType: selfie.mimeType } });
-        void noteMedia(c.env, key, sessionId, "selfie", null, null);
+        // D-101: a saved life keeps the selfie encrypted for 7 days; incognito never stores it.
+        const enc = (await keepsFiles(c.env, sessionId)) ? await encryptBytes(c.env as CryptoEnv, b64ToBytes(selfie.data)) : null;
+        if (enc) {
+          const key = `selfies/${sessionId}.${selfie.mimeType.split("/")[1] ?? "jpg"}.enc`;
+          await c.env.UPLOADS.put(key, enc, { httpMetadata: { contentType: "application/octet-stream" }, customMetadata: { type: selfie.mimeType, enc: "aes-256-gcm" } });
+          void noteMedia(c.env, key, sessionId, "selfie", null, null);
+        }
         prompt =
           `Turn the person in this photo into an illustration, about ${forAge} years old. Keep their real features, ` +
           `face shape, hair and skin tone exactly as in the photo; do not change or guess their ethnicity or gender.` +
@@ -268,10 +283,17 @@ media.post("/api/upload", async (c) => {
   try {
     if (file) {
       const name = (file.name || "upload").replace(/[^A-Za-z0-9._-]/g, "_").slice(-80);
-      key = `uploads/${sessionId}/${crypto.randomUUID().slice(0, 8)}-${name}`;
       const bytes = new Uint8Array(await file.arrayBuffer());
-      await c.env.UPLOADS.put(key, bytes, { httpMetadata: { contentType: file.type || "application/octet-stream" } });
-      void noteMedia(c.env, key, sessionId, `upload_${kind}`, null, null);
+      // D-101: the raw file is kept only for a saved life, encrypted (worker/crypto.ts), for 7 days
+      // (worker/privacy.ts sweep). Incognito, or no key: it is read in memory and never stored.
+      if (await keepsFiles(c.env, sessionId)) {
+        const enc = await encryptBytes(c.env as CryptoEnv, bytes);
+        if (enc) {
+          key = `uploads/${sessionId}/${crypto.randomUUID().slice(0, 8)}-${name}.enc`;
+          await c.env.UPLOADS.put(key, enc, { httpMetadata: { contentType: "application/octet-stream" }, customMetadata: { type: file.type || "application/octet-stream", enc: "aes-256-gcm" } });
+          void noteMedia(c.env, key, sessionId, `upload_${kind}`, null, null);
+        }
+      }
       // Scanned PDF (no text from pdf.js): let Gemini read it (D-066).
       if (!text.trim() && (file.type === "application/pdf" || name.toLowerCase().endsWith(".pdf"))) {
         const r = await generateText("fast", [

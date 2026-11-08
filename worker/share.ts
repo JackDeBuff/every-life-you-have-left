@@ -9,6 +9,7 @@
  * portrait is copied under shares/<id>/ so its URL (which contains the session id) never leaks.
  * Table: migrations/0003_postcard_shares.sql.
  */
+import { getAgentByName } from "agents";
 import { Hono } from "hono";
 import { ShareCardV2, ShareInput, type ShareCreated } from "./share-card";
 
@@ -62,6 +63,16 @@ share.post("/api/share", async (c) => {
   const cardHash = await sha256(JSON.stringify({ ...card, portrait: input.portraitUrl ?? null }));
   const token = randomId(24);
   const tokenHash = await sha256(token);
+
+  // D-101: an incognito life can't be shared (a share link has to be stored to work).
+  if (input.sessionId) {
+    try {
+      const p = await (await getAgentByName(c.env.SessionAgent, input.sessionId)).privacyState();
+      if (p && !p.save) return c.json({ ok: false, error: "incognito" }, 403);
+    } catch {
+      /* no session object: the old behaviour */
+    }
+  }
 
   try {
     // The same postcard shared twice from the same session keeps its link (new upload token).

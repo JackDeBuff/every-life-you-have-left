@@ -45,7 +45,10 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "elyl-uploads" }]
-  // Secrets (never in this file): GCP_API_KEY, ADMIN_PASSCODE
+  "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "elyl-uploads" }],
+  // Retention (D-101, worker/privacy.ts): saved lives erased after 30 days, uploads/selfies after 7.
+  "triggers": { "crons": ["17 7 * * *"] }
+  // Secrets (never in this file): GCP_API_KEY, ADMIN_PASSCODE, DATA_KEY (32 random bytes, base64:
+  // encrypts uploads, their text and selfies, worker/crypto.ts)
   //   local: .dev.vars   remote: npx wrangler secret put <NAME>
 }

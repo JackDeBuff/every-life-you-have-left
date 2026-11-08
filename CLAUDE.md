@@ -72,7 +72,7 @@ without Gemini: `GET /api/demo/life/<key>`.
   card, clock, `live.ts`), `world/` (3D), `styles/tokens.css` (use the variables, never raw colours).
 - `migrations/` — D1 schema 0001–0005. `scripts/` — `eval/`, `qa/`, `judge-run.ts`, `assets/`.
 - `wrangler.jsonc` — Worker config (D1 `DB` = elyl-db, R2 `UPLOADS` = elyl-uploads, vars incl. the
-  spend caps). Secrets: `GCP_API_KEY`, `ADMIN_PASSCODE` (both in `.dev.vars` locally).
+  spend caps). Secrets: `GCP_API_KEY`, `ADMIN_PASSCODE`, `DATA_KEY` (all in `.dev.vars` locally).
 
 ## Rules
 - **Secrets:** `GCP_API_KEY` lives only in `.dev.vars` (gitignored) and `npx wrangler secret put`.
@@ -89,7 +89,10 @@ without Gemini: `GET /api/demo/life/<key>`.
   cites a `quoteId`. No life is ranked "best". Money shown in real $ with a "projection, not
   prediction" note.
 - **Safety:** screen every free-text input; on self-harm/abuse signals show 988 / crisis resources.
-- **Data:** we save sessions (consent screen says so plainly). 18+ only.
+- **Data (D-101):** consent is unbundled (18+ / save / team may read); incognito saves nothing to D1;
+  saved lives are erased after 30 days and uploads/selfies after 7 (`worker/privacy.ts`, daily
+  cron); uploads, their text and selfies are encrypted with `DATA_KEY` (`worker/crypto.ts`).
+  The notice people read is `src/ui/privacy/PrivacyText.tsx`: change it with the code. 18+ only.
 - **Git:** small commits on your own branch/worktree; the lead merges to `main`. Commit trailer:
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Everything must be built during the
   event (organizer rule) — no code from other projects (e.g. fromyourlove).

@@ -15,6 +15,7 @@
  * session; passcode checked again there). Without it (an evicted class, local dev on the remote DB)
  * they fall back to the D1 copy.
  */
+import { decryptText, type CryptoEnv } from "./crypto";
 import { Hono, type MiddlewareHandler } from "hono";
 import type { Ending } from "../shared/engine";
 import type { Profile } from "../shared/schema";
@@ -85,6 +86,18 @@ async function readLive(env: Env, id: string): Promise<{ live: Live | null; erro
 // Sessions list
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * D-101: the team only sees lives whose owner ticked "help improve it" (StartInput.privacy.improve;
+ * sessions from before the split have no privacy field and agreed to the old single consent).
+ */
+const SHAREABLE = `COALESCE(json_extract(s.start_json, '$.privacy.improve'), 1) != 0`;
+
+/** A life the team may not open: incognito, or saved without "help improve it". */
+function isPrivate(d: { start?: unknown } | null, live: { state: { privacy?: { save: boolean; improve: boolean } | null } } | null): boolean {
+  const p = live?.state.privacy ?? (d?.start as { privacy?: { save: boolean; improve: boolean } } | null)?.privacy ?? null;
+  return !!p && (!p.save || !p.improve);
+}
+
 const LIST_BASE = `s.id, s.created_at, s.updated_at, s.first_name, s.age, s.city, s.country, s.speed, s.phase, s.engine,
   s.end_age, s.playhead_year,
   (SELECT COUNT(*) FROM sim_decisions d WHERE d.session_id = s.id) AS decisions,
@@ -118,10 +131,10 @@ admin.get("/api/admin/sessions", async (c) => {
   let rows: ListRow[];
   let migrated = true;
   try {
-    rows = (await db.prepare(`SELECT ${LIST_BASE}${LIST_ADMIN} FROM sim_sessions s ORDER BY s.created_at DESC LIMIT ?1`).bind(limit).all<ListRow>()).results;
+    rows = (await db.prepare(`SELECT ${LIST_BASE}${LIST_ADMIN} FROM sim_sessions s WHERE ${SHAREABLE} ORDER BY s.created_at DESC LIMIT ?1`).bind(limit).all<ListRow>()).results;
   } catch {
     migrated = false;
-    rows = (await db.prepare(`SELECT ${LIST_BASE} FROM sim_sessions s ORDER BY s.created_at DESC LIMIT ?1`).bind(limit).all<ListRow>()).results;
+    rows = (await db.prepare(`SELECT ${LIST_BASE} FROM sim_sessions s WHERE ${SHAREABLE} ORDER BY s.created_at DESC LIMIT ?1`).bind(limit).all<ListRow>()).results;
   }
   // Sessions mirrored before 0004_admin.sql: read spend / warm-up / last error from their Durable
   // Object (a few per request) and save them, so the list fills in over a couple of refreshes.
@@ -309,6 +322,9 @@ admin.get("/api/admin/session/:id", async (c) => {
   const id = c.req.param("id");
   const [d, { live, error }] = await Promise.all([readD1(c.env.DB, id), readLive(c.env, id)]);
   if (!d && !live) return c.json({ ok: false, error: "not_found" }, 404);
+  if (isPrivate(d, live)) return c.json({ ok: false, error: "private" }, 403);
+  // uploaded documents' text is stored encrypted (worker/crypto.ts); it is decrypted only here
+  if (d) d.uploads = await Promise.all(d.uploads.map(async (u) => ({ ...u, text: await decryptText(c.env as CryptoEnv, (u.text as string | null) ?? null) })));
   // Open once, filled in: a session mirrored before 0004_admin.sql gets its list columns from here.
   if (live && d && "usage_usd" in d.row && (d.row.usage_usd ?? null) !== (live.state.usage?.usd ?? null) && backfillOn(c.env))
     c.executionCtx.waitUntil(new Mirror(c.env.DB, id).extras(live.state));
@@ -341,6 +357,7 @@ admin.get("/api/admin/session/:id", async (c) => {
 admin.get("/api/admin/session/:id/checks", async (c) => {
   const id = c.req.param("id");
   const [d, { live }] = await Promise.all([readD1(c.env.DB, id), readLive(c.env, id)]);
+  if (isPrivate(d, live)) return c.json({ ok: false, error: "private" }, 403);
   const state = live?.state ?? (d ? stateFromD1(id, d) : null);
   if (!state) return c.json({ ok: false, error: "not_found" }, 404);
   const started = d?.row.created_at ? new Date(iso(d.row.created_at)) : new Date(state.warmup?.startedAt ?? state.updatedAt);

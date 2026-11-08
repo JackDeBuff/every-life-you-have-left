@@ -3,6 +3,7 @@
  * verdict and no ranking; 2) the postcard from 70; 3) the five-year answer card; 4) talk to any
  * version of you, at any age (letters, or a twin once we know you well).
  */
+import { DeleteMyLife } from "../ui/privacy/mine";
 import * as Slider from "@radix-ui/react-slider";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -117,9 +118,12 @@ export default function Ending() {
     <div className="ending scroll" ref={root}>
       <header className="end-bar">
         <span className="wordmark">Every Life You Have Left</span>
-        <button className="btn ghost sm" onClick={() => sim().reset()}>
-          <Icon name="restart" size={14} /> Start a new life
-        </button>
+        <span className="end-bar-actions">
+          <DeleteMyLife />
+          <button className="btn ghost sm" onClick={() => sim().reset()}>
+            <Icon name="restart" size={14} /> Start a new life
+          </button>
+        </span>
       </header>
 
       <section className="end-hero">
@@ -195,7 +199,7 @@ export default function Ending() {
           quote={firstQuote}
           states={chosenLast?.states ?? null}
           from={{ age: p.age, city: p.city ?? "", year: p.startYear }}
-          share={s.ending ? share : undefined}
+          share={s.ending && s.privacy?.save !== false ? share : undefined}
         />
       </section>
 

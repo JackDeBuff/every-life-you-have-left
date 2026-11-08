@@ -12,12 +12,19 @@ const isLookLab = () => location.hash.startsWith("#look-lab");
 // /admin: the owner's playtest console, its own chunk (never opens a session socket).
 const AdminPage = lazy(() => import("./screens/Admin"));
 const isAdmin = () => location.pathname === "/admin" || location.pathname.startsWith("/admin/");
+// /privacy: the privacy notice and terms (D-101), its own chunk, no session socket.
+const PrivacyPage = lazy(() => import("./screens/Privacy"));
+const isPrivacy = () => location.pathname === "/privacy";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     {isAdmin() ? (
       <Suspense fallback={null}>
         <AdminPage />
+      </Suspense>
+    ) : isPrivacy() ? (
+      <Suspense fallback={null}>
+        <PrivacyPage />
       </Suspense>
     ) : isWorldLab() ? (
       <Suspense fallback={null}>

@@ -7,7 +7,8 @@
  *   POST /api/transcribe · /api/portrait · /api/tts · /api/upload · GET /media/<key>   (worker/media.ts)
  *   GET  /api/admin/sessions · /api/admin/session/:id[/checks] · /api/admin/ping       (worker/admin.ts)
  */
-import { routeAgentRequest } from "agents";
+import { getAgentByName, routeAgentRequest } from "agents";
+import { eraseSession, sweep } from "./privacy";
 import { Hono } from "hono";
 import demo from "../shared/demo/alex.json";
 import { LIFE_KEYS, type LifeKey } from "../shared/lives";
@@ -120,6 +121,23 @@ app.get("/api/demo/life/:key", (c) => {
 /** The whole demo bundle (profile, plan, 4 lives, pause, re-tune). */
 app.get("/api/demo", (c) => c.json(DEMO));
 
+/**
+ * Delete my data (D-101): everything we hold for this life, now. D1 rows and R2 files first
+ * (worker/privacy.ts), then the live session object destroys itself. Knowing the session id (it
+ * lives in the browser that played it) is what lets you delete it, the same as playing it.
+ */
+app.delete("/api/session/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!/^[A-Za-z0-9_-]{4,80}$/.test(id)) return c.json({ ok: false, error: "bad_session" }, 400);
+  const gone = await eraseSession(c.env, id);
+  try {
+    await (await getAgentByName(c.env.SessionAgent, id)).wipe();
+  } catch (e) {
+    console.error("wipe failed", e instanceof Error ? e.name : "error");
+  }
+  return c.json({ ok: true, ...gone });
+});
+
 app.route("/", media);
 app.route("/", share);
 app.route("/", admin);
@@ -140,5 +158,15 @@ export default {
       return res ?? new Response("Not found", { status: 404 });
     }
     return app.fetch(request, env, ctx);
+  },
+  /** Daily retention job (wrangler.jsonc triggers; worker/privacy.ts). */
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        const r = await sweep(env);
+        for (const id of r.sessions) await (await getAgentByName(env.SessionAgent, id)).wipe().catch(() => undefined);
+        console.log(`[retention] erased ${r.sessions.length} sessions, ${r.uploadFiles} upload files, ${r.uploadRows} upload rows`);
+      })(),
+    );
   },
 } satisfies ExportedHandler<Env>;

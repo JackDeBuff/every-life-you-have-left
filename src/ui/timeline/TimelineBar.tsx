@@ -3,6 +3,7 @@
  * with the threads of the lives you didn't choose, small choices as dots, speed keys and pause.
  * The part not lived yet sits on a sunken band. Click a ◆ for "the road not taken" (RoadNotTaken).
  */
+import { PrivacyBits } from "../privacy/mine";
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -97,6 +98,7 @@ export function TimelineBar() {
         <span className="tl-who small faint">
           {name ? `${name} · ${startYear}–${endYear}` : ""}
           <Legend />
+          <PrivacyBits />
         </span>
       </div>
 

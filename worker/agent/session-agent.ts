@@ -43,6 +43,7 @@ import {
   SPEED_CONFIG,
   SpeedMode,
   StartInput,
+  privacyOf,
   type Branch,
   type Decision,
   type DecisionAnswer,
@@ -77,6 +78,8 @@ import {
 } from "../engine/warmup";
 import { bindLlm, type LlmEnv } from "../llm";
 import { Mirror } from "./mirror";
+import { encryptText, type CryptoEnv } from "../crypto";
+import { eraseSession, INCOGNITO_HOURS } from "../privacy";
 import { recordSpend } from "../spend";
 import {
   diffState,
@@ -339,8 +342,45 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   }
 
   private get mirror(): Mirror {
+    // Incognito (D-101): nothing about this life goes to the database.
+    if (this.cur?.privacy && !this.cur.privacy.save) return (this.noMirror ??= new Mirror(undefined, this.name));
     if (!this.mirrorDb) this.mirrorDb = new Mirror(this.env.DB, this.name);
     return this.mirrorDb;
+  }
+  private noMirror: Mirror | null = null;
+
+  /** An uploaded document's text, encrypted (worker/crypto.ts), in the D1 mirror; never stored in the clear. */
+  private mirrorDoc(id: string, kind: string, text: string): void {
+    if (this.cur?.privacy && !this.cur.privacy.save) return;
+    void encryptText(this.env as CryptoEnv, text).then((enc) => (enc ? this.mirror.upload(id, kind, null, null, enc) : undefined));
+  }
+
+  /**
+   * Erase this session object: storage, alarms, open sockets (D-101). Called by DELETE
+   * /api/session/:id and the retention sweep (worker/privacy.ts erases D1 and R2 first). Not
+   * async on purpose (like adminSnapshot): a sync RPC doesn't start the agent lifecycle, so
+   * deleting a life never resumes it.
+   */
+  wipe(): Promise<void> {
+    this.epoch++;
+    try {
+      for (const c of this.getConnections()) c.close(4001, "deleted");
+    } catch {
+      /* no sockets */
+    }
+    this.cur = initialAgentState(this.name);
+    return this._cf_scheduleDestroy();
+  }
+
+  /** The consent this life started with (for the Worker's upload routes). Sync, like adminSnapshot. */
+  privacyState(): AgentState["privacy"] {
+    return (this.cur ?? (this.state as AgentState | undefined))?.privacy ?? null;
+  }
+
+  /** Incognito: 24 hours after the start the life erases itself (scheduled in start()). */
+  async expire(): Promise<void> {
+    await eraseSession(this.env, this.name).catch(() => undefined);
+    await this.wipe();
   }
 
   /** Session cost tally (admin + timing runs). Published at most every few seconds. */
@@ -515,13 +555,17 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
   async start(input: StartInput, docs?: DocInput[]): Promise<void> {
     const parsed = StartInput.parse(input);
     if (this.s.phase !== "start" || this.s.profile || this.s.thinking) return; // idempotent
+    // Consent first (D-101): incognito turns the database mirror off before anything is written.
+    const privacy = privacyOf(parsed);
+    this.update({ privacy });
+    if (!privacy.save) void this.schedule(INCOGNITO_HOURS * 3600, "expire").catch((e) => console.error("schedule expire failed", errCode(e)));
     for (const d of Array.isArray(docs) ? docs : []) {
       const kind = d && (d.kind === "cv" || d.kind === "linkedin" || d.kind === "ai_export") ? d.kind : null;
       const text = kind ? String(d.text ?? "").slice(0, 60_000) : "";
       if (!kind || !text.trim() || this.seenDocs.has(docKey(kind, text))) continue;
       this.seenDocs.add(docKey(kind, text));
       this.pendingDocs.push({ kind, text });
-      void this.mirror.upload(`u-${crypto.randomUUID().slice(0, 8)}`, kind, null, null, text);
+      this.mirrorDoc(`u-${crypto.randomUUID().slice(0, 8)}`, kind, text);
     }
     const loaded = await this.engInfo();
     if (this.s.phase !== "start" || this.s.profile) return; // a second start() meanwhile
@@ -1252,7 +1296,7 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     if (this.seenDocs.has(key)) return;
     this.seenDocs.add(key);
     const id = `u-${crypto.randomUUID().slice(0, 8)}`;
-    void this.mirror.upload(id, kind, null, null, doc.text);
+    this.mirrorDoc(id, kind, doc.text);
     if (!this.s.profile) {
       this.pendingDocs.push(doc);
       return;

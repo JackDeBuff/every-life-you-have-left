@@ -18,7 +18,7 @@
  */
 import type { DocKind, Ending, InterludeCut, SafetyResult } from "../../shared/engine";
 import type { DomainKey } from "../../shared/domains";
-import type { DecisionOption, SessionState } from "../../shared/sim";
+import type { DecisionOption, Privacy, SessionState } from "../../shared/sim";
 
 // ---------------------------------------------------------------------------------------------
 // The warm-up (D-090): up to 5 questions between Start and the first fork, in every mode.
@@ -135,6 +135,8 @@ export interface SessionExtras {
   usage?: SessionUsage | null;
   /** The warm-up (phase "warmup"); kept after it ends for the dialogue. null = none (offline demo, old sessions). */
   warmup?: WarmupState | null;
+  /** What they agreed to at the start (D-101). null = not started yet, or a session from before. */
+  privacy?: Privacy | null;
 }
 
 /** Session cost tally (admin + timing runs). The optional fields are for scripts/judge-run.ts. */

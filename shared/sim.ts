@@ -55,6 +55,9 @@ export const Appearance = z.object({
 });
 export type Appearance = z.infer<typeof Appearance>;
 
+export const Privacy = z.object({ save: z.boolean(), improve: z.boolean() });
+export type Privacy = z.infer<typeof Privacy>;
+
 export const StartInput = z.object({
   firstName: z.string().min(1).max(40),
   age: int().min(18).max(100),
@@ -68,8 +71,16 @@ export const StartInput = z.object({
   hasSelfie: z.boolean(),
   /** Display currency they picked (shared/currency.ts). The engine still computes in USD. null = from the country. */
   currency: z.enum(CURRENCY_CODES).nullable().default(null),
+  /**
+   * Consent, unbundled (D-101). save: keep this life in our database for 30 days (false =
+   * incognito: nothing in D1, raw files not kept, the session erases itself after 24 h).
+   * improve: the team may read the saved life to improve the app (/admin shows only these).
+   * Missing (scripts, old clients) = the old single consent: both true (privacyOf).
+   */
+  privacy: Privacy.optional(),
 });
 export type StartInput = z.infer<typeof StartInput>;
+export const privacyOf = (i: Pick<StartInput, "privacy"> | null | undefined): Privacy => i?.privacy ?? { save: true, improve: true };
 
 // ---------------------------------------------------------------------------------------------
 // Decisions (SPEC §3)

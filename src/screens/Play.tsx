@@ -2,6 +2,7 @@
  * The play screen (SPEC §1): timeline bar over three panes. One focus at a time: a big decision dims
  * everything but the card. Phone (<820px): world on top, tabs, the chat as a bottom sheet.
  */
+import { PrivacyBits } from "../ui/privacy/mine";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { clock } from "../ui/clock";
 import { Bio, LeftPane } from "../ui/left/Bio";
@@ -279,6 +280,7 @@ function PhonePlay({ dim }: { dim: boolean }) {
     <div className="phone" data-dim={dim} data-sheet={open}>
       <header className="ph-bar">
         <span className="wordmark">Every Life You Have Left</span>
+        <PrivacyBits />
         <SpeedKeys />
       </header>
       <div className="ph-timeline">
