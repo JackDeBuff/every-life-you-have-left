@@ -72,3 +72,11 @@
 .pv-bits .pv-del:hover { color: var(--ink); border-color: var(--hair-2); }
 .end-bar-actions { display: inline-flex; gap: var(--s2); align-items: center; }
 .pv-page-bar .wordmark { color: inherit; text-decoration: none; }
+
+/* Desktop timeline bar: Incognito + Delete my data as icons on the name line. With their labels they
+   wrapped the left block to three lines inside the 64px bar, clipping the wordmark and pushing the
+   timeline's age labels out of view. The text stays for screen readers (font-size 0, not removed). */
+.tl .tl-who { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
+.tl .tl-who .pv-bits { margin-left: 2px; gap: 4px; flex: none; }
+.tl .tl-who .pv-tag, .tl .tl-who .btn.pv-del { font-size: 0; gap: 0; padding: 0 6px; height: 22px; min-width: 0; }
+.tl .tl-who .pv-tag svg, .tl .tl-who .btn.pv-del svg { flex: none; }
