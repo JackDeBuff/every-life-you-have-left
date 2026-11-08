@@ -58,3 +58,4 @@
 .sheet .dcard[data-kind="big"] .dq[data-len="xl"] { font-size: 18px; }
 .sheet .keys-hint { display: none; }
 @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+.ph-bar .key.musickey { margin-left: 2px; }

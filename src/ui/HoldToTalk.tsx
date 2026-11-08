@@ -6,6 +6,7 @@
  * Blocked mic (permission denied): no pretend listening; a calm note says so at once. With
  * `onNotice` the parent shows the note inline under its field; without it, a small bubble does.
  */
+import { duckMusic } from "./music";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { backend } from "./session";
@@ -88,6 +89,7 @@ export function HoldToTalk({
   const stream = useRef<MediaStream | null>(null);
   const raf = useRef<number>(0);
   const started = useRef(0);
+  const unduck = useRef<(() => void) | null>(null);
 
   useEffect(
     () => () => {
@@ -112,6 +114,8 @@ export function HoldToTalk({
   }
 
   function stopAll() {
+    unduck.current?.();
+    unduck.current = null;
     cancelAnimationFrame(raf.current);
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;
@@ -126,6 +130,8 @@ export function HoldToTalk({
     }
     notice.current?.(null);
     setStatus("listening");
+    unduck.current?.();
+    unduck.current = duckMusic("mic"); // the music would leak into the recording
     started.current = performance.now();
     chunks.current = [];
     try {

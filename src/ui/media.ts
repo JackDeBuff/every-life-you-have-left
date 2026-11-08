@@ -8,6 +8,7 @@
  */
 import type { Appearance } from "../../shared/sim";
 import { makePortrait, speak } from "../lib/agent-client";
+import { duckMusic } from "./music";
 
 /** Downscale a selfie to a JPEG data URL (keeps the upload small and strips metadata). */
 export async function fileToJpegDataUrl(file: File, max = 768): Promise<string> {
@@ -72,14 +73,21 @@ export async function readAloud(text: string, sessionId?: string): Promise<Readi
   try {
     const url = await speak(text, "future", sessionId);
     const a = new Audio(url);
+    const release = duckMusic("voice");
     const done = new Promise<void>((res) => {
       a.onended = () => res();
       a.onerror = () => res();
-    });
-    await a.play();
+    }).finally(release);
+    try {
+      await a.play();
+    } catch (e) {
+      release();
+      throw e;
+    }
     return {
       stop: () => {
         a.pause();
+        release();
         URL.revokeObjectURL(url);
       },
       done,
@@ -89,12 +97,13 @@ export async function readAloud(text: string, sessionId?: string): Promise<Readi
     if (!synth) return { stop: () => {}, done: Promise.resolve() };
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.96;
+    const release = duckMusic("voice");
     const done = new Promise<void>((res) => {
       u.onend = () => res();
       u.onerror = () => res();
-    });
+    }).finally(release);
     synth.cancel();
     synth.speak(u);
-    return { stop: () => synth.cancel(), done };
+    return { stop: () => (synth.cancel(), release()), done };
   }
 }

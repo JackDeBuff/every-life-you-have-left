@@ -1,0 +1,103 @@
+{
+ "cues": {
+  "life-early": {
+   "kind": "loop",
+   "ogg": "life-early.ogg",
+   "m4a": "life-early.m4a",
+   "len": 3665454,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 76.363616
+  },
+  "life-building": {
+   "kind": "loop",
+   "ogg": "life-building.ogg",
+   "m4a": "life-building.m4a",
+   "len": 3584002,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 74.666704
+  },
+  "life-middle": {
+   "kind": "loop",
+   "ogg": "life-middle.ogg",
+   "m4a": "life-middle.m4a",
+   "len": 3637896,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 75.789504
+  },
+  "life-late": {
+   "kind": "loop",
+   "ogg": "life-late.ogg",
+   "m4a": "life-late.m4a",
+   "len": 3490909,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 72.72728
+  },
+  "decision": {
+   "kind": "loop",
+   "ogg": "decision.ogg",
+   "m4a": "decision.m4a",
+   "len": 2559999,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 53.333312
+  },
+  "turning-point": {
+   "kind": "one-shot",
+   "ogg": "turning-point.ogg",
+   "m4a": "turning-point.m4a",
+   "len": 240000,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 5.0
+  },
+  "interlude": {
+   "kind": "loop",
+   "ogg": "interlude.ogg",
+   "m4a": "interlude.m4a",
+   "len": 1728000,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 36.0
+  },
+  "hard-times": {
+   "kind": "loop",
+   "ogg": "hard-times.ogg",
+   "m4a": "hard-times.m4a",
+   "len": 2879999,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 59.999976
+  },
+  "good-times": {
+   "kind": "loop",
+   "ogg": "good-times.ogg",
+   "m4a": "good-times.m4a",
+   "len": 3005218,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 62.608704
+  },
+  "ending-70": {
+   "kind": "loop",
+   "ogg": "ending-70.ogg",
+   "m4a": "ending-70.m4a",
+   "len": 4244212,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 88.421088
+  },
+  "life-early-default": {
+   "kind": "loop",
+   "ogg": "life-early-default.ogg",
+   "m4a": "life-early-default.m4a",
+   "len": 2094545,
+   "rate": 48000,
+   "loopStart": 0.0,
+   "loopEnd": 43.636352
+  }
+ }
+}

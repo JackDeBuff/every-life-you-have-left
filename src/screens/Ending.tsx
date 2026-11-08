@@ -4,6 +4,7 @@
  * version of you, at any age (letters, or a twin once we know you well).
  */
 import { DeleteMyLife } from "../ui/privacy/mine";
+import { MusicToggle } from "../ui/MusicToggle";
 import * as Slider from "@radix-ui/react-slider";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -119,6 +120,7 @@ export default function Ending() {
       <header className="end-bar">
         <span className="wordmark">Every Life You Have Left</span>
         <span className="end-bar-actions">
+          <MusicToggle variant="btn" />
           <DeleteMyLife />
           <button className="btn ghost sm" onClick={() => sim().reset()}>
             <Icon name="restart" size={14} /> Start a new life

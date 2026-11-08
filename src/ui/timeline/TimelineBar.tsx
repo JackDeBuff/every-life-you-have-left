@@ -4,6 +4,7 @@
  * The part not lived yet sits on a sunken band. Click a ◆ for "the road not taken" (RoadNotTaken).
  */
 import { PrivacyBits } from "../privacy/mine";
+import { MusicToggle } from "../MusicToggle";
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -378,6 +379,7 @@ export function SpeedKeys() {
         <span className="led" />
         <Icon name={paused ? "play" : "pause"} size={13} />
       </button>
+      <MusicToggle />
       <span className="slowed label" data-on={slowed && !paused} aria-live="polite">
         {slowed && !paused ? "Time slowed" : ""}
       </span>

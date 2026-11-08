@@ -48,7 +48,8 @@ export function PrivacyText() {
       </p>
       <p>
         <b>What we collect without you typing it:</b> very little. Cloudflare tells our server which country a request comes from. Your
-        browser keeps a random session code in its local storage so a refresh brings you back to the same life (and so you can delete it). We
+        browser keeps a random session code in its local storage so a refresh brings you back to the same life (and so you can delete it),
+        plus a few display preferences that never leave your browser, such as music on or off and your currency. We
         do not store your IP address, we do not set tracking cookies, and there are no third-party analytics, ads or pixels on this site.
       </p>
       <p>

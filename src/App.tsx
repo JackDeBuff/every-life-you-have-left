@@ -5,6 +5,7 @@ import Start from "./screens/Start";
 import { ConnectionNotice } from "./ui/ConnectionNotice";
 import { CrisisBanner } from "./ui/CrisisBanner";
 import { setSun } from "./ui/motion";
+import { useMusicDirector } from "./ui/musicDirector";
 import { useBackend, useSim } from "./ui/session";
 
 /**
@@ -28,6 +29,7 @@ export default function App() {
 function Screens() {
   const phase = useSim((s) => s.phase);
   const hasProfile = useSim((s) => !!s.profile);
+  useMusicDirector();
   useEffect(() => {
     if (phase === "start") setSun(0);
   }, [phase]);
