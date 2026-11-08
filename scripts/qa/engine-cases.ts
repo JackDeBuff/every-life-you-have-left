@@ -3,6 +3,7 @@
  * fork, money that ignores what they said, kids nobody chose. Made-up personas only (Riley, 26,
  * Raleigh; Jun, 31, Denver), never real session data.
  */
+import { timeFactor } from "../../shared/pace";
 import { CURRENCY_CODES, toLocal, toUsd } from "../../shared/currency";
 import type { DecisionSlot } from "../../shared/engine";
 import type { Profile } from "../../shared/schema";
@@ -36,16 +37,57 @@ const perYear = (slots: DecisionSlot[], kind: "small" | "big") => {
 // ---------------------------------------------------------------------------------------------
 export const PACE_CASES: CodeCase[] = [
   {
-    name: "1x plan for Riley (26): 3-4 small cards a year in the 20s-30s, 2-3 later, ~150 small / ~20 forks",
+    name: "1x plan for Riley (26), subjective time (D-100): 6 small a year for 4 years, 3-4 to ~40, 2 to ~50, then 1; forks yearly at first, then further apart",
     run: () => {
       const slots = planSlotsFor(stateFor(riley, "1x"));
       const sm = perYear(slots, "small");
-      const early = [...sm].filter(([y]) => y - riley.birthYear >= 27 && y - riley.birthYear <= 39).map(([, n]) => n);
-      const late = [...sm].filter(([y]) => y - riley.birthYear >= 55 && y - riley.birthYear < 70).map(([, n]) => n);
+      const at = (lo: number, hi: number) => [...sm].filter(([y]) => y - riley.birthYear >= lo && y - riley.birthYear <= hi).map(([, n]) => n);
+      const big = slots.filter((s) => s.kind === "big").map((s) => s.age);
+      const gaps = big.slice(1).map((a, i) => a - big[i]!);
+      const firstHalf = big.filter((a) => a < 48).length;
       const small = slots.filter((s) => s.kind === "small").length;
-      const big = slots.filter((s) => s.kind === "big").length;
-      const pass = early.every((n) => n >= 3 && n <= 4) && late.every((n) => n >= 2 && n <= 3) && small >= 140 && big >= 18;
-      return { pass, detail: `${small} small, ${big} big; 27-39: ${early.join(",")}; 55-69: ${late.join(",")}` };
+      const pass =
+        at(27, 30).every((n) => n === 6) && at(31, 40).every((n) => n >= 3 && n <= 4) && at(41, 50).every((n) => n === 2) && at(51, 69).every((n) => n === 1) &&
+        gaps.slice(0, 4).every((g) => g === 1) && gaps.slice(-3).every((g) => g >= 3) && firstHalf >= 2 * (big.length - firstHalf) && big.length >= 15 && small >= 90;
+      return { pass, detail: `${small} small, ${big.length} forks at ${big.join(",")}; 27-30: ${at(27, 30).join(",")}; 31-40: ${at(31, 40).join(",")}; 51-69: ${at(51, 69).join(",")}` };
+    },
+  },
+  {
+    name: "every speed front-loads its forks (more in the first half of the life); Auto keeps 5, >= 3 years apart, the last >= 4 years before 70",
+    run: () => {
+      const out: string[] = [];
+      let pass = true;
+      for (const speed of ["1x", "2x", "4x", "auto"] as const) {
+        const big = planSlotsFor(stateFor(riley, speed)).filter((s) => s.kind === "big").map((s) => s.age);
+        const gaps = big.slice(1).map((a, i) => a - big[i]!);
+        const front = big.filter((a) => a < 48).length > big.filter((a) => a >= 48).length;
+        const growing = gaps.at(-1)! >= gaps[0]!;
+        if (!front || !growing) pass = false;
+        if (speed === "auto" && (big.length !== 5 || gaps.some((g) => g < 3) || big.at(-1)! > 66)) pass = false;
+        out.push(`${speed}: ${big.join(",")}`);
+      }
+      return { pass, detail: out.join(" | ") };
+    },
+  },
+  {
+    name: "a new chapter slows time: the year after an answered fork gets 2 more small cards at 1x and plays slower",
+    run: () => {
+      const base = stateFor(riley, "1x");
+      const y = riley.startYear + 8;
+      const fork = { ...card("d-fork", y, y - riley.birthYear, "Move to Lisbon?", [["Go", "Go"], ["Stay", "Stay"]]), status: "answered" as const };
+      const withFork = { ...base, playhead: { ...base.playhead, year: y }, decisions: [...base.decisions, fork] };
+      const noFork = { ...base, playhead: { ...base.playhead, year: y } };
+      const n = (st: typeof base) => planSlotsFor(st).filter((s) => s.kind === "small" && s.year === y + 1).length;
+      const slow = timeFactor("1x", 9, true) > timeFactor("1x", 9, false);
+      return { pass: n(withFork) === n(noFork) + 2 && slow, detail: `small in ${y + 1}: ${n(noFork)} -> ${n(withFork)}; time x${timeFactor("1x", 9, false).toFixed(2)} -> x${timeFactor("1x", 9, true).toFixed(2)}` };
+    },
+  },
+  {
+    name: "the clock: early years slower than base, late years faster, Auto softer (its 3-minute run)",
+    run: () => {
+      const f = (sp: "1x" | "auto", i: number) => timeFactor(sp, i, false);
+      const pass = f("1x", 0) > 1 && f("1x", 30) < 1 && f("auto", 0) < f("1x", 0) && f("auto", 30) > f("1x", 30) && f("auto", 30) >= 0.8;
+      return { pass, detail: `1x ${f("1x", 0)}..${f("1x", 30)}, auto ${f("auto", 0).toFixed(2)}..${f("auto", 30).toFixed(2)}` };
     },
   },
   {
@@ -61,10 +103,10 @@ export const PACE_CASES: CodeCase[] = [
     },
   },
   {
-    name: "1x sim, typical (answers 8 s, batches 9 s): every planned card, little dead air",
+    name: "1x sim, typical (answers 8 s, batches 9 s): every planned card, little dead air (<= 60 s in the 10 densest years: a fork a year drops the queue)",
     run: () => {
       const r = simulatePace({ policy: "new", years: 10, answerMs: 8000, batchMs: 9000, dropEvery: 4 });
-      return { pass: r.shown === r.planned && r.maxOpen === 1 && r.waitedSeconds <= 30, detail: `${r.shown}/${r.planned}, ${r.waitedSeconds} s waiting, ${(r.seconds / 60).toFixed(1)} min for 10 years` };
+      return { pass: r.shown === r.planned && r.maxOpen === 1 && r.waitedSeconds <= 60, detail: `${r.shown}/${r.planned}, ${r.waitedSeconds} s waiting, ${(r.seconds / 60).toFixed(1)} min for 10 years` };
     },
   },
   {

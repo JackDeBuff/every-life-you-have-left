@@ -12,6 +12,7 @@
 import type { DecisionSlot } from "../../shared/engine";
 import { DOMAIN_KEYS, type DomainKey } from "../../shared/domains";
 import type { Profile } from "../../shared/schema";
+import { forkGap, noveltyYears, smallPerYear, smallWeight } from "../../shared/pace";
 import { SPEED_CONFIG, type SessionState } from "../../shared/sim";
 import { kidsQuestionOpen } from "./kids";
 import { lifeFacts } from "./world";
@@ -157,7 +158,15 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
   const bigHereAlready = state.decisions.some((d) => d.kind === "big" && d.year === nowYear);
   const bigTotal =
     state.speed === "auto" ? Math.max(0, cfg.bigBudget - bigMade) : Math.max(bigMade === 0 ? 1 : 0, Math.round(cfg.bigBudget * scale));
-  const smallTotal = state.speed === "auto" ? 0 : Math.round(cfg.smallBudget * scale);
+  // 1x: the subjective-time curve sets the count year by year (shared/pace.ts); 2x/4x keep their
+  // budget and spread it along the same curve; Auto has none.
+  const novel = noveltyYears(state.years ?? [], state.decisions);
+  const iOf = (y: number) => y - profile.startYear;
+  let smallTotal = state.speed === "auto" ? 0 : Math.round(cfg.smallBudget * scale);
+  if (state.speed === "1x") {
+    smallTotal = 0;
+    for (let y = nowYear + 1; y < endYear; y++) smallTotal += Math.min(MAX_SMALL_PER_YEAR, smallPerYear(iOf(y), novel.has(y)));
+  }
 
   const slots: DecisionSlot[] = [];
   const takenBigYears = new Set(state.decisions.filter((d) => d.kind === "big").map((d) => d.year));
@@ -175,53 +184,44 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
     // Auto/4x: >= 3-5 years apart so the next stretch and the next card generate while it plays.
     const fewBig = state.speed === "auto" || state.speed === "4x";
     const moments = stageMoments(profile, state, nowAge, endAge);
-    const span = lastAge - firstAge + 1;
     const used = new Set<string>();
     // Spread big decisions across life areas: a domain already decided on scores lower.
     const usedDomains = new Set<string>([...state.decisions.filter((d) => d.kind === "big").flatMap((d) => d.domains), ...slots.map((s) => s.reason.split(":")[1]!)]);
     let prevAge = slots.length ? nowAge : Math.max(nowAge, ...state.decisions.filter((d) => d.kind === "big").map((d) => d.age), nowAge - 99);
-    if (!fewBig) {
-      // 1x/2x: evenly spaced (QA, Sat Nov 7: windowed picks clustered forks 2 years apart at 2x, and
-      // with no small card in a fork's year or the year after, 23 years showed none). Each fork sits
-      // at its even spot; the life-stage moment nearest to it (within ~half a spacing) names it.
-      const spacing = span / remainingBig;
-      const minGap = Math.max(2, Math.floor(spacing * 0.75));
-      const reach = Math.max(1, spacing * 0.6);
-      for (let k = 0; k < remainingBig; k++) {
-        const centre = firstAge + spacing * (k + 0.5) - 0.5;
-        const age = Math.max(prevAge + minGap, Math.round(centre));
-        if (age > endAge - 2) break;
-        const adj = (x: Moment) => x.score - (usedDomains.has(x.domain) ? 0.4 : 0) - 0.15 * Math.abs(x.age - centre);
-        const near = moments.filter((x) => !used.has(x.key) && Math.abs(x.age - centre) <= reach).sort((a, b) => adj(b) - adj(a));
-        const domain = topDomain(profile, k);
-        const pick: Moment = near[0] ?? { age, domain, key: `stage_${k}`, why: GENERIC_STAGE[domain], score: 0 };
-        used.add(pick.key);
-        usedDomains.add(pick.domain);
-        slots.push({ year: profile.birthYear + age, age, kind: "big", reason: `big:${pick.domain}:${pick.key}: ${pick.why}` });
-        takenBigYears.add(profile.birthYear + age);
-        prevAge = age;
+    // Subjective time (D-100, shared/pace.ts): forks come often in the first years after today and
+    // further apart later (1x: every year, then every 2, 3, ~4.5). Every speed uses the same shape,
+    // stretched by k to fit its budget. Auto/4x keep >= 3 years between forks so the next card and
+    // stretch generate while one plays; 2x keeps >= 3 so a year between forks is free for small
+    // cards (2x never shows one in a fork's year or the year after).
+    const minGap = state.speed === "1x" ? 1 : 3;
+    const at = (age: number) => profile.birthYear + age - profile.startYear;
+    const walk = (k: number) => {
+      const out: number[] = [];
+      let a = prevAge;
+      for (;;) {
+        a = a + Math.max(minGap, Math.round(k * forkGap(at(a))));
+        if (a > lastAge || a < firstAge - 1) break;
+        if (a >= firstAge) out.push(a);
       }
-      remainingBig = 0;
-    }
-    const minGap = Math.max(3, Math.min(5, Math.floor((lastAge - firstAge + 1) / (remainingBig + 1))));
-    for (let k = 0; k < remainingBig; k++) {
-      const lo = firstAge + Math.floor((span * k) / remainingBig);
-      const hi = firstAge + Math.floor((span * (k + 1)) / remainingBig) - 1;
-      const adj = (x: Moment) => x.score - (usedDomains.has(x.domain) ? 0.4 : 0);
-      const inWin = moments
-        // a moment slightly too close to the previous decision is shifted later, not dropped
-        .filter((x) => x.age >= lo - 1 && x.age <= hi + 1 && x.age - prevAge >= minGap - 2 && !takenBigYears.has(profile.birthYear + x.age))
-        .sort((a, b) => adj(b) - adj(a));
-      let pick: Moment | undefined = inWin.find((x) => !used.has(x.key));
-      if (!pick) {
-        const age = Math.min(endAge - 3, Math.max(prevAge + minGap, Math.round((lo + hi) / 2)));
-        const domain = topDomain(profile, k);
-        pick = { age, domain, key: `stage_${k}`, why: GENERIC_STAGE[domain], score: 0 };
-      }
+      return out;
+    };
+    let k = state.speed === "1x" ? 1 : 0.3;
+    while (k < 12 && walk(k).length > remainingBig) k += 0.02;
+    const targets = walk(k).slice(0, remainingBig);
+    for (let j = 0; j < targets.length; j++) {
+      const centre = targets[j]!;
+      const reach = Math.max(1, Math.round(k * forkGap(at(centre)) * 0.6));
+      const adj = (x: Moment) => x.score - (usedDomains.has(x.domain) ? 0.4 : 0) - 0.15 * Math.abs(x.age - centre);
+      const near = moments.filter((x) => !used.has(x.key) && Math.abs(x.age - centre) <= reach && !takenBigYears.has(profile.birthYear + x.age)).sort((a, b) => adj(b) - adj(a));
+      const domain = topDomain(profile, j);
+      const pick: Moment = near[0] ?? { age: centre, domain, key: `stage_${j}`, why: GENERIC_STAGE[domain], score: 0 };
+      // the moment names the fork; it may pull it at most a third of the local spacing, so the
+      // curve keeps its shape (no two forks a year apart in the years that should be calm)
+      const shift = Math.min(1, Math.floor((k * forkGap(at(centre))) / 3));
+      const age = Math.max(prevAge + minGap, centre + Math.max(-shift, Math.min(shift, pick.age - centre)));
+      if (age > (fewBig ? lastAge : endAge - 2) || takenBigYears.has(profile.birthYear + age)) continue;
       used.add(pick.key);
       usedDomains.add(pick.domain);
-      const age = Math.max(pick.age, prevAge + minGap);
-      if (age > endAge - 2) break;
       slots.push({ year: profile.birthYear + age, age, kind: "big", reason: `big:${pick.domain}:${pick.key}: ${pick.why}` });
       takenBigYears.add(profile.birthYear + age);
       prevAge = age;
@@ -247,10 +247,14 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
     // 2x/4x: one a year, two in a year only when the free years can't hold the budget otherwise
     // (2x: ~30 cards, ~25 free years with 10 forks).
     const need = Math.max(1, Math.ceil(smallTotal / Math.max(1, free)));
-    const perYear = deep ? Math.min(MAX_SMALL_PER_YEAR, need) : Math.min(2, need);
+    const perYear = deep ? MAX_SMALL_PER_YEAR : Math.min(2, need);
     const used = new Map<number, number>();
     const smallYears: number[] = [];
-    for (const y0 of spreadYears(nowYear, endYear, smallTotal)) {
+    const yearsOrder: number[] = [];
+    if (deep) {
+      for (let y = nowYear + 1; y < endYear; y++) for (let n = Math.min(MAX_SMALL_PER_YEAR, smallPerYear(iOf(y), novel.has(y))); n > 0; n--) yearsOrder.push(y);
+    } else yearsOrder.push(...spreadYears(nowYear, endYear, smallTotal, (y) => smallWeight(iOf(y), novel.has(y))));
+    for (const y0 of yearsOrder) {
       let y = y0;
       while (y < endYear && (blocked(y) || (used.get(y) ?? 0) >= perYear)) y++;
       if (y >= endYear) continue;
@@ -293,20 +297,18 @@ export function planSlotsFor(state: SessionState): DecisionSlot[] {
   return slots.sort((a, b) => a.year - b.year || (a.kind === "big" ? -1 : 1));
 }
 
-/** n years in [from, to), density falling gently over time (more early, when we know least). */
-function spreadYears(from: number, to: number, n: number): number[] {
-  const span = to - from;
-  if (span <= 0 || n <= 0) return [];
+/** n years in [from, to), placed by a weight per year (the subjective-time curve: more early). */
+function spreadYears(from: number, to: number, n: number, weight: (y: number) => number): number[] {
+  if (to <= from || n <= 0) return [];
+  const w: number[] = [];
+  for (let y = from; y < to; y++) w.push(Math.max(0, weight(y)));
+  const total = w.reduce((a, b) => a + b, 0) || 1;
   const out: number[] = [];
-  // inverse CDF of density ∝ 1.3 - 0.6t on [0,1]
-  const a = 1.3;
-  const b = -0.6;
-  const total = a + b / 2;
   for (let i = 0; i < n; i++) {
-    const u = ((i + 0.5) / n) * total;
-    // solve a t + b t^2/2 = u
-    const t = (-a + Math.sqrt(a * a + 2 * b * u)) / b;
-    out.push(from + Math.min(span - 1, Math.floor(t * span)));
+    let u = ((i + 0.5) / n) * total;
+    let k = 0;
+    while (k < w.length - 1 && u > w[k]!) u -= w[k++]!;
+    out.push(from + k);
   }
   return out;
 }

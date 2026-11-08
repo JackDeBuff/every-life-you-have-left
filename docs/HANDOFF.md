@@ -122,6 +122,7 @@ Notes:
 
 ## Playtest fixes round 2 (Sat Nov 7 evening)
 - **3D walkers through walls:** ambient walkers now keep to the real sidewalks (curb side, clear of lamp posts) and only use the stretch that's clear of the house, buildings, trees, props, landmark lots, canal and sea (`src/world/walkable.ts`: obstacles from manifest footprints, `clearRun`, grid A* `route`/`routeLoop`). Vignette walks and walk-ins are routed round the house; a room's visitors come in and leave by the front door. The jogging loop no longer circles through the house (it's a track round the front lawn). `npm run check:world` composes every setting × activity × home (17k people) and must report 0 problems.
+- **Subjective time (D-100):** pacing follows William James's "time speeds up as life repeats" at every speed: dense early years (1×: 6 cards/yr, a fork a year), sparser later (down to 1 card/yr, a fork every ~4.5 years), the clock ×1.35 early → ×0.7 late (Auto softened), a new chapter adds cards and slows time; a note under the world caption marks each change. `shared/pace.ts`; checks in `check:qa` §7.
 - **Portrait body (2nd try):** the neck flares into the shoulders and runs under the shirt; the shirt has a real neckline cut-out (crew / scoop / shirt collar by gender) with collar details clipped to the shirt; squared shoulders with arm creases. Check `/#look-lab` (300px close-ups at the top).
 
 ## Playtest fixes round 1: DONE (Sat Nov 7 afternoon, production `23ad6f96`)

@@ -14,6 +14,7 @@
  * The World only re-renders when one of these props changes (a year turns, a phase changes); the
  * per-frame playhead never touches React.
  */
+import { noveltyYears, paceNote } from "../../../shared/pace";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SceneSpec, SimYear } from "../../../shared/sim";
 import { flavorFor, selfAgeBand } from "../../../worker/engine/world";
@@ -98,6 +99,22 @@ export function CurrentWorld() {
   const playable = useMemo(() => playableMoments(years, speedMode), [years, speedMode]);
   const exact = years.find((y) => y.year === year);
   const prevYear = years.find((y) => y.year === year - 1);
+  // Subjective time (shared/pace.ts): a line in the year the pace changes, or a new chapter starts.
+  const startYear = useSim((s) => s.profile?.startYear ?? null);
+  const decisions = useSim((s) => s.decisions);
+  const novel = useMemo(() => noveltyYears(years, decisions), [years, decisions]);
+  const paceNow = startYear === null ? null : paceNote(year - startYear, novel.has(year), novel.has(year - 1));
+  // it stays ~7 s even when the years go by faster (Auto plays a year in ~1.5 s)
+  const [pace, setPace] = useState<{ text: string; year: number } | null>(null);
+  useEffect(() => {
+    if (paceNow) setPace({ text: paceNow, year });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paceNow, year]);
+  useEffect(() => {
+    if (!pace) return;
+    const id = window.setTimeout(() => setPace(null), 7000);
+    return () => window.clearTimeout(id);
+  }, [pace]);
   const story = useMemo(() => storyFor(exact ?? null, prevYear ?? null), [exact, prevYear]);
   const shownMoment = exact?.scene.moment && playable.has(year) ? exact.scene.moment : null;
   const spec = useMemo(() => (base && base.moment !== shownMoment ? { ...base, moment: shownMoment } : base), [base, shownMoment]);
@@ -156,7 +173,7 @@ export function CurrentWorld() {
             cutSeconds={cutSecondsFor(speed)}
             story={story}
           />
-          {!showInterlude && <Caption spec={spec} story={story} />}
+          {!showInterlude && <Caption spec={spec} story={story} pace={pace} />}
         </Suspense>
       ) : (
         <WorldSlot spec={spec} />
@@ -194,7 +211,7 @@ function Thinking() {
  * Place + caption over the 3D world (the 2D slot draws its own), plus the year's beat (who
  * arrived, a move, new work) as a short line, and, for screen readers, who is in the scene.
  */
-function Caption({ spec, story }: { spec: SceneSpec; story: WorldStory | null }) {
+function Caption({ spec, story, pace }: { spec: SceneSpec; story: WorldStory | null; pace: { text: string; year: number } | null }) {
   const beat = beatLine(story?.beat ?? null, spec.caption);
   const others = story?.cast.filter((c) => c.key !== "self0").map((c) => c.name) ?? [];
   return (
@@ -204,6 +221,11 @@ function Caption({ spec, story }: { spec: SceneSpec; story: WorldStory | null })
       {beat && (
         <span key={`${story!.year}|${beat}`} className="world-beat">
           {beat}
+        </span>
+      )}
+      {pace && (
+        <span key={`pace-${pace.year}`} className="world-pace" role="status">
+          {pace.text}
         </span>
       )}
       {others.length > 0 && <span className="sr-only">With {others.join(", ")}.</span>}

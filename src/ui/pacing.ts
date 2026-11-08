@@ -20,9 +20,14 @@ export const FORK_MOMENT_S = 2.4;
  */
 export const AUTO_CODA_FACTOR = 0.6;
 
-/** Seconds per year now: SPEED_CONFIG, or Auto's coda (see AUTO_CODA_FACTOR). */
-export function secondsPerYearNow(o: { speed: SpeedMode; base: number; nextFork: number | null | undefined; endingReady: boolean | undefined }): number {
-  return o.speed === "auto" && o.nextFork == null && o.endingReady ? o.base * AUTO_CODA_FACTOR : o.base;
+/**
+ * Seconds per year now: SPEED_CONFIG x the subjective-time factor (shared/pace.ts timeFactor:
+ * early and new-chapter years play slower, routine later years faster), or Auto's coda (see
+ * AUTO_CODA_FACTOR).
+ */
+export function secondsPerYearNow(o: { speed: SpeedMode; base: number; nextFork: number | null | undefined; endingReady: boolean | undefined; factor?: number }): number {
+  const base = o.base * (o.factor ?? 1);
+  return o.speed === "auto" && o.nextFork == null && o.endingReady ? Math.min(base, o.base) * AUTO_CODA_FACTOR : base;
 }
 
 /** Clock time scale while a small decision is open (it slows time, it never stops it). */

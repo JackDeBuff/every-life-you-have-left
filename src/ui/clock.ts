@@ -17,6 +17,7 @@ import { create } from "zustand";
 import { SPEED_CONFIG } from "../../shared/sim";
 import { typingInSmallCard } from "./activity";
 import { gsap } from "./motion";
+import { noveltyYears, timeFactor } from "../../shared/pace";
 import { CLOCK_EASE_IN_MS, CLOCK_EASE_OUT_MS, holdsYearEnd, secondsPerYearNow, SMALL_DECISION_SCALE } from "./pacing";
 import { sim } from "./session";
 
@@ -72,6 +73,15 @@ class LifeClock {
     if (useClockUi.getState().starved !== v) useClockUi.setState({ starved: v });
   }
 
+  /** Subjective time (shared/pace.ts): the novelty years, recomputed when years or decisions change. */
+  private novel: { years: unknown; decisions: unknown; set: Set<number> } | null = null;
+  private factorFor(s: ReturnType<typeof sim>, year: number): number {
+    if (!s.profile) return 1;
+    if (!this.novel || this.novel.years !== s.years || this.novel.decisions !== s.decisions)
+      this.novel = { years: s.years, decisions: s.decisions, set: noveltyYears(s.years, s.decisions) };
+    return timeFactor(s.speed, year - s.profile.startYear, this.novel.set.has(year));
+  }
+
   private last = 0;
   /** When a small card was last open (1×: the year's end waits a moment for the next one). */
   private smallAt = 0;
@@ -105,7 +115,7 @@ class LifeClock {
     if (Math.abs(this.scale - target) < 0.002) this.scale = target;
     // Leaving a decision or an interlude starts a fresh year (no carried-over time).
     if (s.phase !== "playing" && this.awaiting === null) this.progress = 0;
-    const spy = secondsPerYearNow({ speed: s.speed, base: SPEED_CONFIG[s.speed].secondsPerYear, nextFork: s.nextFork, endingReady: s.endingReady });
+    const spy = secondsPerYearNow({ speed: s.speed, base: SPEED_CONFIG[s.speed].secondsPerYear, nextFork: s.nextFork, endingReady: s.endingReady, factor: this.factorFor(s, year) });
     if (playing || this.scale > 0) this.progress += ((dtMs / 1000) * this.scale) / spy;
 
     let starved = false;

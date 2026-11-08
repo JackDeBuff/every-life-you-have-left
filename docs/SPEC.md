@@ -53,10 +53,16 @@ The life runs from the user's current age to `endAge` (70, or current age + 15 i
 
 | Speed | Small decisions (whole life) | Big decisions | Pace (target) |
 |---|---|---|---|
-| 1× | ~150 (a conversation: 147 planned for a 26-year-old, 4 a year for ~20 years, then 2–3; the year waits for them) | ~20 (a fork every ~2 years) | ~6 s per year (12 s while a card is up) + decisions (a long, deep session) |
-| 2× | ~30 (1 every ~1.5 years) | ~10, evenly spaced | ~4 s per year |
-| 4× | ~15 (1 every ~3 years) | ~5 | ~2 s per year |
-| **Auto (judge mode)** | **0** | **5** | ~1.5 s per year. The whole run takes **≤3 min**, decisions included |
+| 1× | ~100–130 (a conversation: 6 a year for the first years, 3–4 to ~15 years in, 2 to ~25, then 1; +2 in a new chapter; the year waits for them) | ~17 (every year at first, then every 2, 3, ~4.5) | ~6 s per year × the subjective-time factor (×1.35 early → ×0.7 late; 12 s while a card is up) |
+| 2× | ~30, front-loaded | ~10, front-loaded, ≥3 years apart | ~4 s per year × factor |
+| 4× | ~15, front-loaded | ~5, front-loaded | ~2 s per year × factor |
+| **Auto (judge mode)** | **0** | **5**, front-loaded (e.g. 26, 30, 35, 40, 53) | ~1.5 s per year × a softer factor (×1.21 → ×0.82). The whole run takes **≤3 min**, decisions included |
+
+**Subjective time (D-100, `shared/pace.ts`):** the life is paced the way it feels (William James,
+1890): the first years after today are dense with choices and play slowly; later, routine years go
+faster with fewer choices (never none). A new chapter (a fork's consequence, a move, new work, a
+partner, a child, a home) slows time again for a year or two. A short note under the world caption
+marks each change.
 
 - **Small decisions** don't stop time. They slide into the chat and the clock slows to 0.5×. If
   there's no answer within ~12 s (2×) / ~10 s (4×) of idle time (no limit at 1×), the decision
