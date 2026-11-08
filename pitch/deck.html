@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Every Life You Have Left · Pitch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #0B1118; overflow: hidden; font-family: 'DM Sans', Arial, sans-serif; }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: center center; }
+  #stage > section { position: absolute; inset: 0; width: 1920px; height: 1080px; display: none !important; overflow: hidden; }
+  #stage > section.on { display: flex !important; }
+  section aside { display: none; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; vertical-align: top; padding: 14px 20px 14px 0; border-bottom: 1px solid #CBD3DD; }
+  th { font-size: 22px; letter-spacing: 2px; text-transform: uppercase; color: #5A6676; }
+  td:first-child { font-weight: 700; }
+  #notes { position: fixed; left: 0; right: 0; bottom: 0; max-height: 40vh; overflow: auto; background: #F8F9FB; color: #17212E;
+           font: 16px/1.5 'DM Sans', Arial, sans-serif; padding: 16px 20px; white-space: pre-wrap; display: none; border-top: 3px solid #A8461F; }
+  #notes.on { display: block; }
+  #hud { position: fixed; right: 16px; bottom: 12px; font: 13px 'DM Sans', Arial, sans-serif; color: #9AA6B5; }
+  @media print {
+    @page { size: 1920px 1080px; margin: 0; }
+    html, body { overflow: visible; background: none; height: auto; }
+    #stage { position: static; transform: none !important; width: auto; height: auto; }
+    #stage > section { position: relative; display: flex !important; page-break-after: always; }
+    #notes, #hud { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+<section id="story" data-transition="fade" style="background:#EEF1F4;color:#17212E;font-family:'DM Sans', Arial, sans-serif;padding:96px 128px 144px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #CBD3DD;padding-bottom:20px"><p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#A8461F">01 · Story + problem</p><p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#5A6676">Every Life You Have Left</p></div>
+<h1 style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:120px;line-height:1.0;color:#17212E">I’m 25. If I live to 70,<br>I have <span style="color:#A8461F">45 summers</span> left.</h1>
+<div style="display:flex;flex-direction:column;gap:12px">
+<svg aria-label="45 dots, one for each summer from age 25 to 70" width="1664" height="40" viewBox="0 0 1664 40"><circle cx="14" cy="20" r="11" fill="#A8461F"/><circle cx="51" cy="20" r="11" fill="#A8461F"/><circle cx="88" cy="20" r="11" fill="#A8461F"/><circle cx="125" cy="20" r="11" fill="#A8461F"/><circle cx="162" cy="20" r="11" fill="#A8461F"/><circle cx="199" cy="20" r="11" fill="#A8461F"/><circle cx="236" cy="20" r="11" fill="#A8461F"/><circle cx="273" cy="20" r="11" fill="#A8461F"/><circle cx="310" cy="20" r="11" fill="#A8461F"/><circle cx="347" cy="20" r="11" fill="#A8461F"/><circle cx="384" cy="20" r="11" fill="#A8461F"/><circle cx="421" cy="20" r="11" fill="#A8461F"/><circle cx="458" cy="20" r="11" fill="#A8461F"/><circle cx="495" cy="20" r="11" fill="#A8461F"/><circle cx="532" cy="20" r="11" fill="#A8461F"/><circle cx="569" cy="20" r="11" fill="#A8461F"/><circle cx="606" cy="20" r="11" fill="#A8461F"/><circle cx="643" cy="20" r="11" fill="#A8461F"/><circle cx="680" cy="20" r="11" fill="#A8461F"/><circle cx="717" cy="20" r="11" fill="#A8461F"/><circle cx="754" cy="20" r="11" fill="#A8461F"/><circle cx="791" cy="20" r="11" fill="#A8461F"/><circle cx="828" cy="20" r="11" fill="#A8461F"/><circle cx="865" cy="20" r="11" fill="#A8461F"/><circle cx="902" cy="20" r="11" fill="#A8461F"/><circle cx="939" cy="20" r="11" fill="#A8461F"/><circle cx="976" cy="20" r="11" fill="#A8461F"/><circle cx="1013" cy="20" r="11" fill="#A8461F"/><circle cx="1050" cy="20" r="11" fill="#A8461F"/><circle cx="1087" cy="20" r="11" fill="#A8461F"/><circle cx="1124" cy="20" r="11" fill="#A8461F"/><circle cx="1161" cy="20" r="11" fill="#A8461F"/><circle cx="1198" cy="20" r="11" fill="#A8461F"/><circle cx="1235" cy="20" r="11" fill="#A8461F"/><circle cx="1272" cy="20" r="11" fill="#A8461F"/><circle cx="1309" cy="20" r="11" fill="#A8461F"/><circle cx="1346" cy="20" r="11" fill="#A8461F"/><circle cx="1383" cy="20" r="11" fill="#A8461F"/><circle cx="1420" cy="20" r="11" fill="#A8461F"/><circle cx="1457" cy="20" r="11" fill="#A8461F"/><circle cx="1494" cy="20" r="11" fill="#A8461F"/><circle cx="1531" cy="20" r="11" fill="#A8461F"/><circle cx="1568" cy="20" r="11" fill="#A8461F"/><circle cx="1605" cy="20" r="11" fill="#A8461F"/><circle cx="1642" cy="20" r="11" fill="#A8461F"/></svg>
+<div style="display:flex;justify-content:space-between"><p style="font-size:24px;font-weight:600;color:#17212E">25 · today</p><p style="font-size:24px;font-weight:600;color:#17212E">70</p></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1.7fr;gap:56px;border-top:1px solid #CBD3DD;padding-top:40px">
+<div style="display:flex;flex-direction:column;gap:8px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:72px;line-height:1.0;color:#2F5D8A">376</p><p style="font-size:24px;line-height:1.35;color:#3E4A5B">students for every US school counselor</p></div>
+<div style="display:flex;flex-direction:column;gap:8px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:72px;line-height:1.0;color:#2F5D8A">1 in 6</p><p style="font-size:24px;line-height:1.35;color:#3E4A5B">college grads say career services really helped</p></div>
+<div style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#A8461F">The idea</h3><p style="font-size:30px;line-height:1.35;color:#17212E">Live the rest of your life, today to 70. Every big choice splits it, and the lives you don’t pick keep running beside yours.</p></div>
+</div>
+<div style="position:absolute;left:128px;bottom:56px;width:1664px;display:flex;justify-content:space-between;font-size:24px;color:#5A6676"><p>Sources: ASCA 2023–24 · Gallup</p><p>0:00–1:00 · 01 / 04</p></div>
+<aside>0:00–1:00 · NARRATOR (Supawich). Look at the judges, not the screen.
+
+“I’m 25. If I live to 70, I have 45 summers left. [TRUE MOMENT, one or two sentences: the real decision you keep putting off, e.g. the offer or the move you haven’t answered.] I didn’t want advice about it. I wanted to see it.”
+
+Problem: “The people whose job is to help with this are stretched thin. A school counselor has 376 students. In college, only 1 in 6 grads say career services really helped.”
+
+One sentence: “So we built Every Life You Have Left. You live the rest of your life, from today to 70, in about three minutes. At every big choice it splits, and the lives you didn’t choose keep running in the background.”
+
+Hand to the demo: “Let me show you Alex.” Paul starts the video.
+
+Sources if asked: ASCA 2023–24 (376 per counselor), Gallup (1 in 6).</aside>
+</section>
+<section id="demo" data-transition="fade" style="background:#EEF1F4;color:#17212E;font-family:'DM Sans', Arial, sans-serif;padding:96px 128px 144px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #CBD3DD;padding-bottom:20px"><p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#A8461F">02 · Demo</p><p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#5A6676">Every Life You Have Left</p></div>
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2F5D8A">Meet Alex · 25 · Durham, NC</p>
+<h2 style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:64px;line-height:1.1;color:#17212E">Singapore offered a transfer. Alex hasn’t answered.</h2>
+</div>
+<div style="display:flex;gap:24px">
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5DCE4;border-radius:12px;padding:40px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:48px;line-height:1.0;color:#A8461F">01</p><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2F5D8A">Before</h3><p style="font-size:28px;line-height:1.35;color:#3E4A5B">One honest line: “Money scares me, I still have $28k in loans.”</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5DCE4;border-radius:12px;padding:40px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:48px;line-height:1.0;color:#A8461F">02</p><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2F5D8A">Choice</h3><p style="font-size:28px;line-height:1.35;color:#3E4A5B">Alex picks “go, but bring my parents later.” The other answers keep living.</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5DCE4;border-radius:12px;padding:40px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:48px;line-height:1.0;color:#A8461F">03</p><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2F5D8A">At 70</h3><p style="font-size:28px;line-height:1.35;color:#3E4A5B">Four lives side by side, none ranked. A postcard, and a chat with Alex at any age.</p></div>
+</div>
+<div style="background:#17212E;border-radius:12px;padding:32px 40px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:36px;line-height:1.25;color:#EEF1F4">Watch for the <span style="color:#F08A5D">“why”</span> under each turning point: Alex’s own words, plus a real number.</p></div>
+<div style="position:absolute;left:128px;bottom:56px;width:1664px;display:flex;justify-content:space-between;font-size:24px;color:#5A6676"><p>Demo video · 2 minutes</p><p>1:00–3:00 · 02 / 04</p></div>
+<aside>1:00–3:00 · NARRATOR talks, PAUL runs the video. Cue it at 0:06 (skip the title card) and mute its audio. Switch from this slide to the video after the first line.
+
+“Let me show you Alex.” → play.
+
+0:06–0:30 (who you are, privacy): “Alex is 25, a data analyst in Durham. One honest line: Singapore offered a transfer, and Alex hasn’t answered. Money scares them, with 28 thousand dollars still in loans. Alex decides what we keep. It’s incognito by default.”
+
+0:30–0:55 (details, small decisions): “A selfie becomes a portrait that ages with them. As the years play, small choices arrive, and time keeps moving while Alex thinks.”
+
+0:55–1:15 (big decisions split): “Here’s the big one: Singapore. Alex says go, but bring their parents later. The other three answers don’t disappear. They keep living.” Over the 3D cuts: “That’s Alex in the lives they didn’t pick.”
+
+1:15–1:27 (world and timeline): “Their world, year by year. Ten parts of a life, and money in real dollars.”
+
+1:27–1:40 (ASK WHY, slow down): “Why did this happen? Because Alex said, ‘Money scares me, I still have 28k in loans.’ And here’s the real number behind it, with its source.” PAUSE two seconds.
+
+1:40–2:06 (at 70): “At 70: four lives side by side, none ranked best. A postcard from themselves. And Alex can talk to any version of themselves, at any age.”
+
+IF THE VIDEO WON’T PLAY: open the live site and press “Or try it as Alex, 25.” Say: “Here it is live.” Don’t apologize twice.</aside>
+</section>
+<section id="proof" data-transition="fade" style="background:#EEF1F4;color:#17212E;font-family:'DM Sans', Arial, sans-serif;padding:96px 128px 144px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #CBD3DD;padding-bottom:20px"><p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#A8461F">03 · How it works + proof</p><p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#5A6676">Every Life You Have Left</p></div>
+<h2 style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:64px;line-height:1.1;color:#17212E">The AI writes the story. Our code owns the odds.</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;background:#FFFFFF;border:1px solid #D5DCE4;border-radius:12px">
+<div style="display:flex;flex-direction:column;gap:12px;padding:36px 40px"><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2F5D8A">Gemini writes</h3><p style="font-size:28px;line-height:1.35;color:#3E4A5B">Your profile, each year and each decision, and it must quote you as the reason.</p></div>
+<div style="display:flex;flex-direction:column;gap:12px;padding:36px 40px;border-left:1px solid #D5DCE4"><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2F5D8A">Our code checks</h3><p style="font-size:28px;line-height:1.35;color:#3E4A5B">Real base rates in a table, a validator that rejects invented quotes and repeated disasters, then a repair pass.</p></div>
+</div>
+<div style="display:flex;gap:48px">
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;border-top:4px solid #A8461F;padding-top:24px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:72px;line-height:1.1;color:#17212E">100%</p><p style="font-size:24px;line-height:1.35;color:#3E4A5B">of turning points cited a real quote · 15 judged sessions, 4 models</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;border-top:4px solid #A8461F;padding-top:24px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:72px;line-height:1.1;color:#17212E">5.0 vs 2.3</p><p style="font-size:24px;line-height:1.35;color:#3E4A5B">judge score out of 5 · Gemini 3.8 Flash vs an open model</p></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;border-top:4px solid #A8461F;padding-top:24px"><p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:72px;line-height:1.1;color:#17212E">147 s · 37¢</p><p style="font-size:24px;line-height:1.35;color:#3E4A5B">one full life to 70 on production, no errors</p></div>
+</div>
+<div style="border-left:6px solid #2F5D8A;background:#FFFFFF;padding:24px 32px"><p style="font-size:26px;line-height:1.35;color:#17212E"><b>Honest limit:</b> you just saw a US number on a Singapore life. Outside the US, base rates are labeled “approximate.” A projection, not a prediction.</p></div>
+<div style="position:absolute;left:128px;bottom:56px;width:1664px;display:flex;justify-content:space-between;font-size:24px;color:#5A6676"><p>Source: our engine eval and production run · Sat Nov 7</p><p>3:00–4:00 · 03 / 04</p></div>
+<aside>3:00–4:00 · NARRATOR. Back on the slides. Explain the hard part, not every tool.
+
+“Here’s what the AI does and what we built around it. Gemini turns your answers into a profile, writes each year and each decision, and has to name the sentence of yours that caused each turning point. Our code holds the odds: a table of real base rates, and a validator that rejects a year if it invents a quote or repeats a catastrophe. Then one repair call.”
+
+Design choice (the workshop’s “We chose ___ because ___”): “We chose to keep the odds in code, not in the prompt, because then every number on screen can be checked.”
+
+The test: “We ran 15 judged sessions on four models with personas from the US, Lagos and Bengaluru. Every turning point cited a real quote. Gemini 3.8 Flash scored 5 out of 5; an open model scored 2.3 and put a lead designer in Berlin on six to eight thousand dollars a year. A full life on production takes about two and a half minutes and costs 37 cents.”
+
+The limit (raise it before a judge does): “One honest limit, and you just saw it: Alex lives in Singapore, but that home-buying number is US data. Outside the US we label it approximate. It’s a projection, not a prediction.”
+
+[OPTIONAL, only if the D-044 before/after study ran today: “We ran it with [N] hackers. Their connection to their 70-year-old self went from [X] to [Y].” Never round up; say “we have not tested that yet” if it didn’t run.]</aside>
+</section>
+<section id="close" data-transition="fade" style="background:#17212E;color:#EEF1F4;font-family:'DM Sans', Arial, sans-serif;padding:96px 128px 144px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:20px"><p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#F08A5D">04 · Close</p><p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#9AA6B5">Every Life You Have Left</p></div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<h2 style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:64px;line-height:1.1;color:#EEF1F4">We help students at a crossroads see the lives they have left, without a horoscope.</h2>
+<p style="font-size:30px;line-height:1.35;color:#C3CCD8">Unlike a chatbot’s one flattering story, every turn links back to what you said and a real number.</p>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:48px">
+<div style="display:flex;flex-direction:column;gap:12px;border-top:2px solid #F08A5D;padding-top:24px"><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#F08A5D">Works today</h3><p style="font-size:28px;line-height:1.35;color:#EEF1F4">Live, free, no sign-up. A whole life in about three minutes.</p></div>
+<div style="display:flex;flex-direction:column;gap:12px;border-top:2px solid #F08A5D;padding-top:24px"><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#F08A5D">Still limited</h3><p style="font-size:28px;line-height:1.35;color:#EEF1F4">US base rates only. Other lives stay sketches until you open them.</p></div>
+<div style="display:flex;flex-direction:column;gap:12px;border-top:2px solid #F08A5D;padding-top:24px"><h3 style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#F08A5D">Next</h3><p style="font-size:28px;line-height:1.35;color:#EEF1F4">A campus pilot. Free for students; career centers license it.</p></div>
+</div>
+<p style="font-family:'Instrument Serif', Georgia, serif;font-weight:400;font-size:88px;line-height:1.1;color:#F08A5D">45 summers. You still get to choose.</p>
+<div style="position:absolute;left:128px;bottom:56px;width:1664px;display:flex;justify-content:space-between;font-size:24px;color:#9AA6B5"><p>every-life-you-have-left.supawich.workers.dev</p><p>4:00–5:00 · 04 / 04</p></div>
+<aside>4:00–5:00 · NARRATOR. Slow down here. Finish on time.
+
+One sentence: “We help students at a crossroads see the lives they have left, without a horoscope. Unlike a chatbot’s one flattering story, every turn links back to what you said and a real number.”
+
+What works and what is limited: “It’s live today, and a whole life takes about three minutes. It’s still limited: our base rates are US-only, and the lives you didn’t choose are rough sketches until you open them.”
+
+Who it helps and who pays (no valuations, no revenue forecasts): “Students use it free. Career centers license it, because they can’t give every student an hour.”
+
+Return to the person: “I have 45 summers left. Alex has 45 too, and now they’ve seen four ways to spend them. The best part is that we still get to choose.” Stop. Pause. “Thank you. We’d love your questions.”
+
+Hand the QR or the URL to the judges for the expo.</aside>
+</section>
+<section id="backup" data-transition="fade" style="background:#E3E8EE;color:#17212E;font-family:'DM Sans', Arial, sans-serif;padding:96px 128px 144px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #CBD3DD;padding-bottom:20px"><p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#A8461F">Backup · questions</p><p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#5A6676">Every Life You Have Left</p></div>
+<h2 style="font-family:'Instrument Serif', Georgia, serif;font-size:72px;font-weight:400;line-height:1.1;color:#17212E">Answer first, then show the evidence</h2>
+<table style="font-family:'DM Sans', Arial, sans-serif;font-size:26px;color:#17212E">
+<tr><th style="width:30%;text-align:left">Question</th><th style="width:70%;text-align:left">Short answer</th></tr>
+<tr><td>Isn’t this just ChatGPT?</td><td>ChatGPT tells one story in a chat bubble. This holds a life consistent to 70, cites your words and a base rate at every turn, and splits when you choose.</td></tr>
+<tr><td>Isn’t it a horoscope?</td><td>No. Every event is traced to what you said, the odds come from real data, and we never claim to predict.</td></tr>
+<tr><td>What happens to my data?</td><td>Incognito by default: nothing saved, erased after 24 hours. Saving is opt-in, for 30 days. We never ask your race. Adults only.</td></tr>
+<tr><td>Could it hurt someone?</td><td>No death or serious illness for you. Worrying text shows the 988 crisis line.</td></tr>
+<tr><td>Does it change behavior?</td><td>We have not tested that yet. MIT’s 2024 study (344 young adults) found an AI future self raised connection and lowered anxiety right after.</td></tr>
+</table>
+<div style="position:absolute;left:128px;bottom:56px;width:1664px;display:flex;justify-content:space-between;font-size:24px;color:#5A6676"><p>Every Life You Have Left · backup, show only if asked</p><p>Backup</p></div>
+<aside>Backup only. Show it if a question needs evidence; otherwise answer from memory and stay on the close slide.
+
+Rule from the workshop: answer first, then show evidence. If you don’t know, say “We have not tested that yet.”
+
+Extra answers:
+- “Who pays?” Students free; university career centers license it. Don’t give valuations or revenue forecasts.
+- “Why Gemini 3.8 Flash?” It won every quality criterion in our eval at about $0.27–0.33 per session; Argon was slower and twice the price with no quality gain.
+- “Inspiration?” Credit 1 in 8 Billion as the inspiration; ours is built from your own words and runs your real future, not a random birth.
+- “Is it accurate?” It’s a projection, not a prediction. The value is making the future vivid and connected to you.</aside>
+</section>
+<section id="backup2" data-transition="fade" style="background:#E3E8EE;color:#17212E;font-family:'DM Sans', Arial, sans-serif;padding:96px 128px 144px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #CBD3DD;padding-bottom:20px"><p style="font-size:24px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#A8461F">Backup · trust, tech, team</p><p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#5A6676">Every Life You Have Left</p></div>
+<h2 style="font-family:'Instrument Serif', Georgia, serif;font-size:64px;font-weight:400;line-height:1.1;color:#17212E">The harder follow-ups</h2>
+<table style="font-family:'DM Sans', Arial, sans-serif;font-size:24px;line-height:1.3;color:#17212E">
+<tr><th style="width:30%;text-align:left">Question</th><th style="width:70%;text-align:left">Short answer</th></tr>
+<tr><td>How do you stop it making things up?</td><td>Odds live in code. A validator rejects invented quotes and repeated disasters, then one repair pass. Repairs: 3–5 of ~180 years.</td></tr>
+<tr><td>Are the odds right outside the US?</td><td>Not yet. Base rates are US data, labeled “approximate” elsewhere. Local data is next.</td></tr>
+<tr><td>Why Gemini 3.8 Flash?</td><td>Won every quality criterion at 27–33¢ a session. Argon: 2× price, slower, no gain. Open model: 2.3 / 5.</td></tr>
+<tr><td>What about my selfie and CV?</td><td>Incognito by default. Uploads encrypted, deleted after 7 days. Never sold or used for training. Only we two can read, and only if you opt in.</td></tr>
+<tr><td>Hardest technical problem?</td><td>Stalls: ~1 in 3 calls froze 25–60 s before the first token. Now every call races a backup model after 5 s.</td></tr>
+<tr><td>Cost, and can it scale?</td><td>About 37¢ per Auto life, on Cloudflare Workers. No revenue forecasts.</td></tr>
+<tr><td>Is the Alex demo canned?</td><td>Alex is a safe fallback. The live engine ran a full life on production in 147 s.</td></tr>
+<tr><td>How much did AI build?</td><td>Claude Code agents wrote much of the code. We set the design, the rules, and the eval that chose the model.</td></tr>
+</table>
+<div style="position:absolute;left:128px;bottom:56px;width:1664px;display:flex;justify-content:space-between;font-size:24px;color:#5A6676"><p>Every Life You Have Left · source: our engine eval, production run, privacy notice · show only if asked</p><p>Backup</p></div>
+<aside>Backup only. Answer first in one sentence, then point at the row if they want evidence.
+
+Rehearse two hardest:
+- “Are the odds right outside the US?” The currency picker invites this. Don’t hedge: “Not yet. They’re US data and we label them approximate. Local data is next.”
+- “How much did AI build?” Be plain: “Claude Code agents wrote much of the code overnight. We owned the design, the rule that odds live in code and quotes can’t be invented, and the eval that picked the model.”
+
+Extra detail if pushed:
+- Stall fix: hedge at 5 s time-to-first-token, race gemini-3.6-flash, give up at 30 s. Forks are prepared while the card is open, so the wait after an answer fell from 10–18 s to under 8 s.
+- Eval spend: about $7.50 for 15 judged sessions plus confirmation runs on new personas (Valencia, Osaka, Leeds).
+- Privacy: incognito sessions erase themselves after 24 hours; saved lives are deleted after 30 days; adults only; we never ask race.
+
+If you don’t know: “We have not tested that yet.”</aside>
+</section>
+</div>
+<div id="notes"></div>
+<div id="hud">← → to move · N for speaker notes · F for full screen · print to save a PDF</div>
+<script>
+  const stage = document.getElementById('stage');
+  const slides = [...stage.children];
+  const notes = document.getElementById('notes');
+  const hud = document.getElementById('hud');
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+  function fit() {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((el, k) => el.classList.toggle('on', k === i));
+    const a = slides[i].querySelector('aside');
+    notes.textContent = a ? a.textContent.trim() : '';
+    hud.textContent = (i + 1) + ' / ' + slides.length + ' · ← → to move · N notes · F full screen';
+    history.replaceState(null, '', '#' + (i + 1));
+    hud.style.opacity = 1; clearTimeout(window.__h); window.__h = setTimeout(() => { hud.style.opacity = 0; }, 3000);
+  }
+  addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'n' || e.key === 'N') notes.classList.toggle('on');
+    else if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  });
+  stage.addEventListener('click', (e) => show(i + (e.clientX > innerWidth / 2 ? 1 : -1)));
+  addEventListener('resize', fit);
+  fit(); show(i);
+</script>
+</body>
+</html>
