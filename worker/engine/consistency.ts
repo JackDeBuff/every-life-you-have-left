@@ -87,6 +87,13 @@ export function fixPeopleNumbers(text: string, now: LifeNow): { text: string; fi
 const PARTNER_RE = /\b(?:your|you and your|with your)\s+(?:new\s+|longtime\s+|long-time\s+)?(partner|wife|husband|spouse|girlfriend|boyfriend|fianc[eé]e?)\b/i;
 const CHILD_RE = /\byour\s+(?:(?:new|newborn|little|baby|eldest|oldest|youngest|first|grown|adult|teenage|two|three|four|five)\s+)?(son|daughter|kids?|children|child|baby|toddler|twins|boys|girls|sons|daughters)\b/i;
 const EXPECTING_RE = /\b(expect\w*|pregnan\w*|due in|due date|on the way|trying for|IVF|fertility|adopt\w*|future (?:kids|children|child)|someday|one day|if you (?:ever )?have|want(?:s)? (?:a |kids|children)|whether to have|having (?:a baby|kids|children)|start a family)\b/i;
+/**
+ * A parenting scenario about a child they don't have, even as a hypothetical (owner's playtest, Sat
+ * Nov 7: no kids in the life, yet "May asks how you would handle a child who wants to drop out of
+ * university to film street life", options "buy them a cinema camera").
+ */
+const HYPO_CHILD_RE =
+  /\b(?:a|your|their|the)\s+(?:(?:teenage|grown|adult|young|future|hypothetical|own)\s+)?(?:child|son|daughter|kid|teen(?:ager)?)\s+(?:who|that)\b|\bif you (?:had|were raising|ever raised)\s+(?:a |kids|children)|\b(?:raise|raising|parent|parenting)\s+(?:a|your)\s+(?:child|kid|son|daughter|teen(?:ager)?)\b/i;
 const PET_RE = /\b(?:your|the)\s+(?:old\s+)?(dog|puppy|cat|kitten)\b/i;
 const MEMORY_RE = /\b(remember\w*|memor\w*|miss\w*|used to|old photo|photo of|collar|leash on the hook|still think|grave|ashes)\b/i;
 
@@ -108,6 +115,8 @@ export function peopleIssues(text: string, now: LifeNow, allow: PeopleAllow = {}
     const cm = s.match(CHILD_RE);
     if (cm && !here(now, "child").length && !ch.some((c) => c.startsWith("+child")) && !EXPECTING_RE.test(s))
       issues.push({ kind: "child", msg: `mentions "${cm[0]}" but they have no children in ${now.year}` });
+    const hm = !cm && !here(now, "child").length && !ch.some((c) => c.startsWith("+child")) ? s.match(HYPO_CHILD_RE) : null;
+    if (hm) issues.push({ kind: "child", msg: `a parenting scenario ("${hm[0]}") but they have no children in ${now.year}: no hypothetical kids either` });
     let petNamed = false;
     for (const p of now.people.filter((x) => x.role === "pet" && x.status === "gone")) {
       if (new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(s) && !MEMORY_RE.test(s)) {

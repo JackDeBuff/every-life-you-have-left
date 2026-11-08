@@ -379,6 +379,12 @@ export async function generateImage(
 export const TTS_MODELS_DEFAULT = ["gemini-3.8-flash-tts", "gemini-2.5-flash-tts"];
 /** Prebuilt Gemini voices. "future" reads as older and warmer. */
 export const VOICES = { future: "Gacrux", futureAlt: "Algenib", interviewer: "Sulafat" } as const;
+/**
+ * Future-you speaks in a voice that matches the gender they gave (owner, Sat Nov 7: "the voice of
+ * me is a female voice" with gender "man"). Gacrux: mature, female-presenting; Algenib: gravelly,
+ * male-presenting. Non-binary, prefer-not-to-say and not set keep the default.
+ */
+export const futureVoiceFor = (gender: string | null | undefined): string => (gender === "man" ? VOICES.futureAlt : VOICES.future);
 
 export async function tts(
   text: string,

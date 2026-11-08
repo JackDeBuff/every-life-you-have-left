@@ -16,7 +16,7 @@ import { getAgentByName } from "agents";
 import { Hono } from "hono";
 import { Appearance, PortraitAgeBand, type Portrait } from "../shared/sim";
 import { MEDIA_USD, recordSpend } from "./spend";
-import { GeminiError, GenerationDisabledError, VOICES, b64ToBytes, bindLlm, bytesToB64, generateImage, generateText, transcribe, tts, type LlmEnv } from "./llm";
+import { GeminiError, GenerationDisabledError, VOICES, futureVoiceFor, b64ToBytes, bindLlm, bytesToB64, generateImage, generateText, transcribe, tts, type LlmEnv } from "./llm";
 
 type AppEnv = { Bindings: Env };
 export const media = new Hono<AppEnv>();
@@ -55,6 +55,15 @@ async function noteMedia(env: Env, key: string, sessionId: string | null, kind: 
 
 function sessionStub(env: Env, sessionId: string) {
   return getAgentByName(env.SessionAgent, sessionId);
+}
+
+/** The gender they gave (for the future-you voice); null when unknown. */
+async function genderOf(env: Env, sessionId: string): Promise<string | null> {
+  try {
+    return await (await sessionStub(env, sessionId)).genderState();
+  } catch {
+    return null;
+  }
 }
 
 /** A saved life (D-101) keeps its raw files; incognito doesn't. Unknown (no session yet) = don't keep. */
@@ -229,9 +238,10 @@ media.post("/api/tts", async (c) => {
   }
   const text = String(body.text ?? "").trim().slice(0, 2000);
   if (!text) return c.json({ ok: false, error: "empty_text" }, 400);
+  const sid = safeId(body.sessionId);
   const voice =
     body.voice === "interviewer" ? VOICES.interviewer
-    : !body.voice || body.voice === "future" ? VOICES.future
+    : !body.voice || body.voice === "future" ? futureVoiceFor(sid ? await genderOf(c.env, sid) : null)
     : /^[A-Za-z]{3,20}$/.test(body.voice) ? body.voice
     : VOICES.future;
   const style =

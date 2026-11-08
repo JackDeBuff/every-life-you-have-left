@@ -377,6 +377,12 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     return (this.cur ?? (this.state as AgentState | undefined))?.privacy ?? null;
   }
 
+  /** The gender they gave (the future-you voice, worker/media.ts). Sync, like adminSnapshot. */
+  genderState(): string | null {
+    const st = this.cur ?? (this.state as AgentState | undefined);
+    return st?.appearance?.gender ?? st?.profile?.gender ?? null;
+  }
+
   /** Incognito: 24 hours after the start the life erases itself (scheduled in start()). */
   async expire(): Promise<void> {
     await eraseSession(this.env, this.name).catch(() => undefined);

@@ -14,6 +14,7 @@ import type { Profile } from "../../shared/schema";
 import type { SimYear } from "../../shared/sim";
 import { peopleSaid } from "../../worker/engine/answers";
 import { advance, featuredPeople, lifeAt, newNameCandidates, nowBlock, profileAsOf, yearLife, type LifeNow } from "../../worker/engine/ledger";
+import { peopleIssues } from "../../worker/engine/consistency";
 import type { CodeCase } from "./code-cases";
 import { profileOf, year } from "./fixtures";
 
@@ -40,6 +41,15 @@ const listed = (now: LifeNow) => yearLife(now, WORK, []).people.map((x) => x.nam
 const featured = (now: LifeNow) => featuredPeople(now).map((f) => f.person.name);
 
 export const PEOPLE_MODEL_CASES: CodeCase[] = [
+  {
+    name: "no children in the life: a card with a hypothetical child ('a child who wants to drop out') is flagged; a friend's newborn and the kids question are not",
+    run: () => {
+      const now = at(2040);
+      const bad = peopleIssues("Your partner asks how you would handle a child who wants to drop out of university to film street life.", now).filter((i) => i.kind === "child");
+      const fine = peopleIssues("You hold your friend's newborn at a cafe. What crosses your mind about having kids of your own?", now).filter((i) => i.kind === "child");
+      return { pass: bad.length === 1 && fine.length === 0, detail: bad[0]?.msg ?? "not flagged" };
+    },
+  },
   {
     name: "names with a relation cue are read from typed words ('my friend Jonas', 'Kai, my climbing buddy'); a fear is not a drift",
     run: () => {

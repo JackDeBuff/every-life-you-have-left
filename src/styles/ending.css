@@ -8,6 +8,9 @@
 .end-hero { padding: var(--s8) var(--s6) var(--s6); display: grid; grid-template-columns: auto 1fr; gap: var(--s7); align-items: end; max-width: 1280px; }
 .end-title { font-size: clamp(96px, 13vw, 200px); font-weight: 760; font-stretch: var(--w-wider); letter-spacing: -0.05em; line-height: 0.82; }
 .end-title .ln { color: var(--ink); }
+/* the mask clips for the reveal; the -0.05em tracking pulls the full stop's ink past the box edge,
+   so give the last glyph room (owner, Sat Nov 7: "70." with its dot cut on the right) */
+.end-title .mask { padding-right: 0.1em; margin-right: -0.1em; }
 .end-hero .lede { padding-bottom: 14px; max-width: 32rem; }
 
 .lives {
