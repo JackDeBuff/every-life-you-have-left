@@ -52,6 +52,7 @@ npm run db:migrate:remote # D1 migrations on production
 npm run cf-typegen        # regenerate worker-configuration.d.ts after editing wrangler.jsonc
 npm run eval              # synthetic-persona evals (real model calls, Argon judge; costs money)
 npm run check:qa          # consistency/pacing regressions in code (free); scripts/qa/pace-sim.ts for 1× pacing
+npm run check:world       # 3D: no walker / walk-in passes through the house or a solid model (free)
 npm run check:currency    # currency formatting checks
 npx tsx scripts/judge-run.ts <url> --speed auto --read 4   # real end-to-end run (~$0.5–0.6)
 npx wrangler ...          # wrangler is NOT global; always npx

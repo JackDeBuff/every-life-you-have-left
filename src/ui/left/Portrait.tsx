@@ -306,6 +306,40 @@ function hairLayers(style: HairStyle, k: Ink): { back: ReactNode; front: ReactNo
   }
 }
 
+// ---- the body ----------------------------------------------------------------------------------
+type Neckline = "crew" | "scoop" | "collar";
+/** Neck: behind the jaw at the top, flaring into the trapezius, running on under the shirt. */
+const NECK = "M51 74 L69 74 L69.6 95.6 C69.8 100.4 71.4 103.2 73.4 105.4 L74 124 L46 124 L46.6 105.4 C48.6 103.2 50.2 100.4 50.4 95.6 Z";
+/** Where each neckline meets the shoulder line, and how far it dips. */
+const NECKLINE: Record<Neckline, string> = {
+  crew: "C51.4 110.4 68.6 110.4 72.2 104.2",
+  scoop: "C49.4 120.6 70.6 120.6 74 105",
+  collar: "L60 116.4 L72.2 104.2",
+};
+const NECK_START: Record<Neckline, [number, number]> = { crew: [47.8, 104.2], scoop: [46, 105], collar: [47.8, 104.2] };
+const CREW_EDGE = "M47.8 104.2 C51.4 110.4 68.6 110.4 72.2 104.2";
+const SCOOP_EDGE = "M46 105 C49.4 120.6 70.6 120.6 74 105";
+/** A shirt collar: two points lying on the shoulders, framing the V. */
+const COLLAR =
+  "M47.4 103.4 C48.6 101.8 50.4 101.6 51.4 102.8 L60 115.6 L53.6 120.2 C51.6 115.6 49.2 109.6 47.4 103.4 Z M72.6 103.4 C71.4 101.8 69.6 101.6 68.6 102.8 L60 115.6 L66.4 120.2 C68.4 115.6 70.8 109.6 72.6 103.4 Z";
+
+/** The shirt: deltoids, trapezius up to the neck, the neckline, and back down the other side. */
+function shirtPath(w: number, s: number, n: Neckline): string {
+  const [nx, ny] = NECK_START[n];
+  const L = (k: number) => (60 - k * w).toFixed(2);
+  const R = (k: number) => (60 + k * w).toFixed(2);
+  const y = (v: number) => (v + s).toFixed(2);
+  return [
+    `M${L(53)} 160 L${L(53)} ${y(134)}`,
+    `C${L(53)} ${y(121)} ${L(45)} ${y(114)} ${L(33)} ${y(111.2)}`,
+    `C${L(24)} ${y(109.2)} ${(nx - 4).toFixed(2)} ${(ny + 1.4).toFixed(2)} ${nx} ${ny}`,
+    NECKLINE[n],
+    `C${(120 - nx + 4).toFixed(2)} ${(ny + 1.4).toFixed(2)} ${R(24)} ${y(109.2)} ${R(33)} ${y(111.2)}`,
+    `C${R(45)} ${y(114)} ${R(53)} ${y(121)} ${R(53)} ${y(134)}`,
+    `L${R(53)} 160 Z`,
+  ].join(" ");
+}
+
 function Figure({ appearance: a, band, className }: { appearance: Appearance | null; band: Band; className: string }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const skin = SKIN[a?.skinTone ?? "tone3"];
@@ -325,7 +359,8 @@ function Figure({ appearance: a, band, className }: { appearance: Appearance | n
   const style: HairStyle = a?.hairStyle ?? "short";
   const s = band === "70" ? 3 : band === "50" ? 1.5 : 0; // the shoulders settle a little with age
   const gender = a?.gender ?? null;
-  const w = gender === "woman" ? 0.9 : gender === "man" ? 1.05 : 0.97; // shoulder width
+  const w = gender === "woman" ? 0.9 : gender === "man" ? 1.04 : 0.97; // shoulder width
+  const neckline: Neckline = gender === "woman" ? "scoop" : gender === "man" ? "collar" : "crew";
   const h = hairLayers(style, k);
   return (
     <svg className={className} viewBox="0 0 120 154" aria-hidden="true">
@@ -333,31 +368,50 @@ function Figure({ appearance: a, band, className }: { appearance: Appearance | n
         <clipPath id={`${uid}f`}>
           <path d={FACE} />
         </clipPath>
+        <clipPath id={`${uid}s`}>
+          <path d={shirtPath(w, s, neckline)} />
+        </clipPath>
       </defs>
       {h.back}
 
-      {/* shirt, shaded on the far side. Shoulders and neckline follow the gender they gave: a scoop
-          neck (woman), a collar (man), a crew neck (non-binary or not set). */}
-      <path d={`M${60 - 52 * w} 160 C${60 - 50.4 * w} ${128 + s} ${60 - 32 * w} ${111 + s} 60 ${110 + s} C${60 + 32 * w} ${111 + s} ${60 + 50.4 * w} ${128 + s} ${60 + 52 * w} 160 Z`} fill="var(--portrait-shirt)" />
-      <path d={`M${60 + 26 * w} ${113.6 + s} C${60 + 40 * w} ${119.6 + s} ${60 + 50 * w} ${132 + s} ${60 + 52 * w} 160 L${60 + 37 * w} 160 C${60 + 36.6 * w} ${140 + s} ${60 + 32.6 * w} ${124 + s} ${60 + 26 * w} ${113.6 + s} Z`} fill="#000" opacity="0.14" />
-      <path d={`M${60 - 42.4 * w} ${129 + s} C${60 - 34.4 * w} ${119.6 + s} ${60 - 24.4 * w} ${114.4 + s} ${60 - 14.4 * w} ${112.6 + s}`} {...stroke("#fff", 1.6, 0.12)} />
-
-      {/* neck */}
-      <path d={`M51.6 80 L51.6 ${104 + s} C55 ${110 + s} 65 ${110 + s} 68.4 ${104 + s} L68.4 80 Z`} fill={k.skin} />
-      <path d="M51.6 84 C55 91.6 65 91.6 68.4 84 L68.4 94 C64 97 56 97 51.6 94 Z" fill={k.shade} />
-      {gender === "woman" ? (
+      {/* The body, back to front: the neck flares into the shoulders and runs down under the shirt,
+          then the shirt is drawn over it with its neckline cut out, so skin only shows through the
+          opening and there is never a gap between neck and collar (owner, Sat Nov 7: "the neck out of
+          the body"). Necklines follow the gender they gave: scoop (woman), collared shirt (man), crew
+          (non-binary or not set). The shoulders settle a little with age (s). */}
+      <path d={NECK} fill={k.skin} />
+      <path d="M50.6 82 C53.6 90.4 66.4 90.4 69.4 82 L69.6 95.6 C65.4 99.4 54.6 99.4 50.4 95.6 Z" fill={k.shade} />
+      <path d="M50.4 95.6 C50.2 100.4 48.6 103.2 46.6 105.4 L47 108 C50 106 51.8 103.2 52.4 99.4 Z" fill={k.shade} opacity="0.7" />
+      <path d={shirtPath(w, s, neckline)} fill="var(--portrait-shirt)" />
+      {/* everything drawn on the shirt stays on the shirt */}
+      <g clipPath={`url(#${uid}s)`}>
+      {/* far-side shade and the near shoulder's light */}
+      <path d={`M${60 + 30 * w} ${111.4 + s} C${60 + 42 * w} ${113.6 + s} ${60 + 51 * w} ${120 + s} ${60 + 52 * w} ${134 + s} L${60 + 52 * w} 160 L${60 + 40 * w} 160 C${60 + 40 * w} ${142 + s} ${60 + 38 * w} ${126 + s} ${60 + 30 * w} ${111.4 + s} Z`} fill="#000" opacity="0.16" />
+      <path d={`M${60 - 47 * w} ${121 + s} C${60 - 42 * w} ${114.6 + s} ${60 - 34 * w} ${112 + s} ${60 - 25 * w} ${110.4 + s}`} {...stroke("#fff", 1.6, 0.13)} />
+      {/* arm creases, so it reads as shoulders and arms, not a bell */}
+      <path d={`M${60 - 40 * w} ${131 + s} C${60 - 40.6 * w} ${140 + s} ${60 - 40.8 * w} ${148 + s} ${60 - 40.6 * w} 160 M${60 + 40 * w} ${131 + s} C${60 + 40.6 * w} ${140 + s} ${60 + 40.8 * w} ${148 + s} ${60 + 40.6 * w} 160`} {...stroke("#000", 1, 0.16)} />
+      {neckline === "scoop" ? (
+        <path d={SCOOP_EDGE} {...stroke("var(--portrait-shirt-line)", 3.6)} />
+      ) : neckline === "collar" ? (
         <>
-          <path d={`M45.6 ${109 + s} C48.6 ${125 + s} 71.4 ${125 + s} 74.4 ${109 + s} Z`} fill={k.skin} />
-          <path d={`M45.6 ${109 + s} C48.6 ${125 + s} 71.4 ${125 + s} 74.4 ${109 + s}`} {...stroke("var(--portrait-shirt-line)", 1.8)} />
-        </>
-      ) : gender === "man" ? (
-        <>
-          <path d={`M51 ${107.4 + s} L58.6 ${118 + s} L47.4 ${116.4 + s} Z M69 ${107.4 + s} L61.4 ${118 + s} L72.6 ${116.4 + s} Z`} fill="var(--portrait-shirt)" />
-          <path d={`M51 ${107.4 + s} L58.6 ${118 + s} L47.4 ${116.4 + s} Z M69 ${107.4 + s} L61.4 ${118 + s} L72.6 ${116.4 + s} Z`} {...stroke("var(--portrait-shirt-line)", 1.4)} />
-          <path d={`M60 ${118 + s} L60 160`} {...stroke("var(--portrait-shirt-line)", 1, 0.8)} />
+          <path d="M60 116.4 L60 160" {...stroke("#000", 1, 0.22)} />
+          <circle cx="60" cy="126" r="0.9" fill="var(--portrait-shirt-line)" />
+          <circle cx="60" cy="138" r="0.9" fill="var(--portrait-shirt-line)" />
+          <circle cx="60" cy="150" r="0.9" fill="var(--portrait-shirt-line)" />
         </>
       ) : (
-        <path d={`M48.8 ${109.6 + s} C52.8 ${115.6 + s} 67.2 ${115.6 + s} 71.2 ${109.6 + s}`} {...stroke("var(--portrait-shirt-line)", 2.2)} />
+        <>
+          <path d={CREW_EDGE} {...stroke("#000", 7, 0.16)} />
+          <path d={CREW_EDGE} {...stroke("var(--portrait-shirt-line)", 3.4)} />
+        </>
+      )}
+      </g>
+      {neckline === "collar" && (
+        <g>
+          <path d={COLLAR} fill="var(--portrait-shirt)" />
+          <path d={COLLAR} fill="#fff" opacity="0.1" />
+          <path d={COLLAR} {...stroke("#000", 1.4, 0.3)} />
+        </g>
       )}
 
       {/* ears */}

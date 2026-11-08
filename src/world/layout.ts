@@ -11,6 +11,7 @@ import { CLOTHES, FLAVOR, HAIR, NEUTRAL_SKIN, SKIN, TEMPERATE, snowCoverFor, typ
 import { hashString, rng, type Rng } from "./rng";
 import type { Appearance } from "../../shared/sim";
 import { placeLandmark, type LandmarkMark, type LandmarkSpec } from "./landmarks";
+import { BODY, clearRun, heroDoor, obstaclesFor, route, routeLoop, snapFree } from "./walkable";
 
 export type V3 = [number, number, number];
 export const HALF = 5;
@@ -96,6 +97,10 @@ export interface PersonSlot {
   path: V3[] | null;
   speed: number;
   enterFrom: V3;
+  /** Waypoints between enterFrom and the spot (around the house; through the front door for a room). */
+  enterVia: V3[];
+  /** Leaving: walk these (a room's people go out by the front door); null walks off toward the edge. */
+  exitVia: V3[] | null;
   scale: number;
   stoop: number;
   grey: number;
@@ -684,8 +689,9 @@ function stageFor(spec: SceneSpec, b: Builder): Vignette {
       break;
     }
     case "exercising": {
-      const path = loop(0.9, 0.9, 2.55, 18);
-      v.procs.push(proc("path", 0.9, 0.9, 0, [5.4, 0.03, 5.4], "jogloop", { color: "ring", color2: b.style.paving }));
+      // a running track round the front lawn (it used to circle the house and run straight through it)
+      const path = loop(2.0, 2.0, 1.1, 16);
+      v.procs.push(proc("path", 2.0, 2.0, 0, [2.5, 0.03, 2.5], "jogloop", { color: "ring", color2: b.style.paving }));
       v.self = sp(path[0]![0], path[0]![2], 0, "jog", { path, speed: 0.75 });
       v.partner = sp(path[2]![0], path[2]![2], 0, "jog", { path: path.slice(2).concat(path.slice(0, 2)), speed: 0.75 });
       v.pet = sp(path[1]![0], path[1]![2], 0, "jog", { path: path.slice(1).concat(path.slice(0, 1)), speed: 0.75 });
@@ -867,6 +873,8 @@ function peopleFor(spec: SceneSpec, vig: Vignette, appearance: Appearance | null
       path: spot.path && (pose === "walk" || pose === "jog" || pose === "carry") ? spot.path : null,
       speed: (spot.speed ?? 0.4) * (p.ageBand === "senior" ? 0.7 : p.ageBand === "middle" ? 0.9 : p.ageBand === "child" ? 1.1 : 1),
       enterFrom: [Math.max(-HALF + 0.3, Math.min(HALF - 0.3, ex)), 0, Math.min(HALF - 0.3, spot.pos[2] + 2)],
+      enterVia: [],
+      exitVia: null,
       scale: isPet ? 1 : age.scale,
       stoop: isPet ? 0 : age.stoop,
       grey: isPet ? 0 : p.role === "self" ? age.grey : Math.max(age.grey, p.role === "parent" ? 0.8 : 0),
@@ -945,28 +953,6 @@ export function compose(spec: SceneSpec, appearance: Appearance | null, mark?: L
       : { pieces: [], procs: [], floor: "#D9B48C", wallIn: "#F4EBDD", rug: null },
   };
 
-  // ambient walkers on the sidewalks make a place feel lived in (muted clothes, never the hero coral)
-  const walkerCount: Record<Setting, number> = { city_dense: 3, city_midrise: 2, small_town: 2, suburb: 1, campus: 3, coastal: 1, rural: 0 };
-  const wr = rng(`${placeKey}|walkers`);
-  const walkLines: V3[][] = spec.setting === "campus"
-    ? [[[0.8, 0, -2.0], [3.9, 0, -3.5]], [[3.9, 0, -2.0], [0.8, 0, -3.5]], [[-2.0, 0, -1.4], [-2.0, 0, 3.6]]]
-    : spec.setting === "rural"
-      ? []
-      : [[[-4.4, 0, -1.4], [4.4, 0, -1.4]], [[4.4, 0, -2.75], [-4.4, 0, -2.75]], [[-1.4, 0, 4.2], [-1.4, 0, -1.0]]];
-  for (let i = 0; i < Math.min(walkerCount[spec.setting], walkLines.length); i++) {
-    const line = walkLines[i]!;
-    const cl = CLOTHES.others[(i + 2) % CLOTHES.others.length]!;
-    const t0 = wr();
-    const sx = line[0]![0] + (line[1]![0] - line[0]![0]) * t0;
-    const sz = line[0]![2] + (line[1]![2] - line[0]![2]) * t0;
-    people.push({
-      key: `walker${i}`, role: "friend", ageBand: "adult", model: wr.pick(OTHER_MODELS.friend), pet: false,
-      pos: [sx, 0, sz], rotY: 0, pose: "walk", path: line, speed: wr.range(0.28, 0.36), enterFrom: [sx, 0, sz],
-      scale: wr.range(0.94, 1.02), stoop: 0, grey: wr.chance(0.25) ? 0.6 : 0, skin: wr.pick(OTHER_SKIN), hair: wr.pick(OTHER_HAIR),
-      shirt: cl.shirt, pants: cl.pants, carry: null, index: i,
-    });
-  }
-
   const cars: CarLane[] = [];
   if (b.kits.has("cars") && spec.setting !== "rural") {
     const ids = spec.flavor === "southeast_asia" || spec.flavor === "east_asia" ? ["taxi", "sedan", "van"] : ["sedan", "hatchback-sports", "suv", "van", "taxi"];
@@ -1009,7 +995,72 @@ export function compose(spec: SceneSpec, appearance: Appearance | null, mark?: L
     // the branch's accent on the front door too, so the home itself says which life this is
     hero.door = mark!.accent;
   }
-  const focus: V3 = indoor ? [HERO_POS[0], 0.35, HERO_POS[2]] : spec.activity === "exercising" || spec.activity === "commuting" ? [0.7, 0.3, 0.7] : [STAGE[0] * 0.62, 0.3, STAGE[2] * 0.62];
+  // ---- nobody walks through anything (owner, Sat Nov 7) ----
+  const obstacles = obstaclesFor({ half: HALF, pieces, procs, hero, hills: hillsOut, landmark, coast: spec.setting === "coastal" });
+  const door = heroDoor(hero);
+  for (const p of people) {
+    if (indoor) {
+      // a room's people come in (and leave) by the front door, never through a wall
+      if (p.role === "self") continue;
+      const outside = snapFree(obstacles, [Math.min(HALF - 0.6, door.out[0] + 1.3), 0, Math.min(HALF - 0.6, door.out[2] + 1.4)]);
+      p.enterFrom = outside;
+      p.enterVia = [...route(obstacles, outside, door.out).slice(0, -1), door.out, door.inside];
+      p.exitVia = [door.inside, door.out, outside];
+    } else {
+      if (p.path) p.path = routeLoop(obstacles, p.path);
+      const start = p.path ? p.path[0]! : p.pos;
+      p.enterFrom = snapFree(obstacles, p.enterFrom);
+      p.enterVia = route(obstacles, p.enterFrom, start).slice(0, -1);
+    }
+  }
+
+  // ambient walkers keep to the sidewalks, on the clear stretch only (muted clothes, never the hero coral)
+  const walkerCount: Record<Setting, number> = { city_dense: 3, city_midrise: 2, small_town: 2, suburb: 1, campus: 3, coastal: 1, rural: 0 };
+  const wr = rng(`${placeKey}|walkers`);
+  const lanes: [V3, V3][] = [];
+  if (spec.setting === "campus") {
+    // the quad's diagonal paths, and the lane past the halls
+    for (const p of procs) {
+      if (p.type !== "path" || !p.key.startsWith("qp")) continue;
+      const hl = p.size[0] / 2;
+      const dx = Math.cos(p.rotY) * hl;
+      const dz = -Math.sin(p.rotY) * hl;
+      lanes.push([[p.pos[0] - dx, 0, p.pos[2] - dz], [p.pos[0] + dx, 0, p.pos[2] + dz]]);
+    }
+    lanes.push([[-2.0, 0, -1.4], [-2.0, 0, 3.6]]);
+  } else {
+    // on the curb side of each sidewalk, clear of the lamp posts down its middle
+    for (const p of procs) {
+      if (p.type !== "sidewalk") continue;
+      const side = p.key.slice(-3);
+      const [x, , z] = p.pos;
+      const hx = p.size[0] / 2;
+      const hz = p.size[2] / 2;
+      if (side === "swN") lanes.push([[x - hx, 0, z + 0.1], [x + hx, 0, z + 0.1]]);
+      else if (side === "swS") lanes.push([[x - hx, 0, z - 0.1], [x + hx, 0, z - 0.1]]);
+      else if (side === "swW") lanes.push([[x + 0.1, 0, z - hz], [x + 0.1, 0, z + hz]]);
+      else if (side === "swE") lanes.push([[x - 0.1, 0, z - hz], [x - 0.1, 0, z + hz]]);
+    }
+  }
+  const runs = lanes
+    .map((l) => clearRun(obstacles, l[0], l[1], 1.4, BODY))
+    .filter((x): x is [V3, V3] => !!x)
+    .sort((a, b) => Math.hypot(b[1][0] - b[0][0], b[1][2] - b[0][2]) - Math.hypot(a[1][0] - a[0][0], a[1][2] - a[0][2]));
+  for (let i = 0; i < Math.min(walkerCount[spec.setting], runs.length); i++) {
+    const line = wr.chance(0.5) ? runs[i]! : ([runs[i]![1], runs[i]![0]] as [V3, V3]);
+    const cl = CLOTHES.others[(i + 2) % CLOTHES.others.length]!;
+    const t0 = wr();
+    const sx = line[0][0] + (line[1][0] - line[0][0]) * t0;
+    const sz = line[0][2] + (line[1][2] - line[0][2]) * t0;
+    people.push({
+      key: `walker${i}`, role: "friend", ageBand: "adult", model: wr.pick(OTHER_MODELS.friend), pet: false,
+      pos: [sx, 0, sz], rotY: 0, pose: "walk", path: line, speed: wr.range(0.28, 0.36), enterFrom: [sx, 0, sz], enterVia: [], exitVia: null,
+      scale: wr.range(0.94, 1.02), stoop: 0, grey: wr.chance(0.25) ? 0.6 : 0, skin: wr.pick(OTHER_SKIN), hair: wr.pick(OTHER_HAIR),
+      shirt: cl.shirt, pants: cl.pants, carry: null, index: i,
+    });
+  }
+
+  const focus: V3 = indoor ? [HERO_POS[0], 0.35, HERO_POS[2]] : spec.activity === "commuting" ? [0.7, 0.3, 0.7] : [STAGE[0] * 0.62, 0.3, STAGE[2] * 0.62];
 
   return {
     placeKey,

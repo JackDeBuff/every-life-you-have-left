@@ -33,6 +33,16 @@ export default function LookLab() {
       <h1 className="label">Look lab · placeholder portraits</h1>
 
       <section>
+        <h2 className="label">Close-ups (300px): neck, collar and shoulders must read as one body</h2>
+        <div className="ll-row">
+          <Cell size={300} a={look({ hairStyle: "short", skinTone: "tone4", hairColor: "dark_brown" })} caption="short · tone4 · not set" />
+          <Cell size={300} a={look({ hairStyle: "long", skinTone: "tone2", hairColor: "brown", gender: "woman" })} caption="long · tone2 · woman" />
+          <Cell size={300} a={look({ hairStyle: "short", skinTone: "tone5", hairColor: "black", gender: "man", facialHair: true })} caption="short · tone5 · man · beard" />
+          <Cell size={300} age={70} a={look({ hairStyle: "coily", skinTone: "tone6", hairColor: "black", gender: "nonbinary", glasses: true })} caption="coily · tone6 · nonbinary · 70" />
+        </div>
+      </section>
+
+      <section>
         <h2 className="label">Hair style × skin tone (hair colour cycles)</h2>
         <div className="ll-grid" style={{ gridTemplateColumns: `repeat(${TONES.length}, auto)` }}>
           {STYLES.map((s, si) =>

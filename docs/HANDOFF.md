@@ -120,6 +120,10 @@ Notes:
 - Local evals use the local D1, so they are NOT counted by the prod ledger: keep dev runs small.
 - /admin: a "Sessions | Spend" switch (`/admin?view=spend`, `GET /api/admin/spend`): ledger vs cap, per-day rows, session caps, real prices. The sessions list shows Recorded and Corrected cost: sessions priced before 627b35b1 (2026-11-07T20:46Z) carry an "old rates" tag and a corrected estimate (`worker/admin-cost.ts`). New sessions also record `usage.byModel`. Media is counted only in the app-wide ledger, not per session.
 
+## Playtest fixes round 2 (Sat Nov 7 evening)
+- **3D walkers through walls:** ambient walkers now keep to the real sidewalks (curb side, clear of lamp posts) and only use the stretch that's clear of the house, buildings, trees, props, landmark lots, canal and sea (`src/world/walkable.ts`: obstacles from manifest footprints, `clearRun`, grid A* `route`/`routeLoop`). Vignette walks and walk-ins are routed round the house; a room's visitors come in and leave by the front door. The jogging loop no longer circles through the house (it's a track round the front lawn). `npm run check:world` composes every setting × activity × home (17k people) and must report 0 problems.
+- **Portrait body (2nd try):** the neck flares into the shoulders and runs under the shirt; the shirt has a real neckline cut-out (crew / scoop / shirt collar by gender) with collar details clipped to the shirt; squared shoulders with arm creases. Check `/#look-lab` (300px close-ups at the top).
+
 ## Playtest fixes round 1: DONE (Sat Nov 7 afternoon, production `23ad6f96`)
 From the owner's and Paul's own lives. Six agents in worktrees, merged into main:
 - **Pacing (1×):** small cards are held in their own year (no more dropped slots); 4/yr for roughly the first 20 years, 2–3 later, a fork every ~2 years (147 small / 20 big planned for a 26-year-old). Live check: 28 cards over ages 28–34, 4 each, $0.37–0.38 for 8 years at the old prices (≈ $0.55 real). D-091. `worker/engine/small-pace.ts`, `scripts/qa/pace-sim.ts`.

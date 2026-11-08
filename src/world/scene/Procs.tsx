@@ -31,7 +31,9 @@ const SPH = new SphereGeometry(0.5, 14, 10);
 const BULB = new SphereGeometry(0.018, 6, 5);
 const CONE4 = new CylinderGeometry(0, 0.5, 1, 4);
 const CONE3 = new CylinderGeometry(0, 0.5, 1, 3);
-const RING = new TorusGeometry(2.55, 0.17, 3, 48);
+/** The jogging track: a unit-radius ring, scaled to the proc's size (tube stays 0.34 wide). */
+const RING_R = 1.1;
+const RING = new TorusGeometry(RING_R, 0.17, 3, 48);
 RING.rotateX(Math.PI / 2);
 
 function B({ p, s, m, r = 0 }: { p: [number, number, number]; s: [number, number, number]; m: Material; r?: number }) {
@@ -263,7 +265,7 @@ function ProcBody({ p }: { p: ProcSpec }) {
     case "crosswalk":
       return <mesh geometry={BOX} position={[0, 0.005, 0]} scale={[w, 0.022, d]} rotation-y={p.rotY} material={texMat("cw", crosswalkTex())} receiveShadow />;
     case "path":
-      if (p.color === "ring") return <mesh geometry={RING} scale={[1, 0.12, 1]} position={[0, 0.0, 0]} material={col(p.color2, MATS.path)} receiveShadow />;
+      if (p.color === "ring") return <mesh geometry={RING} scale={[(w - 0.3) / 2 / RING_R, 0.12, (d - 0.3) / 2 / RING_R]} position={[0, 0.0, 0]} material={col(p.color2, MATS.path)} receiveShadow />;
       return <B p={[0, 0, 0]} s={[w, h, d]} m={col(p.color, MATS.path)} />;
     case "plaza":
       return <B p={[0, 0, 0]} s={[w, h, d]} m={texMat(`pave${p.color}`, pavingTex(p.color ?? "#EFE4CF"))} />;

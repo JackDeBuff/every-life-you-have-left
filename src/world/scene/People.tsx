@@ -174,6 +174,26 @@ function samplePath(path: V3[], s: number, out: Vector3): number {
   return 0;
 }
 
+/** Walk an open polyline: the point `d` along it (clamped) + heading. */
+function polyAt(pts: V3[], d: number, out: Vector3): number {
+  let left = Math.max(0, d);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!;
+    const b = pts[i + 1]!;
+    const l = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    if (left <= l || i === pts.length - 2) {
+      const t = l > 0 ? Math.min(1, left / l) : 1;
+      out.set(a[0] + (b[0] - a[0]) * t, 0, a[2] + (b[2] - a[2]) * t);
+      return Math.atan2(b[0] - a[0], b[2] - a[2]);
+    }
+    left -= l;
+  }
+  const last = pts[pts.length - 1]!;
+  out.set(last[0], 0, last[2]);
+  return 0;
+}
+const polyLen = (pts: V3[]) => pts.slice(1).reduce((s, b, i) => s + Math.hypot(b[0] - pts[i]![0], b[2] - pts[i]![2]), 0);
+
 interface Rig {
   root: Object3D;
   mixer: AnimationMixer;
@@ -256,7 +276,7 @@ function Mover({ pr, rig, walkIn, self, frozen, track, scale, pet }: PersonProps
   const slot = pr.item;
   const group = useRef<Group>(null);
   const { time, reduced } = useMotion();
-  const state = useRef({ phase: walkIn && !reduced ? "enter" : "place", s: Math.random() * 10, pose: "" as string, pos: new Vector3(), head: 0, born: time() });
+  const state = useRef({ phase: walkIn && !reduced ? "enter" : "place", s: Math.random() * 10, pose: "" as string, pos: new Vector3(), head: 0, born: time(), exit: null as V3[] | null });
   const tmp = useMemo(() => new Vector3(), []);
   const tracked = track && !slot.key.startsWith("walker");
   useEffect(() => {
@@ -315,20 +335,26 @@ function Mover({ pr, rig, walkIn, self, frozen, track, scale, pet }: PersonProps
       heading = samplePath(slot.path, st.s, target);
     }
     if (phase === "enter") {
-      // walk from the edge to the spot
-      const t = clamp01((time() - st.born) / 2.0);
-      const from = slot.enterFrom;
-      const end = slot.path ? new Vector3().set(slot.path[0]![0], 0, slot.path[0]![2]) : target;
-      target.set(from[0] + (end.x - from[0]) * t, 0, from[2] + (end.z - from[2]) * t);
-      heading = Math.atan2(end.x - from[0], end.z - from[2]);
+      // walk in from the edge along the routed waypoints (round the house; a room's people by the front door)
+      const end: V3 = slot.path ? slot.path[0]! : [target.x, 0, target.z];
+      const pts: V3[] = [slot.enterFrom, ...slot.enterVia, end];
+      const len = polyLen(pts);
+      const t = clamp01((time() - st.born) / Math.min(4, Math.max(1.6, len / 1.4)));
+      heading = polyAt(pts, t * len, target);
       if (t >= 1) st.phase = phase = "place";
     }
     if (phase === "exit") {
       const t = clamp01((time() - pr.t0) / 1.6);
-      const dir = Math.sign(st.pos.x || 1);
-      target.set(st.pos.x + dir * dt * 0.6, 0, st.pos.z + dt * 0.4);
-      heading = Math.atan2(dir * 0.6, 0.4);
-      g.scale.setScalar(scale * (1 - t));
+      if (slot.exitVia) {
+        // out by the door
+        st.exit ??= [[st.pos.x, 0, st.pos.z], ...slot.exitVia];
+        heading = polyAt(st.exit, (time() - pr.t0) * 0.95, target);
+      } else {
+        const dir = Math.sign(st.pos.x || 1);
+        target.set(st.pos.x + dir * dt * 0.6, 0, st.pos.z + dt * 0.4);
+        heading = Math.atan2(dir * 0.6, 0.4);
+      }
+      g.scale.setScalar(scale * (1 - t * t));
       g.visible = t < 1;
     } else {
       const k = phase === "enter" || reduced ? 1 : easeOutBack(clamp01((time() - pr.t0 - 0.2) / 0.6), 1.4);
