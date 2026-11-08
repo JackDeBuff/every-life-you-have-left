@@ -280,7 +280,6 @@ function PhonePlay({ dim }: { dim: boolean }) {
     <div className="phone" data-dim={dim} data-sheet={open}>
       <header className="ph-bar">
         <span className="wordmark">Every Life You Have Left</span>
-        <PrivacyBits />
         <SpeedKeys />
       </header>
       <div className="ph-timeline">
@@ -301,6 +300,10 @@ function PhonePlay({ dim }: { dim: boolean }) {
         {tab === "log" && (warming ? <Learned /> : <LifeLog />)}
         {tab === "bio" && (
           <div className="ph-bio scroll">
+            {/* Incognito + Delete my data live here on the phone: in the top bar they pushed the speed keys off-screen. */}
+            <div className="ph-privacy">
+              <PrivacyBits />
+            </div>
             <Bio />
             <LifeRose states={states} log={log} size={260} />
             <TellMeMore />

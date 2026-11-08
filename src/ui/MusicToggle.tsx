@@ -8,7 +8,7 @@ export function MusicToggle({ variant = "key" }: { variant?: "key" | "btn" }) {
   if (variant === "btn")
     return (
       <button type="button" className="btn ghost sm" aria-pressed={!muted} aria-label={label} title={label} onClick={() => setMuted(!muted)}>
-        <Icon name={muted ? "musicOff" : "musicOn"} size={14} /> {muted ? "Music off" : "Music"}
+        <Icon name={muted ? "musicOff" : "musicOn"} size={14} /> <span className="bt-l">{muted ? "Music off" : "Music"}</span>
       </button>
     );
   return (

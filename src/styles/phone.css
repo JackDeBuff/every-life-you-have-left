@@ -59,3 +59,11 @@
 .sheet .keys-hint { display: none; }
 @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
 .ph-bar .key.musickey { margin-left: 2px; }
+
+/* Narrow phones (iPhone SE / mini): the speed keys need the whole bar; the wordmark wrapped to four lines. */
+@media (max-width: 379px) {
+  .ph-bar { justify-content: flex-end; }
+  .ph-bar .wordmark { display: none; }
+}
+.ph-privacy:empty { display: none; }
+.ph-privacy .pv-bits { margin-left: 0; }

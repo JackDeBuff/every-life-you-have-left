@@ -178,3 +178,17 @@
 @media (prefers-reduced-motion: reduce) {
   .t-writing .pen path { animation: none; stroke-dashoffset: 0; }
 }
+
+/* Phone: the bar's wordmark wrapped to four lines and spilled under it, and the three buttons ran off the
+   right edge. The page title ("70.") already says where you are, so the bar keeps only its actions. */
+@media (max-width: 600px) {
+  .end-bar { justify-content: flex-end; }
+  .end-bar .wordmark { display: none; }
+  .end-bar-actions { gap: 6px; }
+  .end-bar-actions .btn { padding-left: 10px; padding-right: 10px; }
+  .end-bar-actions .bt-l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-width: 359px) {
+  .end-bar { height: auto; min-height: 52px; padding-block: 8px; }
+  .end-bar-actions { flex-wrap: wrap; justify-content: flex-end; }
+}
