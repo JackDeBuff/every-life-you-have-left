@@ -52,14 +52,14 @@ function Choices({ p }: { p: Privacy }) {
           </span>
         ) : (
           <span>
-            <b>Incognito.</b> Nothing goes into our database; the session erases itself 24 hours after it starts.
+            <b>Incognito.</b> Only a one-line play record (first name, age, country) goes into our database; the session erases itself 24 hours after it starts.
           </span>
         )}
       </li>
       {p.save && (
         <li>
           <Icon name={p.improve ? "check" : "x"} size={16} />
-          <span>{p.improve ? "The two of us may read it to fix and improve the app." : "Hidden from the team: our admin page won't show it."}</span>
+          <span>{p.improve ? "The two of us may read it to fix and improve the app." : "Hidden from the team: our admin page shows only your play record (first name, age, country)."}</span>
         </li>
       )}
       <li>

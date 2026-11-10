@@ -4,7 +4,7 @@
  * worker/agent/session-agent.ts (mirror, expire) and worker/media.ts (keepsFiles), the /admin gate
  * in worker/admin.ts (SHAREABLE). Change the code and this text together.
  */
-export const PRIVACY_UPDATED = "November 7, 2026";
+export const PRIVACY_UPDATED = "November 9, 2026";
 
 export function PrivacyText() {
   return (
@@ -18,10 +18,11 @@ export function PrivacyText() {
 
       <h3>The short version</h3>
       <ul>
-        <li>You choose, before you start, whether we save your life at all. If you don't, you play in <b>incognito</b>: nothing about you goes into our database, and the session erases itself 24 hours after it starts.</li>
+        <li>Before you start, you choose whether we save your life. Saving is <b>ticked for you</b>; untick it to play in <b>incognito</b>: apart from a one-line play record, nothing about you goes into our database, and the session erases itself 24 hours after it starts.</li>
+        <li><b>A one-line play record is kept for every life</b>, whatever you choose: your first name, age, country, the speed you picked, your choices on this page, and when you started. It lets the two of us count players. It's deleted after 30 days, or at once with Delete my data.</li>
         <li>If you do let us save it, it is <b>deleted automatically 30 days</b> after you started. Uploaded files (CV, LinkedIn PDF, AI-app export), the text we pull out of them and selfies are deleted after <b>7 days</b>, and they are <b>encrypted</b> with our own key before they are stored.</li>
         <li>You can <b>delete everything now</b>, at any time, with one button. It is in the game, on the last screen and on the privacy page (/privacy).</li>
-        <li>Separately, you choose whether the two of us may <b>read your saved life</b> to fix and improve the app. If you say no, our admin page does not show it to us.</li>
+        <li>Separately, you choose whether the two of us may <b>read your saved life</b> to fix and improve the app. This is ticked for you too. If you untick it, our admin page shows us only your play record, not your life.</li>
         <li><b>Nobody trains an AI model on your data.</b> We don't train models at all, and the AI service we use (Google's Gemini on Google Cloud) is contractually not allowed to use it to train theirs.</li>
         <li>No accounts, no email address, no ads, no analytics or tracking scripts, no selling or sharing your data with anyone.</li>
       </ul>
@@ -68,14 +69,14 @@ export function PrivacyText() {
       <h3>Your three choices before you start</h3>
       <ol>
         <li><b>I'm 18 or older.</b> Required. This is a game about adult life decisions, and we don't knowingly let minors play.</li>
-        <li><b>Save my life for 30 days.</b> Optional. Saved: your life is copied into our database, so it survives a server restart, you can share a postcard of it, and (if you also tick 3) we can look at it to fix things. Not saved: incognito, see below.</li>
-        <li><b>Let the team read it to improve the app.</b> Optional, and only possible if you save. If you leave it off, your saved life stays hidden from our admin page.</li>
+        <li><b>Save my life for 30 days.</b> Optional, and ticked for you; untick it to opt out. Saved: your life is copied into our database, so it survives a server restart, you can share a postcard of it, and (if you also tick 3) we can look at it to fix things. Not saved: incognito, see below.</li>
+        <li><b>Let the team read it to improve the app.</b> Optional, ticked for you, and only possible if you save. If you untick it, your saved life stays hidden from our admin page; we see only its play record.</li>
       </ol>
       <p>Choosing incognito or saying no to the team doesn't make the game any worse. Every feature works, except sharing a postcard link in incognito.</p>
 
       <h3>Incognito, exactly</h3>
       <ul>
-        <li>Nothing you say or that we make about you is written to our database. The life lives only inside its own live session on the server (a Cloudflare Durable Object) while you play.</li>
+        <li>Only the one-line play record (first name, age, country, speed, these choices, the start time) is written to our database. Nothing you say, and nothing we make about you, is written there. The life lives only inside its own live session on the server (a Cloudflare Durable Object) while you play.</li>
         <li>Uploaded files and selfies are read in memory and never stored.</li>
         <li>Portraits and voice clips are stored briefly so your browser can load them, and we note only their file names against your session so we can find and delete them.</li>
         <li>24 hours after you start, the session erases itself: its live state, its schedule, those portraits and voice clips, and those file names. You can erase it sooner with Delete my data.</li>
@@ -109,6 +110,7 @@ export function PrivacyText() {
         <li><b>A saved life:</b> deleted automatically 30 days after you started. A job runs every day and erases the database rows, the files and the live session of every life older than that.</li>
         <li><b>Uploads, their extracted text and selfies:</b> deleted after 7 days, even if the rest of the life is still saved.</li>
         <li><b>An incognito life:</b> erases itself 24 hours after it started.</li>
+        <li><b>A play record:</b> deleted 30 days after the play, whatever you chose, or at once with Delete my data.</li>
         <li><b>A shared postcard link:</b> public until the life it came from is deleted (by you, or by the 30-day job), then it stops working.</li>
         <li><b>Our spending ledger</b> (how many dollars of AI the whole app has used each day) has no personal data and is kept.</li>
       </ul>
@@ -119,7 +121,7 @@ export function PrivacyText() {
         <li>Cloudflare encrypts the database and file storage at rest.</li>
         <li>On top of that, uploaded files, the text extracted from them, and selfies are encrypted by our server with AES-256-GCM using a key that only the server holds, before they are stored. A copy of the storage alone doesn't reveal them.</li>
         <li>Your other saved answers and the lives are protected by Cloudflare's encryption at rest, not by our own key. We are telling you so you can decide what to type.</li>
-        <li>Our admin page is protected by a passcode only the two of us have, and it only shows lives whose owners said yes to choice 3.</li>
+        <li>Our admin page is protected by a passcode only the two of us have, and it shows a full life only when its owner said yes to choice 3. For everyone else it shows only the play record.</li>
         <li>Portraits and voice clips are served at long, random, unguessable web addresses. Anyone who has one of those exact addresses could open that one picture or clip, so don't post them.</li>
         <li>The API keys for the AI are server-side secrets and never reach your browser.</li>
       </ul>

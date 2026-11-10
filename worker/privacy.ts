@@ -22,7 +22,7 @@ type PEnv = { DB?: D1Database; UPLOADS?: R2Bucket };
 /** Every table that holds a session's rows (old v1 tables included; missing tables are skipped). */
 const SESSION_TABLES = [
   "sim_decisions", "sim_answers", "sim_years", "sim_branches", "sim_settings", "sim_nudges", "sim_chat", "sim_uploads", "sim_media", "sim_engine_log",
-  "postcard_shares", "uploads", "answers", "profiles", "lives", "pauses", "letters", "ratings", "shares", "events",
+  "postcard_shares", "plays", "uploads", "answers", "profiles", "lives", "pauses", "letters", "ratings", "shares", "events",
 ];
 
 async function rows<T>(db: D1Database, sql: string, ...bind: unknown[]): Promise<T[]> {
@@ -91,6 +91,12 @@ export async function sweep(env: PEnv, now = new Date()): Promise<{ sessions: st
     for (const { id } of old) {
       await eraseSession(env, id);
       out.sessions.push(id);
+    }
+    try {
+      // The play log is kept as long as a saved life, for incognito lives too.
+      await db.prepare(`DELETE FROM plays WHERE started_at < datetime('now', '-${SESSION_DAYS} days')`).run();
+    } catch {
+      /* no plays table yet */
     }
     for (const t of ["sim_uploads", "uploads"]) {
       try {

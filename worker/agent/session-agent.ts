@@ -35,6 +35,7 @@
  *             otherwise the card we have stands. Then phase "deciding", as before.
  *   forget(kind, id) → removes a learned item from the profile (and keeps it out of later folds).
  */
+import { recordPlay } from "../plays";
 import { Agent, callable, type Connection, type ConnectionContext } from "agents";
 import type { DecisionSlot, DocInput, DocKind, Engine, Ending, InterludeCut, PreparedFork, SafetyResult } from "../../shared/engine";
 import { endAgeFor, type Quote } from "../../shared/schema";
@@ -564,6 +565,8 @@ export class SessionAgent extends Agent<Env, AgentState> implements SessionCalls
     // Consent first (D-101): incognito turns the database mirror off before anything is written.
     const privacy = privacyOf(parsed);
     this.update({ privacy });
+    // The play log: a one-line record of every life, whatever the consent (worker/plays.ts).
+    void recordPlay(this.env.DB, this.name, parsed, privacy);
     if (!privacy.save) void this.schedule(INCOGNITO_HOURS * 3600, "expire").catch((e) => console.error("schedule expire failed", errCode(e)));
     for (const d of Array.isArray(docs) ? docs : []) {
       const kind = d && (d.kind === "cv" || d.kind === "linkedin" || d.kind === "ai_export") ? d.kind : null;

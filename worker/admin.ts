@@ -24,6 +24,7 @@ import type { AgentState, ChatMessage, SessionUsage, WarmupState } from "./agent
 import { Mirror } from "./agent/mirror";
 import { runChecks } from "./admin-checks";
 import { passcodeOk } from "./admin-auth";
+import { listPlays } from "./plays";
 import { PRICES_FIXED_AT, sessionCost } from "./admin-cost";
 import { CACHED_INPUT_FACTOR, PRICES, SEARCH_QUERY_USD } from "./engine/pricing";
 import { MEDIA_USD, sessionCaps, spendRows, spendStatus } from "./spend";
@@ -177,6 +178,23 @@ admin.get("/api/admin/sessions", async (c) => {
 // ---------------------------------------------------------------------------------------------
 // Spend (worker/spend.ts)
 // ---------------------------------------------------------------------------------------------
+
+// Players (owner, Nov 9): the play log, every life whatever its consent (worker/plays.ts), plus how
+// many saved lives from before the log are hidden from the team (a count only: they were promised that).
+admin.get("/api/admin/players", async (c) => {
+  const limit = Math.max(1, Math.min(1000, Number(c.req.query("limit") ?? 500)));
+  const { rows, total, today } = await listPlays(c.env.DB, limit);
+  let legacy = { shared: 0, hidden: 0 };
+  try {
+    const r = await c.env.DB.prepare(
+      `SELECT SUM(${SHAREABLE}) AS shared, SUM(NOT (${SHAREABLE})) AS hidden FROM sim_sessions s WHERE s.id NOT IN (SELECT session_id FROM plays)`,
+    ).first<{ shared: number | null; hidden: number | null }>();
+    legacy = { shared: r?.shared ?? 0, hidden: r?.hidden ?? 0 };
+  } catch {
+    /* no plays table yet */
+  }
+  return c.json({ ok: true, total, today, rows, legacy });
+});
 
 admin.get("/api/admin/spend", async (c) => {
   let rows: Awaited<ReturnType<typeof spendRows>> = [];

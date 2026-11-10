@@ -135,6 +135,15 @@ export interface ChecksResponse extends ChecksResult {
   ms: number;
 }
 
-export type View = "sessions" | "spend";
+export type View = "sessions" | "players" | "spend";
 
 export type Tab = "life" | "decisions" | "profile" | "lives" | "settings" | "chat" | "uploads" | "portraits" | "ending" | "health";
+
+/** GET /api/admin/players (worker/plays.ts). */
+export interface PlayersResponse {
+  ok: boolean;
+  total: number;
+  today: number;
+  rows: { session_id: string; started_at: string; first_name: string | null; age: number | null; country: string | null; speed: string | null; saved: number; shared: number }[];
+  legacy: { shared: number; hidden: number };
+}

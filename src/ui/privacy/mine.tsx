@@ -20,7 +20,7 @@ export function PrivacyBits() {
   return (
     <span className="pv-bits">
       {privacy && !privacy.save && (
-        <span className="pv-tag" title="Nothing about this life goes into our database; it erases itself 24 hours after it started.">
+        <span className="pv-tag" title="Only a one-line play record (first name, age, country) goes into our database; the life erases itself 24 hours after it started.">
           <Icon name="eyeSlash" size={12} /> Incognito
         </span>
       )}

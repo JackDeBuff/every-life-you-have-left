@@ -90,8 +90,9 @@ export default function Start() {
   const [err, setErr] = useState<string | null>(null);
   const [adult, setAdult] = useState(demo);
   // Consent, unbundled (D-101): saving and letting the team read it are separate, off by default.
-  const [save, setSave] = useState(false);
-  const [improve, setImprove] = useState(false);
+  // Saving and sharing with the team start ticked (owner, Nov 9); 18+ stays a real tick.
+  const [save, setSave] = useState(true);
+  const [improve, setImprove] = useState(true);
   const [notice, setNotice] = useState<"read" | "confirm" | null>(null);
   /** null = automatic: the currency they write in, else the one where they live. */
   const [currency, setCurrency] = useState<CurrencyCode | null>(null);
@@ -391,11 +392,11 @@ export default function Start() {
               <Icon name="check" size={12} />
             </span>
             <span>
-              Save my life for 30 days <span className="faint">(optional)</span>
+              Save my life for 30 days <span className="faint">(optional, untick to opt out)</span>
               <small>
                 So it survives a restart and you can share a postcard; then it's deleted automatically. Uploads and selfies are encrypted and
-                deleted after 7 days. Leave it off to play <b>incognito</b>: nothing goes into our database, and the session erases itself
-                after 24 hours.
+                deleted after 7 days. Untick it to play <b>incognito</b>: only a one-line play record (your first name, age and country) goes
+                into our database, and the session erases itself after 24 hours.
               </small>
             </span>
           </label>
@@ -405,8 +406,8 @@ export default function Start() {
               <Icon name="check" size={12} />
             </span>
             <span>
-              Let the two of us read it to improve the app <span className="faint">(optional)</span>
-              <small>Only Supawich and Paul, the team behind this, through a passcode-protected page. Leave it off and it stays hidden from us.</small>
+              Let the two of us read it to improve the app <span className="faint">(optional, untick to opt out)</span>
+              <small>Only Supawich and Paul, the team behind this, through a passcode-protected page. Untick it and we see only the one-line play record, not your life.</small>
             </span>
           </label>
           <button type="button" className="pv-link" onClick={() => setNotice("read")}>

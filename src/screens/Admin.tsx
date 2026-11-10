@@ -13,6 +13,7 @@ import { AuthError, passcode, ping, rememberPasscode } from "./admin/api";
 import { SessionDetail } from "./admin/SessionDetail";
 import { SessionList } from "./admin/SessionList";
 import { SpendPanel } from "./admin/SpendPanel";
+import { PlayersPanel } from "./admin/PlayersPanel";
 import { AIcon } from "./admin/ui";
 import type { Tab, View } from "./admin/types";
 
@@ -29,7 +30,7 @@ const TABS: Tab[] = ["life", "decisions", "profile", "lives", "settings", "chat"
 function readRoute(): Route {
   const q = new URLSearchParams(location.search);
   const t = q.get("tab") as Tab | null;
-  return { s: q.get("s"), tab: t && TABS.includes(t) ? t : "life", hash: decodeURIComponent(location.hash.slice(1)), view: q.get("view") === "spend" ? "spend" : "sessions" };
+  return { s: q.get("s"), tab: t && TABS.includes(t) ? t : "life", hash: decodeURIComponent(location.hash.slice(1)), view: q.get("view") === "spend" ? "spend" : q.get("view") === "players" ? "players" : "sessions" };
 }
 
 export function useRoute(): [Route, (next: Partial<Route>, opts?: { replace?: boolean }) => void] {
@@ -45,7 +46,7 @@ export function useRoute(): [Route, (next: Partial<Route>, opts?: { replace?: bo
     if (r.s) r.view = "sessions";
     const q = new URLSearchParams();
     if (r.s) q.set("s", r.s);
-    else if (r.view === "spend") q.set("view", "spend");
+    else if (r.view === "spend" || r.view === "players") q.set("view", r.view);
     if (r.s && r.tab) q.set("tab", r.tab);
     const qs = q.toString();
     const url = `/admin${qs ? `?${qs}` : ""}${r.hash ? `#${encodeURIComponent(r.hash)}` : ""}`;
@@ -124,6 +125,7 @@ export default function Admin() {
             {(
               [
                 ["sessions", "Sessions", "/admin"],
+                ["players", "Players", "/admin?view=players"],
                 ["spend", "Spend", "/admin?view=spend"],
               ] as const
             ).map(([k, label, href]) => (
@@ -156,6 +158,8 @@ export default function Admin() {
         <SessionDetail key={route.s} route={route} go={go} onAuthError={onAuthError} />
       ) : route.view === "spend" ? (
         <SpendPanel onAuthError={onAuthError} />
+      ) : route.view === "players" ? (
+        <PlayersPanel onAuthError={onAuthError} onOpen={(id) => go({ s: id })} />
       ) : (
         <SessionList go={go} onAuthError={onAuthError} />
       )}
