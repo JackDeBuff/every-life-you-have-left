@@ -46,6 +46,14 @@ function engine(): AudioContext | null {
   if (ctx) return ctx;
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
+  // iOS Safari mutes Web Audio while the ringer switch is on silent (the default "ambient" session).
+  // "playback" lets the music play like a video does; the in-game mute button still turns it off.
+  try {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    if (session && session.type !== "playback") session.type = "playback";
+  } catch {
+    /* Safari < 16.4: no audioSession API */
+  }
   ctx = new AC();
   bus = ctx.createGain();
   duck = ctx.createGain();
