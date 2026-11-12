@@ -112,8 +112,9 @@ long and routine years shrink.
 ## Your data
 
 You choose before you start, in three separate boxes: **18+** (required), **save my life for 30 days**
-(optional; off means **incognito**: nothing is written to our database and the session erases itself
-after 24 hours), and **let the team read it to improve the app** (optional).
+(ticked by default; untick it for **incognito**: only a one-line play record is kept, and the session
+erases itself after 24 hours), and **let the team read it to improve the app** (ticked by default).
+Every life keeps a one-line play record (first name, age, country), so the team can count players.
 
 - Saved lives are deleted automatically after 30 days. Uploads and selfies are deleted after 7 days
   and **encrypted with AES-256-GCM** before they're stored.
